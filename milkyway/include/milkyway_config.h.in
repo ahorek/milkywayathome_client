@@ -152,7 +152,7 @@
   #define ARCH_STRING "PPC"
 #elif defined(__ppc64__)
   #define ARCH_STRING "PPC64"
-#elif defined(__arm__) || defined(__arm)
+#elif defined(__arm__) || defined(__arm) || defined(__aarch64__)
   #define ARCH_STRING "ARM"
 #elif defined(__sparc)
   #define ARCH_STRING "SPARC"

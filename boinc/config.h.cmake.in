@@ -20,8 +20,6 @@
 /* Directory tree where BOINC will be installed */
 #define BOINC_PREFIX "${CMAKE_INSTALL_PREFIX}"
 
-#cmakedefine01 HAVE_SOCKLEN_T
-
 /* Define to 1 if you have the `alloca' function. */
 #cmakedefine01 HAVE_ALLOCA
 
@@ -332,11 +330,6 @@
 
 /* Define for large files, on AIX-style hosts. */
 #cmakedefine01 _LARGE_FILES
-
-#if HAVE_SOCKLEN_T
-typedef socklen_t BOINC_SOCKLEN_T;
-#endif
-
 
 
 

@@ -209,37 +209,8 @@ add_subdirectory(tests EXCLUDE_FROM_ALL)
 
 # First check the host processor
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES i*86|k6|k7|pentium*|athlon*)
-    # CMAKE_SYSTEM_PROCESSOR is unfortunately still i386 on 64 bit OS X
-  if(CMAKE_SIZEOF_VOID_P EQUAL 8) # 64-bit
-    add_definitions(-DCRLIBM_TYPECPU_AMD64)
-  else()
-    add_definitions(-DCRLIBM_TYPECPU_X86)
-  endif()
-endif()
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES alpha)
-  add_definitions(-DCRLIBM_TYPECPU_ALPHA)
-  set(crlibm_is_big_endian TRUE)
-endif()
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES powerpc* OR CMAKE_SYSTEM_PROCESSOR MATCHES ppc*)
-  add_definitions(-DCRLIBM_TYPECPU_POWERPC)
-  set(crlibm_is_big_endian TRUE)
-endif()
-
-if(CMAKE_SYSTEM_PROCESSOR MATCHES sparc)
-  add_definitions(-DCRLIBM_TYPECPU_SPARC)
-  set(crlibm_is_big_endian TRUE)
-endif()
-
-if(CMAKE_SYSTEM_PROCESSOR MATCHES x86_64|amd64)
-  add_definitions(-DCRLIBM_TYPECPU_AMD64)
-endif()
-
-if(CMAKE_SYSTEM_PROCESSOR MATCHES ia64)
-  add_definitions(-DCRLIBM_TYPECPU_ITANIUM)
-endif()
 
 
 

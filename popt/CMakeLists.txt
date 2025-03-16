@@ -35,14 +35,14 @@ if(CMAKE_COMPILER_IS_GNUCC)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -std=gnu99")
 endif()
 
-check_function_exists(dcgettext HAVE_DCGETTEXT)
+#check_function_exists(dcgettext HAVE_DCGETTEXT)
 
 check_include_files(dlfcn.h HAVE_DLFCN_H)
 check_include_files(float.h HAVE_FLOAT_H)
 check_include_files(fnmatch.h HAVE_FNMATCH_H)
 
 check_function_exists(gettext HAVE_GETTEXT)
-check_include_files(glob.h HAVE_GLOB_H)
+#check_include_files(glob.h HAVE_GLOB_H)
 
 # We don't need anything libintl or libiconv provide, and they
 # massively increase the final binary size, so just pretend we never have them
@@ -69,7 +69,7 @@ check_function_exists(strerror HAVE_STRERROR)
 
 check_include_files(unistd.h HAVE_UNISTD_H)
 
-check_function_exists(vasprintf HAVE_VASPRINTF)
+#check_function_exists(vasprintf HAVE_VASPRINTF)
 check_function_exists(secure_getenv HAVE_SECURE_GETENV)
 check_function_exists(__secure_getenv HAVE___SECURE_GETENV)
 

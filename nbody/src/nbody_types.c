@@ -30,10 +30,6 @@ along with Milkyway@Home.  If not, see <http://www.gnu.org/licenses/>.
   #include "nbody_cl.h"
 #endif /* NBODY_OPENCL */
 
-#if USE_POSIX_SHMEM
-  #include <sys/mman.h>
-#endif
-
 static void freeNBodyTree(NBodyTree* t)
 {
     NBodyNode* p;
@@ -75,26 +71,6 @@ static void freeFreeCells(NBodyNode* freeCell)
 
 int nbDetachSharedScene(NBodyState* st)
 {
-  #if USE_POSIX_SHMEM
-    if (st->scene)
-    {
-        if (shm_unlink(st->scene->shmemName) < 0)
-        {
-            mwPerror("Closing shared scene memory '%s'", st->scene->shmemName);
-            return 1;
-        }
-    }
-  #elif USE_WIN32_SHARED_MAP
-    if (st->scene)
-    {
-        if (!UnmapViewOfFile((LPCVOID) st->scene))
-        {
-            mwPerrorW32("Error unmapping shared scene memory");
-            return 1;
-        }
-    }
-  #endif /* USE_POSIX_SHMEM */
-
     st->scene = NULL;
     return 0;
 }
