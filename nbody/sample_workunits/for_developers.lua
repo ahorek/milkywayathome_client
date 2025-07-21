@@ -47,7 +47,7 @@ LMC_scaleRadius       = 15      -- --  kpc
 LMC_cutoff            = 16      -- --  kpc  This is used only for Hernquist with cutoff
 preset_LMC_Mass       = 449865.888  -- -- SMU (used unless specified in arguments)                             -- --
 LMC_DynamicalFriction = true    -- -- LMC DYNAMICAL FRICTION SWITCH (IGNORED IF NO LMC)                        -- --
-CoulombLogarithm      = 0.470003629 -- -- (ln(1.6)) COULOMB LOGARITHM USED IN DYNAMICAL FRACTION CALCULATION   -- --
+CoulombLogarithm      = 15      -- -- ln(r/1.22*CoulombLogarithm) COULOMB LOGARITHM USED IN DYNAMICAL FRACTION CALCULATION   -- --
 
 SunGCDist             = 8.0       -- -- Distance between Sun and Galactic Center                               -- --
 SunVelx               = 10.3      -- -- Sun's x-velocity (kpc/Gyr) (Hogg et al. (2005))                        -- --
@@ -290,7 +290,7 @@ function makeBodies(ctx, potential)
 	            velocity    = Vector.create(orbit_parameter_vx, orbit_parameter_vy, orbit_parameter_vz),
 	            LMCposition = Vector.create(-1.1, -41.1, -27.9),
 	            LMCvelocity = Vector.create(-57, -226, 221),
-		    LMCfunction = LMC_function,,
+		    LMCfunction = LMC_function,
                     LMCmass     = LMC_Mass,
                     LMCscale    = LMC_scaleRadius,
 		    LMCscale2   = LMC_cutoff,

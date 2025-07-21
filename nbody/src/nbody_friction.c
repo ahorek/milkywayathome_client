@@ -88,6 +88,7 @@ mwvector dynamicalFriction_LMC(const Potential* pot, mwvector pos, mwvector vel,
         return result;
     }
     real X;
+    real ln_lambda;
     Halo *mw_halo;
 
     const real G_CONST = 1; //(Time: Gyrs, Distance: kpc, Mass: SMU = 222288.47 solar masses)
@@ -101,7 +102,14 @@ mwvector dynamicalFriction_LMC(const Potential* pot, mwvector pos, mwvector vel,
     mw_halo = &(pot->halo);
     real scaleLength_halo = getHaloScaleLength(mw_halo);
     //mw_printf("a = %.15f\n", scaleLength_halo);
-    real ln_lambda = coulomb_log;
+    //coulomb log equation from Patel et al. 2020
+    real dist = mw_sqrt(sqr(pos.x) + sqr(pos.y) + sqr(pos.z));
+    if (dist <= 1.22*coulomb_log) { 
+	ln_lambda = 0.0;
+    }
+    else {
+        ln_lambda = mw_log(dist/(1.22*coulomb_log));
+    }
     //mw_printf("ln(L) = %.15f\n", ln_lambda);
 
     //Calculate densities from each individual component

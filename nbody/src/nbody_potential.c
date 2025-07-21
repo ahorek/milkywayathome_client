@@ -824,7 +824,7 @@ mwvector LMCAcceleration(const int LMCfunction, const mwvector pos, const mwvect
 	case 3:
 	    lmcAcc = cutoffhernquistLmcAccel(pos, pos1, mass, scale, scale2);
 	    break;
-       default:
+        default:
             mw_fail("Invalid LMC type in external acceleration\n");
     }
     return lmcAcc;
