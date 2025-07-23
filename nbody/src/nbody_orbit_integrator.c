@@ -113,6 +113,7 @@ void nbReverseOrbit_LMC(mwvector* finalPos,
     mwvector mw_x = mw_vec(0, 0, 0);
     mwvector* bacArray = NULL;
     mwvector* forArray = NULL;
+    mwvector lbr;
 
     //Placeholder arrays for LMC acceleration corrections
     bacArray = (mwvector*)mwCallocA(steps + 1, sizeof(mwvector));
@@ -201,6 +202,8 @@ void nbReverseOrbit_LMC(mwvector* finalPos,
     mw_incaddv(LMC_acc, mw_acc);
     mw_incaddv(acc, mw_acc);
 
+    FILE * fp;
+    fp = fopen("reverse_orbit.out", "w");
     real negT = 0;
     for (t = 0; t <= tstop; t += dt)
     {   
@@ -241,6 +244,9 @@ void nbReverseOrbit_LMC(mwvector* finalPos,
 
         //mw_printf("LMCx: [%.15f,%.15f,%.15f] | ",X(LMCx),Y(LMCx),Z(LMCx));
         //mw_printf("LMCv: [%.15f,%.15f,%.15f]\n",X(LMCv),Y(LMCv),Z(LMCv));
+	
+	lbr = cartesianToLbr(x, DEFAULT_SUN_GC_DISTANCE);
+        fprintf(fp, "%.15f\t%.15f\t%.15f\t%.15f\t%.15f\t%.15f\t%.15f\t%.15f\t%.15f\n", X(x), Y(x), Z(x), X(lbr), Y(lbr), Z(lbr), X(v), Y(v), Z(v));
 
     }
     bacArray[i] = mw_acc; //set the last index after the loop ends
