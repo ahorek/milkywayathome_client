@@ -528,6 +528,8 @@ void nbPrintHistogram(FILE* f, const MainStruct* all)
     fprintf(f, "totalSimulated = %u\n", all->histograms[0]->totalSimulated);
     fprintf(f, "lambdaBins = %u\n", all->histograms[0]->lambdaBins);
     fprintf(f, "betaBins = %u\n", all->histograms[0]->betaBins);
+    fprintf(f, "L = {%lf, %lf, %lf}\n", all->histograms[0]->params.L.x, all->histograms[0]->params.L.y, all->histograms[0]->params.L.z);
+    fprintf(f, "LErr = {%lf, %lf, %lf}\n", all->histograms[0]->params.LErr.x, all->histograms[0]->params.LErr.y, all->histograms[0]->params.LErr.z);
     if(all->usage[6]) fprintf(f, "hasPM = 1\n");
     if(all->usage[3]) fprintf(f, "!\n");
     
@@ -1151,7 +1153,9 @@ MainStruct* nbReadHistogram(const char* histogramFile)
     mwbool readTotalSim = FALSE; /*Read the total number of particles simulated for the histogram */
     mwbool readMass = FALSE; /*Read the mass per particle for the histogram*/
     mwbool readLambdaBins = FALSE; /* Read the number of bins in the lambda direction */
-    mwbool readBetaBins = FALSE; /* Read the number of bins the beta direction */
+    mwbool readBetaBins = FALSE; /* Read the number of bins in the beta direction */
+    mwbool readL = FALSE; /* Read the angular momentum vector of the stream */
+    mwbool readLErr = FALSE; /* Read the error in the angular momentum vector of the stream */
     mwbool readEMDRange = FALSE; /* Read the ranges in Lambda over which to calculate EMD*/
     mwbool readBetaDispBins = FALSE; /*Read the number of beta dispersion bins to average over*/
     mwbool readHasPM = FALSE; /*Read if histogram contains proper motion bins*/
@@ -1162,6 +1166,8 @@ MainStruct* nbReadHistogram(const char* histogramFile)
     unsigned int totalSim = 0;  /*Total number of simulated particles read from the histogram */
     unsigned int lambdaBins = 0; /* Number of bins in lambda direction */
     unsigned int betaBins = 0; /* Number of bins in beta direction */
+    mwvector L = {0.0,0.0,0.0,0.0}; /* Angular momentum vector of the stream */
+    mwvector LErr = {0.0,0.0,0.0,0.0}; /* Error in the angular momentum */
     char rangeString[1024]; /* String containing ranges to be used for EMD calculation*/
     unsigned int betaDispBins = 0; /*Number of beta dispersion bins to average over*/
     mwbool usedOrbitParams = FALSE;  /* indicates whether or not to expect extra histogram parameters for orbit fitting */
@@ -1283,6 +1289,26 @@ MainStruct* nbReadHistogram(const char* histogramFile)
             if(rc == 1)
             {
                 readBetaBins = TRUE;
+                continue;
+            }
+        }
+
+        if (!readL)
+        {
+            rc = sscanf(lineBuf, " L = {%lf, %lf, %lf} \n", &L.x, &L.y, &L.z);
+            if (rc == 3)
+            {
+                readL = TRUE;
+                continue;
+            }
+        }
+
+        if (!readLErr)
+        {
+            rc = sscanf(lineBuf, " LErr = {%lf, %lf, %lf} \n", &LErr.x, &LErr.y, &LErr.z);
+            if (rc == 3)
+            {
+                readLErr = TRUE;
                 continue;
             }
         }
@@ -1542,6 +1568,23 @@ MainStruct* nbReadHistogram(const char* histogramFile)
             all->histograms[i]->massPerParticle = mass;
             all->histograms[i]->betaDispBins = betaDispBins;
         }
+    }
+
+    if(readL)
+    {
+        all->histograms[0]->params.L = L;
+    }
+    if(readLErr)
+    {
+        all->histograms[0]->params.LErr = LErr;
+    }
+    if(readL && !readLErr)
+    {
+        mw_printf("Warning: Histogram '%s' has L but not LErr\n", histogramFile);
+    }
+    if(!readL && readLErr)
+    {
+        mw_printf("Warning: Histogram '%s' has LErr but not L\n", histogramFile);
     }
 
     if(readEMDRange) /*Set EMD range to what is given in histogram*/

@@ -316,12 +316,16 @@ typedef struct
     real betaEnd;
     unsigned int betaBins;
 
+    /* Angular Momentum */
+    mwvector L;
+    mwvector LErr;
+
     unsigned int nRange; /*Number of elements in EMDRange*/
     real EMDRange[1024];
 
 } HistogramParams;
 
-#define EMPTY_HISTOGRAM_PARAMS { 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0 }
+#define EMPTY_HISTOGRAM_PARAMS { 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0, {0.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 0.0}, 0, {0} }
 #define HISTOGRAM_PARAMS_TYPE "HistogramParams"
 
 typedef struct
