@@ -402,6 +402,7 @@ typedef struct MW_ALIGN_TYPE
     real bestLikelihood_Dist;      /* Distance component of likelihood */
     real bestLikelihood_PM_dec;   /* Proper motion component of likelihood */
     real bestLikelihood_PM_ra;
+    real bestLikelihood_Momentum;  /* Angular momentum component of likelihood */
     real bestLikelihood_time;      /* to store the evolve time at which the best likelihood occurred */
     int bestLikelihood_count;      /* count of how many times the likelihood improved */
     mwbool useVelDisp;             /* whether or not to use the vel disp comparison */
@@ -410,6 +411,7 @@ typedef struct MW_ALIGN_TYPE
     mwbool useVlos;                /* whether or not to use the avg vlos comparison */
     mwbool useDist;                /* whether or not to use the avg distance comparison */
     mwbool usePropMot;             /* whether or not to use the proper motion comparison */
+    mwbool useMomentum;            /* whether or not to use the angular momentum comparison */
     mwbool ignoreResponsive;
     mwbool usesExact;
     mwbool usesQuad;
@@ -440,11 +442,11 @@ typedef struct MW_ALIGN_TYPE
                            NULL, ZERO_VECTOR, ZERO_VECTOR,                                  \
                            NULL, 0,                                                         \
                            0, 0, 0,                                                         \
-                           0, 0, 0, 0, 0, 0,                                                \
-                           0, 0,                                                            \
-                           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, FALSE, FALSE, FALSE, FALSE, FALSE, \
-                           FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, 0,\
-                           NULL, NULL, NULL, NULL}
+                           0, 0, 0, 0, 0,                                                   \
+                           0,                                                               \
+                           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, FALSE, FALSE, FALSE,      \
+                           FALSE, FALSE, FALSE ,FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,   \
+                           FALSE, FALSE, FALSE, 0, NULL, NULL, NULL, NULL}
 
 
 /* The context tracks settings of the simulation.  It should be set
@@ -485,6 +487,7 @@ typedef struct MW_ALIGN_TYPE
     mwbool useVlos;           /* use the line of sight velocity comparison calc */
     mwbool useDist;           /* use the average distance comparison calc */
     mwbool usePropMot;        /* use the proper motion comparison calc */
+    mwbool useMomentum;       /* use the angular momentum comparison calc */
     mwbool MultiOutput;       /* whether to have algorithm put out multiple outputs */
     mwbool InitialOutput;     /* whether to generate initial output */
     mwbool SimpleOutput;      /* Simple output only x,y,z,vx,vy,vz,mass */
@@ -500,11 +503,13 @@ typedef struct MW_ALIGN_TYPE
     real VelSigma;            /* sigma cutoff for the outlier rejection for the bin vel dispersions */ 
     real DistSigma;           /* sigma cutoff for the outlier rejection for the bin dists dispersions */
     real PMSigma;             /* sigma cutoff for the proper motion */
+    real MomentumSigma;       /* sigma cutoff for the angular momentum */
     real IterMax;             /* number of times to apply outlier rejection with sigma cutoff */ 
     real BetaCorrect;         /* correction factor for correcting the distribution after outlier rejection */
     real VelCorrect;          /* correction factor for correcting the distribution after outlier rejection */
     real DistCorrect;         /* correction factor for correcting the distribution after outlier rejection */
     real PMCorrect;           /* correction factor for correcting the distribution after outlier rejection */
+    real MomentumCorrect;     /* correction factor for correcting the distribution after outlier rejection */
 
     mwbool LMC;
 
@@ -529,10 +534,10 @@ typedef struct MW_ALIGN_TYPE
                          0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,                                             \
                          0.0, 0.0, 0.0, 0.0, 0.0,                                                       \
                          InvalidCriterion, EXTERNAL_POTENTIAL_DEFAULT,                                  \
-                         FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,          \
+                         FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,   \
                          FALSE, FALSE, FALSE, FALSE,                                                    \
                          0, 0,                                                                          \
-                         0, 0, 0, 0, 0, 0, 0, 0, 0,                                                     \
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                                               \
                          FALSE,                                                                         \
                          0, 0, FALSE, 0,                                                                \
                          0,                                                                             \

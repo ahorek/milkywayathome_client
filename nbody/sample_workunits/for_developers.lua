@@ -108,6 +108,7 @@ use_beta_comp        = true  -- calculate average beta, use in likelihood
 use_vlos_comp        = true  -- calculate average los velocity, use in likelihood
 use_avg_dist         = true  -- calculate average distance, use in likelihood
 use_pm_comp          = true  -- calculate proper motion, use in likelihood
+use_momentum         = true  -- calculate angular momentum, use in likelihood
 
 -- number of additional forward evolutions to do to calibrate the rotation of the bar
 -- numCalibrationRuns + 1 additional forward evolutions will be done
@@ -238,17 +239,20 @@ function makeContext()
       useVlos       = use_vlos_comp,
       useDist       = use_avg_dist,
       usePropMot    = use_pm_comp,
+      useMomentum   = use_momentum,
       Nstep_control = timestep_control,
       Ntsteps       = Ntime_steps,
       BetaSigma     = SigmaCutoff,
       VelSigma      = SigmaCutoff,
       DistSigma     = SigmaCutoff,
       PMSigma       = SigmaCutoff,
+      MomentumSigma = SigmaCutoff,
       IterMax       = SigmaIter,
       BetaCorrect   = Correction,
       VelCorrect    = Correction,
       DistCorrect   = Correction,
       PMCorrect     = Correction,
+      MomentumCorrect = Correction,
       SimpleOutput  = generateSimpleOutput,
       MultiOutput   = useMultiOutputs,
       OutputFreq    = freqOfOutputs,
