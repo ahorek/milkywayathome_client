@@ -741,8 +741,8 @@ static int nbGenerateIsotropicCore(lua_State* luaSt, dsfmt_t* prng, unsigned int
     //---------------------------------------------------------------------------------------------------        
         /*for normal*/
         unsigned int nbody_dark = nbody - nbody_baryon;
-        real mass_light_particle = mass_l / (real)(0.5 * (real) nbody_baryon);//half the particles are light matter
-        real mass_dark_particle = mass_d / (real)(0.5 * (real) nbody_dark);
+        real mass_light_particle = mass_l / (real) nbody_baryon;
+        real mass_dark_particle = mass_d / (real) nbody_dark;
     //----------------------------------------------------------------------------------------------------
 
         /*dark matter type is TRUE or 1. Light matter type is False, or 0*/
