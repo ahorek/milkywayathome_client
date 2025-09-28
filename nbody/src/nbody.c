@@ -228,6 +228,7 @@ static NBodyStatus nbReportResults(const NBodyCtx* ctx, const NBodyState* st, co
     real likelihood_Dist = NAN;
     real likelihood_PM_dec = NAN;
     real likelihood_PM_ra = NAN;
+    real likelihood_Momentum = NAN;
     NBodyLikelihoodMethod method;
 
     real *likelihoodArray;
@@ -294,6 +295,7 @@ static NBodyStatus nbReportResults(const NBodyCtx* ctx, const NBodyState* st, co
         likelihood_Dist    = likelihoodArray[7];
         likelihood_PM_dec  = likelihoodArray[8];
         likelihood_PM_ra   = likelihoodArray[9];
+        likelihood_Momentum = likelihoodArray[10];
 
         /*
           Used to fix Windows platform issues.  Windows' infinity is expressed as:
@@ -333,6 +335,7 @@ static NBodyStatus nbReportResults(const NBodyCtx* ctx, const NBodyState* st, co
             likelihood_Dist    = st->bestLikelihood_Dist;
             likelihood_PM_dec  = st->bestLikelihood_PM_dec;
             likelihood_PM_ra   = st->bestLikelihood_PM_ra;
+            likelihood_Momentum = st->bestLikelihood_Momentum;
         }
         else
         {
@@ -365,31 +368,35 @@ static NBodyStatus nbReportResults(const NBodyCtx* ctx, const NBodyState* st, co
         mw_printf("<search_likelihood>%.15f</search_likelihood>\n", -likelihood);
         mw_printf("<search_likelihood_EMD>%.15f</search_likelihood_EMD>\n", -likelihood_EMD);
         mw_printf("<search_likelihood_Mass>%.15f</search_likelihood_Mass>\n", -likelihood_Mass);
-	if (st->useBetaDisp)
+	    if (st->useBetaDisp)
         {
             mw_printf("<search_likelihood_Beta>%.15f</search_likelihood_Beta>\n", -likelihood_Beta);
         }
-	if (st->useVelDisp)
+	    if (st->useVelDisp)
         {
             mw_printf("<search_likelihood_Vel>%.15f</search_likelihood_Vel>\n", -likelihood_Vel);
         }
-       if (st->useBetaComp)
-       {
-           mw_printf("<search_likelihood_BetaAvg>%.15f</search_likelihood_BetaAvg>\n", -likelihood_BetaAvg);
-       }
-       if (st->useVlos)
-       {
-           mw_printf("<search_likelihood_VelAvg>%.15f</search_likelihood_VelAvg>\n", -likelihood_VelAvg);
-       }
-       if (st->useDist)
-       {
-           mw_printf("<search_likelihood_Dist>%.15f</search_likelihood_Dist>\n", -likelihood_Dist);
-       }
-       if (st->usePropMot)
-       {
-        mw_printf("<search_likelihood_PM_dec>%.15f</search_likelihood_PM_dec>\n", -likelihood_PM_dec);
-        mw_printf("<search_likelihood_PM_ra>%.15f</search_likelihood_PM_ra>\n", -likelihood_PM_ra);
-       }
+        if (st->useBetaComp)
+        {
+            mw_printf("<search_likelihood_BetaAvg>%.15f</search_likelihood_BetaAvg>\n", -likelihood_BetaAvg);
+        }
+        if (st->useVlos)
+        {
+            mw_printf("<search_likelihood_VelAvg>%.15f</search_likelihood_VelAvg>\n", -likelihood_VelAvg);
+        }
+        if (st->useDist)
+        {
+            mw_printf("<search_likelihood_Dist>%.15f</search_likelihood_Dist>\n", -likelihood_Dist);
+        }
+        if (st->usePropMot)
+        {
+            mw_printf("<search_likelihood_PM_dec>%.15f</search_likelihood_PM_dec>\n", -likelihood_PM_dec);
+            mw_printf("<search_likelihood_PM_ra>%.15f</search_likelihood_PM_ra>\n", -likelihood_PM_ra);
+        }
+        if (st->useMomentum)
+        {
+            mw_printf("<search_likelihood_Momentum>%.15f</search_likelihood_Momentum>\n", -likelihood_Momentum);
+        }
     }
 
 

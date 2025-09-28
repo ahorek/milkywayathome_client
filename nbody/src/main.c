@@ -635,8 +635,9 @@ int main(int argc, const char* argv[])
         real vlos_avg = FALSE;
         real dist_avg = FALSE;
         real pm = FALSE;
+        real momentum = FALSE;
         /* runs the comparison of two input hists without using vel dispersion calc */
-        emd = nbMatchHistogramFiles(nbf.histogramFileName, nbf.matchHistogram, vel_disp, beta_disp, beta_avg, vlos_avg, dist_avg, pm);
+        emd = nbMatchHistogramFiles(nbf.histogramFileName, nbf.matchHistogram, vel_disp, beta_disp, beta_avg, vlos_avg, dist_avg, pm, momentum);
         mw_printf("<search_likelihood>%.15f</search_likelihood>\n", -emd);
         rc = isnan(emd);
     }
@@ -649,8 +650,9 @@ int main(int argc, const char* argv[])
         real vlos_avg = FALSE;
         real dist_avg = FALSE;
         real pm = FALSE;
+        real momentum = FALSE;
         /* runs the comparison of two input hists using beta dispersion calc */
-        emd = nbMatchHistogramFiles(nbf.histogramFileName, nbf.matchHistBetaDisp, vel_disp, beta_disp, beta_avg, vlos_avg, dist_avg, pm);
+        emd = nbMatchHistogramFiles(nbf.histogramFileName, nbf.matchHistBetaDisp, vel_disp, beta_disp, beta_avg, vlos_avg, dist_avg, pm, momentum);
         mw_printf("<search_likelihood>%.15f</search_likelihood>\n", -emd);
         rc = isnan(emd);
         
@@ -664,8 +666,9 @@ int main(int argc, const char* argv[])
         real vlos_avg = FALSE;
         real dist_avg = FALSE;
         real pm = FALSE;
+        real momentum = FALSE;
         /* runs the comparison of two input hists using vel dispersion calc */
-        emd = nbMatchHistogramFiles(nbf.histogramFileName, nbf.matchHistVelDisp, vel_disp, beta_disp, beta_avg, vlos_avg, dist_avg, pm);
+        emd = nbMatchHistogramFiles(nbf.histogramFileName, nbf.matchHistVelDisp, vel_disp, beta_disp, beta_avg, vlos_avg, dist_avg, pm, momentum);
         mw_printf("<search_likelihood>%.15f</search_likelihood>\n", -emd);
         rc = isnan(emd);
         
@@ -679,8 +682,9 @@ int main(int argc, const char* argv[])
         real vlos_avg = FALSE;
         real dist_avg = FALSE;
         real pm = FALSE;
+        real momentum = FALSE;
         /* runs the comparison of two input hists using beta and vlos dispersion calc */
-        emd = nbMatchHistogramFiles(nbf.histogramFileName, nbf.matchHistBetaVelDisp, vel_disp, beta_disp, beta_avg, vlos_avg, dist_avg, pm);
+        emd = nbMatchHistogramFiles(nbf.histogramFileName, nbf.matchHistBetaVelDisp, vel_disp, beta_disp, beta_avg, vlos_avg, dist_avg, pm, momentum);
         mw_printf("<search_likelihood>%.15f</search_likelihood>\n", -emd);
         rc = isnan(emd);
         
@@ -694,7 +698,8 @@ int main(int argc, const char* argv[])
         real vlos_avg = TRUE;
         real dist_avg = TRUE;
         real pm = FALSE;
-        emd = nbMatchHistogramFiles(nbf.histogramFileName, nbf.matchHistBetaVlosDist, vel_disp, beta_disp, beta_avg, vlos_avg, dist_avg, pm);
+        real momentum = FALSE;
+        emd = nbMatchHistogramFiles(nbf.histogramFileName, nbf.matchHistBetaVlosDist, vel_disp, beta_disp, beta_avg, vlos_avg, dist_avg, pm, momentum);
         mw_printf("<search_likelihood>%.15f</search_likelihood>\n", -emd);
         rc = isnan(emd);
     }
@@ -707,7 +712,8 @@ int main(int argc, const char* argv[])
         real vlos_avg = TRUE;
         real dist_avg = TRUE;
         real pm = TRUE;
-        emd = nbMatchHistogramFiles(nbf.histogramFileName, nbf.matchHistAll, vel_disp, beta_disp, beta_avg, vlos_avg, dist_avg, pm);
+        real momentum = TRUE;
+        emd = nbMatchHistogramFiles(nbf.histogramFileName, nbf.matchHistAll, vel_disp, beta_disp, beta_avg, vlos_avg, dist_avg, pm, momentum);
         mw_printf("<search_likelihood>%.15f</search_likelihood>\n", -emd);
         rc = isnan(emd);
     }

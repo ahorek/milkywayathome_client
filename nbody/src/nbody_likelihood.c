@@ -61,7 +61,7 @@ int nbGetLikelihoodInfo(const NBodyFlags* nbf, HistogramParams* hp, NBodyLikelih
     return FALSE;
 }
 
-real nbMatchHistogramFiles(const char* datHist, const char* matchHist, mwbool use_veldisp, mwbool use_betadisp, mwbool use_betacomp, mwbool use_vlos, mwbool use_dist, mwbool use_pm)
+real nbMatchHistogramFiles(const char* datHist, const char* matchHist, mwbool use_veldisp, mwbool use_betadisp, mwbool use_betacomp, mwbool use_vlos, mwbool use_dist, mwbool use_pm, mwbool use_momentum)
 {
     MainStruct* dat;
     MainStruct* match;
@@ -74,6 +74,7 @@ real nbMatchHistogramFiles(const char* datHist, const char* matchHist, mwbool us
     real distance_component = NAN;
     real dec_pm_component = NAN;
     real ra_pm_component = NAN;
+    real momentum_component = NAN;
     real likelihood = NAN;
     dat = nbReadHistogram(datHist);
     match = nbReadHistogram(matchHist);
@@ -141,6 +142,11 @@ real nbMatchHistogramFiles(const char* datHist, const char* matchHist, mwbool us
             }
             ra_pm_component = nbLikelihood(dat->histograms[7], match->histograms[7], 1);
             likelihood += ra_pm_component;
+        }
+        if(use_momentum)
+        {
+            real momentum_component = nbMomentumLikelihood(dat->histograms[0], match->histograms[0]);
+            likelihood += momentum_component;
         }
         
     }
@@ -314,7 +320,8 @@ real * nbSystemLikelihood(const NBodyState* st,
     }
     if(st->useMomentum)
     {
-        momentum_component = nbMomentumLikelihood(st, ctx, data->histograms[0], histogram->histograms[0]);
+        nbCalcMomentum(st, ctx, data->histograms[0], histogram->histograms[0]);
+        momentum_component = nbMomentumLikelihood(data->histograms[0], histogram->histograms[0]);
         likelihood += momentum_component;
     }
 

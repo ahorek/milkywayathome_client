@@ -328,7 +328,7 @@ void nbRemoveMomentumOutliers(const NBodyState* st, NBodyHistogram* histogram, i
     mwvector L = {0.0, 0.0, 0.0, 0.0}; /*angular momentum vector per particle*/
     mwvector r = {0.0, 0.0, 0.0, 0.0}; /*position vector*/
     mwvector v = {0.0, 0.0, 0.0, 0.0}; /*velocity vector*/
-    real mass = histogram->massPerParticle; /*mass of each particle*/
+    real mass = 1.0; //histogram->massPerParticle; /*mass of each particle*/
 
     /*Calculate old average*/
     mwvector L_avg = histogram->params.L;
@@ -577,7 +577,7 @@ real nbLikelihood(const NBodyHistogram* data, const NBodyHistogram* histogram, i
 Calculations are done with light matter particles that fall within histogram range,
 and outlier rejection is included as with all other calculations.
  */
-real nbMomentumLikelihood(const NBodyState* st, const NBodyCtx* ctx, const NBodyHistogram* data, NBodyHistogram* histogram)
+void nbCalcMomentum(const NBodyState* st, const NBodyCtx* ctx, const NBodyHistogram* data, NBodyHistogram* histogram)
 {
     real nbody = st->nbody;
     HistogramParams* hp = &histogram->params;
@@ -593,7 +593,7 @@ real nbMomentumLikelihood(const NBodyState* st, const NBodyCtx* ctx, const NBody
     mwvector L = {0.0, 0.0, 0.0, 0.0}; /*angular momentum vector per particle*/
     mwvector r = {0.0, 0.0, 0.0, 0.0}; /*position vector*/
     mwvector v = {0.0, 0.0, 0.0, 0.0}; /*velocity vector*/
-    real mass = histogram->massPerParticle; /*mass of each particle*/
+    real mass = 1.0; //histogram->massPerParticle; /*mass of each particle*/
 
     for (unsigned int i = 0; i < nbody; i++) /*sum over particles to find average momentum*/
     {
@@ -680,8 +680,17 @@ real nbMomentumLikelihood(const NBodyState* st, const NBodyCtx* ctx, const NBody
     histogram->params.LErr.z = LErr.z;
 
     nbRemoveMomentumOutliers(st, histogram, in_hist, ctx->MomentumSigma, ctx->IterMax, ctx->MomentumCorrect, nbody, counter); /*Remove outliers now that we have a standard deviation*/
-    
-    //Likelihood calculation goes here
+    return;
+}
 
-    return 0.0;
+/*Actual likelihood calculation*/
+real nbMomentumLikelihood(const NBodyHistogram* data, const NBodyHistogram* histogram)
+{
+    real x_comp = (X(data->params.L) - X(histogram->params.L)) / mw_sqrt(sqr(X(data->params.LErr)) + sqr(X(histogram->params.LErr)));
+    real y_comp = (Y(data->params.L) - Y(histogram->params.L)) / mw_sqrt(sqr(Y(data->params.LErr)) + sqr(Y(histogram->params.LErr)));
+    real z_comp = (Z(data->params.L) - Z(histogram->params.L)) / mw_sqrt(sqr(Z(data->params.LErr)) + sqr(Z(histogram->params.LErr)));
+
+    real likelihood = 0.5 * (sqr(x_comp) + sqr(y_comp) + sqr(z_comp));
+
+    return likelihood;
 }
