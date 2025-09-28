@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 real * nbSystemLikelihood(const NBodyState* st,
+                     const NBodyCtx* ctx,
                      const MainStruct* data,
                      const MainStruct* histogram,
                      NBodyLikelihoodMethod method);

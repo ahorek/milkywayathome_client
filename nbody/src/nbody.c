@@ -283,7 +283,7 @@ static NBodyStatus nbReportResults(const NBodyCtx* ctx, const NBodyState* st, co
         }
         
         
-        likelihoodArray = nbSystemLikelihood(st, data, histogram, method);
+        likelihoodArray = nbSystemLikelihood(st, ctx, data, histogram, method);
         likelihood         = likelihoodArray[0];
         likelihood_EMD     = likelihoodArray[1];
         likelihood_Mass    = likelihoodArray[2];
@@ -488,6 +488,7 @@ int nbMain(const NBodyFlags* nbf)
         st->useVlos = ctx->useVlos;
         st->useDist = ctx->useDist;
         st->usePropMot = ctx->usePropMot;
+        st->useMomentum = ctx->useMomentum;
 
         //save the state if about to start first calibration run
         if(ctx->calibrationRuns > 0 && i == 0){

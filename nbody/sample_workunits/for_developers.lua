@@ -108,6 +108,12 @@ use_beta_comp        = true  -- calculate average beta, use in likelihood
 use_vlos_comp        = true  -- calculate average los velocity, use in likelihood
 use_avg_dist         = true  -- calculate average distance, use in likelihood
 use_pm_comp          = true  -- calculate proper motion, use in likelihood
+
+-- if using momentum likelihood, include momentum information in the parameters of the input
+-- histogram (after <histogram> )with the following lines:
+    -- L = {Lx, Ly, Lz} (angular momentum vector)
+    -- LErr = {Err_Lx, Err_Ly, Err_Lz} (uncertainty in angular momentum vector)
+-- These are in units of SMU * kpc^2/Gyr
 use_momentum         = true  -- calculate angular momentum, use in likelihood
 
 -- number of additional forward evolutions to do to calibrate the rotation of the bar

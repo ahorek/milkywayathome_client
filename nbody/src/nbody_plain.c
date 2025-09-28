@@ -131,7 +131,7 @@ static inline int get_likelihood(const NBodyCtx* ctx, NBodyState* st, const NBod
              */
             return 0;
         }
-        likelihoodArray = nbSystemLikelihood(st, data, histogram, method);
+        likelihoodArray = nbSystemLikelihood(st, ctx, data, histogram, method);
         likelihood         = likelihoodArray[0];
         likelihood_EMD     = likelihoodArray[1];
         likelihood_Mass    = likelihoodArray[2];
@@ -210,6 +210,15 @@ static inline int get_likelihood(const NBodyCtx* ctx, NBodyState* st, const NBod
             {
                 st->bestLikelihood_PM_dec = 0.0;
                 st->bestLikelihood_PM_ra  = 0.0;
+            }
+
+            if (st->useMomentum)
+            {
+                st->bestLikelihood_Momentum = likelihoodArray[10];
+            }
+            else
+            {
+                st->bestLikelihood_Momentum = 0.0;
             }
 
             /* Calculating the time that the best likelihood occurred */

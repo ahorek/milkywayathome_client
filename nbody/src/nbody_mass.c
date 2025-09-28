@@ -22,6 +22,7 @@
 #include "nbody_defaults.h"
 #include "milkyway_math.h"
 #include "nbody_types.h"
+#include "nbody_coordinates.h"
 
 
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // 
@@ -314,6 +315,110 @@ void nbRemoveOutliers(const NBodyState* st, NBodyHistogram* histogram, real * us
     }
 }
 
+/*Removes outliers for momentum calculation. Requires a different function as it is not stored in a hist*/
+void nbRemoveMomentumOutliers(const NBodyState* st, NBodyHistogram* histogram, int* in_hist, real sigma_cutoff, real IterMax, real correction_factor, real nbody, real counts)
+{
+    Body* p = NULL;
+
+    unsigned int counter = 0;
+    mwbool initial = TRUE;
+    mwbool corrected = FALSE;
+
+    mwvector L_sum = {0.0, 0.0, 0.0, 0.0}; /*angular momentum vector sum*/
+    mwvector L = {0.0, 0.0, 0.0, 0.0}; /*angular momentum vector per particle*/
+    mwvector r = {0.0, 0.0, 0.0, 0.0}; /*position vector*/
+    mwvector v = {0.0, 0.0, 0.0, 0.0}; /*velocity vector*/
+    real mass = histogram->massPerParticle; /*mass of each particle*/
+
+    /*Calculate old average*/
+    mwvector L_avg = histogram->params.L;
+    mwvector LErr = histogram->params.LErr;
+
+    for(unsigned int i = 0; i < IterMax; i++)
+    {
+        for (unsigned int j = 0; j < nbody; ++j)
+        {
+            p = &st->bodytab[j];
+            /* Only include bodies in models we aren't ignoring */
+            if (!ignoreBody(p))
+            {
+
+                /* Check if the position is within the bounds of the histogram */
+                if (in_hist[counter] > 0)//if it's not 0 then it was in the hist and set to the Histindex   
+                {   
+                    /*Find momentum of particle*/
+                    r = Pos(p);
+                    v = Vel(p);
+                    L = mw_crossv(r, v);
+                    L = mw_mulvs(L, mass);
+
+                    /*If outside of cutoff in any component, remove the particle*/
+                    if(abs(X(L_avg) - X(L)) < sigma_cutoff * X(LErr) &&
+                       abs(Y(L_avg) - Y(L)) < sigma_cutoff * Y(LErr) &&
+                       abs(Z(L_avg) - Z(L)) < sigma_cutoff * Z(LErr))//if it is inside of the sigma limit
+                    {
+                        L_sum = mw_addv(L_sum, L);
+                    }
+                    else
+                    {
+                        in_hist[counter] = 0; //mark as being removed
+                        counts -= 1.0;
+                        corrected = TRUE;
+                    }
+                }
+            }
+            counter++;
+        }
+        mwvector L_avg = mw_mulvs(L_sum, 1.0/(real)counts);
+
+        /*Recalculate error*/
+        mwvector LDiff_sum = {0.0, 0.0, 0.0, 0.0}; /*sum of differences between particle angular momenta and average angular momentum*/
+        mwvector LDiff = {0.0, 0.0, 0.0, 0.0}; /*difference between particle angular momenta and average angular momentum*/
+        for(unsigned int i = 0; i < nbody; i++) /*sum over particles to find error in average momentum*/
+        {
+            p = &st->bodytab[i];
+            if (!ignoreBody(p))
+            {
+                r = Pos(p);
+                v = Vel(p);
+                L = mw_crossv(r, mw_mulvs(v, mass)); //angular momentum vector of particle without conisderation of mass
+                LDiff = mw_subv(L, L_avg); //difference between particle angular momentum and average angular momentum
+                LDiff.x = sqr(X(LDiff));
+                LDiff.y = sqr(Y(LDiff));
+                LDiff.z = sqr(Z(LDiff));
+                LDiff_sum = mw_addv(LDiff_sum, LDiff);
+            }
+        }
+
+        mwvector LErr = mw_divvs(LDiff_sum, (real)(counts-1)); /*variance in average angular momentum vector of simulation*/
+
+        if(corrected || initial) //only correct if wings are removed or if this is the first calculation and there were no wings
+        {
+            LErr = mw_mulvs(LErr, correction_factor);
+        }
+
+        /*replace values*/
+        LErr.x = mw_sqrt(X(LErr));
+        LErr.y = mw_sqrt(Y(LErr));
+        LErr.z = mw_sqrt(Z(LErr));
+
+        histogram->params.L.x = L_avg.x;
+        histogram->params.L.y = L_avg.y;
+        histogram->params.L.z = L_avg.z;
+        histogram->params.LErr.x = LErr.x;
+        histogram->params.LErr.y = LErr.y;
+        histogram->params.LErr.z = LErr.z;
+
+        L_avg = histogram->params.L;
+        LErr = histogram->params.LErr;
+
+        corrected = FALSE;
+        initial = FALSE;
+        counter = 0;
+        L_sum = (mwvector){0.0, 0.0, 0.0, 0.0};
+    }
+    return;
+}   
 
 real nbCostComponent(const NBodyHistogram* data, const NBodyHistogram* histogram)
 {
@@ -466,4 +571,117 @@ real nbLikelihood(const NBodyHistogram* data, const NBodyHistogram* histogram, i
     probability = (Nsigma_sq) / 2.0; //should be negative, but we return the negative of it anyway
     
     return probability;
+}
+
+/*Find momentum vector and momentum error of simulation. 
+Calculations are done with light matter particles that fall within histogram range,
+and outlier rejection is included as with all other calculations.
+ */
+real nbMomentumLikelihood(const NBodyState* st, const NBodyCtx* ctx, const NBodyHistogram* data, NBodyHistogram* histogram)
+{
+    real nbody = st->nbody;
+    HistogramParams* hp = &histogram->params;
+    Body* p = NULL;
+    int* in_hist = mwCalloc(nbody, sizeof(int)); /*array to mark which bodies are in the histogram*/
+    real lambda = 0.0;
+    real beta = 0.0;
+    mwvector lambdaBetaR; /*array to hold lambda, beta, and distance*/
+    NBHistTrig histTrig;
+    nbGetHistTrig(&histTrig, hp);
+    real counter = 0; /*number of bodies used*/
+    mwvector L_sum = {0.0, 0.0, 0.0, 0.0}; /*angular momentum vector sum*/
+    mwvector L = {0.0, 0.0, 0.0, 0.0}; /*angular momentum vector per particle*/
+    mwvector r = {0.0, 0.0, 0.0, 0.0}; /*position vector*/
+    mwvector v = {0.0, 0.0, 0.0, 0.0}; /*velocity vector*/
+    real mass = histogram->massPerParticle; /*mass of each particle*/
+
+    for (unsigned int i = 0; i < nbody; i++) /*sum over particles to find average momentum*/
+    {
+        p = &st->bodytab[i];
+        if (!ignoreBody(p))
+        {
+            /* Get the position in lbr coorinates */
+            lambdaBetaR = nbXYZToLambdaBeta(&histTrig, Pos(p), ctx->sunGCDist);
+            lambda = L(lambdaBetaR);
+            beta = B(lambdaBetaR);
+            if (data->params.nRange == 0) /*If no EMD range is given, use entire hist*/
+            {
+                if ((lambda >= histogram->params.lambdaStart) && (lambda < histogram->params.lambdaEnd) &&
+                    (beta >= histogram->params.betaStart) && (beta < histogram->params.betaEnd))
+                {
+                    in_hist[i] = 1.0; //mark that this body is in the histogram
+                    r = Pos(p);
+                    v = Vel(p);
+                    L = mw_crossv(r, v); /*angular momentum vector of particle without conisderation of mass*/
+                    L_sum = mw_addv(L_sum, L);
+                    counter++;
+                }
+                else
+                {
+                    in_hist[i] = 0.0; //mark that this body is not in the histogram
+                }
+            }
+            else /*If EMD range is given, only count particles in that range*/
+            {
+                for(unsigned int k = 0; k < data->params.nRange; k = k + 2)
+                {
+                    if ((lambda >= data->params.EMDRange[k]) && (lambda < data->params.EMDRange[k+1]) &&
+                        (beta >= histogram->params.betaStart) && (beta < histogram->params.betaEnd))
+                    {
+                        in_hist[i] = 1.0; //mark that this body is in the histogram
+                        r = Pos(p);
+                        v = Vel(p);
+                        L = mw_crossv(r, v); /*angular momentum vector of particle without conisderation of mass*/
+                        L_sum = mw_addv(L_sum, L);
+                        counter++;
+                    }
+                    else
+                    {
+                        in_hist[i] = 0.0; //mark that this body is not in the histogram
+                    }
+                }
+                
+            }
+        }
+    }
+
+    L_sum = mw_mulvs(L_sum, mass); /*adjust momentum for mass*/
+    mwvector L_avg = mw_mulvs(L_sum, 1.0/(real)counter); /*average angular momentum vector of simulation*/
+
+    mwvector LDiff_sum = {0.0, 0.0, 0.0, 0.0}; /*sum of differences between particle angular momenta and average angular momentum*/
+    mwvector LDiff = {0.0, 0.0, 0.0, 0.0}; /*difference between particle angular momenta and average angular momentum*/
+
+    for(unsigned int i = 0; i < nbody; i++) /*sum over particles to find error in average momentum*/
+    {
+        p = &st->bodytab[i];
+        if (!ignoreBody(p))
+        {
+            r = Pos(p);
+            v = Vel(p);
+            L = mw_crossv(r, mw_mulvs(v, mass)); //angular momentum vector of particle without conisderation of mass
+            LDiff = mw_subv(L, L_avg); //difference between particle angular momentum and average angular momentum
+            LDiff.x = sqr(X(LDiff));
+            LDiff.y = sqr(Y(LDiff));
+            LDiff.z = sqr(Z(LDiff)); 
+            LDiff_sum = mw_addv(LDiff_sum, LDiff);
+        }
+    }
+
+    mwvector LErr = mw_divvs(LDiff_sum, (real)(counter-1)); /*variance in average angular momentum vector of simulation*/
+    LErr.x = mw_sqrt(X(LErr));
+    LErr.y = mw_sqrt(Y(LErr));
+    LErr.z = mw_sqrt(Z(LErr));
+
+    histogram->params.L.x = L_avg.x;
+    histogram->params.L.y = L_avg.y;
+    histogram->params.L.z = L_avg.z;
+    histogram->params.LErr.x = LErr.x;
+    histogram->params.LErr.y = LErr.y;
+    histogram->params.LErr.z = LErr.z;
+
+    nbRemoveMomentumOutliers(st, histogram, in_hist, ctx->MomentumSigma, ctx->IterMax, ctx->MomentumCorrect, nbody, counter); /*Remove outliers now that we have a standard deviation*/
+    
+    //Likelihood calculation goes here
+
+    return 0.0;
 }
