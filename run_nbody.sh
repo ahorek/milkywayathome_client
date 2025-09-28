@@ -37,17 +37,21 @@ fi
 #SMU = 222,288.47 SOLAR MASSES
 
 #OPTIONS:
-#-s -> compare using only emd and cost component
-#-S -> use emd, cost, beta dispersion
-#-V -> use emd, cost, velocity dispersion
-#-D -> use emd, cost, beta dispersion and velocity dispersion
-#-A -> compare all components of the likelihood 
+#-s -> The histogram to compare. Will always compare using emd and cost component
+#ADD ADDITIONAL FLAGS TO INCLUDE OTHER COMPARISONS
+#-S -> Include beta dispersion in the comparison
+#-V -> Include velocity dispersion in the comparison
+#-B -> Include beta average in the comparison
+#-Q -> Include line of sight velocity average in the comparison
+#-D -> Include distance average in the comparison
+#-U -> Include proper motion average in the comparison
+#-L -> Include momentum in the comparison
 #Values input through the histogram, such as EMDRange, will be read from the input histogram given with -h
 if $compare_only 
 then
     ./milkyway_nbody \
     -h $PathToMilkyWayAtHomeClientDirectory/input/input.hist \
-    -S $PathToMilkyWayAtHomeClientDirectory/output/output.hist \
+    -s $PathToMilkyWayAtHomeClientDirectory/output/output.hist \
 
 fi
 
