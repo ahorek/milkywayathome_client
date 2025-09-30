@@ -86,6 +86,7 @@ static inline int get_likelihood(const NBodyCtx* ctx, NBodyState* st, const NBod
     real likelihood_Dist = NAN;
     real likelihood_PM_dec = NAN;
     real likelihood_PM_ra = NAN;
+    real likelihood_Momentum = NAN;
 
     real *likelihoodArray;
 
@@ -142,6 +143,7 @@ static inline int get_likelihood(const NBodyCtx* ctx, NBodyState* st, const NBod
         likelihood_Dist    = likelihoodArray[7];
         likelihood_PM_dec  = likelihoodArray[8];
         likelihood_PM_ra   = likelihoodArray[9];
+        likelihood_Momentum  = likelihoodArray[10];
 
         /*
           Used to fix Windows platform issues.  Windows' infinity is expressed as:
@@ -214,7 +216,7 @@ static inline int get_likelihood(const NBodyCtx* ctx, NBodyState* st, const NBod
 
             if (st->useMomentum)
             {
-                st->bestLikelihood_Momentum = likelihoodArray[10];
+                st->bestLikelihood_Momentum = likelihood_Momentum;
             }
             else
             {
@@ -414,8 +416,11 @@ NBodyStatus nbRunSystemPlain(const NBodyCtx* ctx, NBodyState* st, const NBodyFla
     real curStep = st->step;
     real Nstep = ctx->nStep;
     
-    st->bestLikelihood = DEFAULT_WORST_CASE; //initializing it.
-
+    if(st->bestLikelihood == 0.0)
+    {
+        st->bestLikelihood = DEFAULT_WORST_CASE; //initializing it.
+    }
+    
     while (st->step < ctx->nStep)
     {
         #ifdef NBODY_BLENDER_OUTPUT
