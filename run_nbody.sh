@@ -11,6 +11,8 @@ echo "Path to milkywayathome_client directory: $PathToMilkyWayAtHomeClientDirect
 
 cd build/bin
 
+#Note that the server rounds all parameters to 6 significant figures before sending them to the client
+#So if you want to test the exact same parameters as the server, round to 6
 if $run 
 then
     ./milkyway_nbody \
