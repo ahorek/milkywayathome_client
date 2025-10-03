@@ -89,7 +89,8 @@ extern "C" {
 #define histogrambetaStart ((real) -25.0)
 #define histogrambetaEnd ((real) 25.0)
 #define histogrambetaBins ((unsigned int) 10)
-
+#define histogramnRange ((unsigned int) 0)
+#define histogramEMDRange {0.0}
 
 extern const NBodyCtx defaultNBodyCtx;
 extern const HistogramParams defaultHistogramParams;

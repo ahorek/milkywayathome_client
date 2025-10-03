@@ -20,7 +20,7 @@
 #include <private.h>
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: update.c,v 1.34 2009/05/22 17:08:09 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: update.c,v 1.34 2009/05/22 17:08:09 michael Exp $";
 #endif /* lint */
 
 #include <errno.h>
@@ -177,13 +177,13 @@ _elf32_layout(Elf *elf, unsigned *flag) {
 	}
     }
     if (phnum >= PN_XNUM) {
-	Elf_Scn *scn = elf->e_scn_1;
-	Elf32_Shdr *shdr = &scn->s_shdr32;
+	Elf_Scn *scn2 = elf->e_scn_1;
+	Elf32_Shdr *shdr = &scn2->s_shdr32;
 
-	elf_assert(scn);
-	elf_assert(scn->s_index == 0);
-	rewrite(shdr->sh_info, phnum, scn->s_shdr_flags);
-	*flag |= scn->s_shdr_flags;
+	elf_assert(scn2);
+	elf_assert(scn2->s_index == 0);
+	rewrite(shdr->sh_info, phnum, scn2->s_shdr_flags);
+	*flag |= scn2->s_shdr_flags;
 	phnum = PN_XNUM;
     }
     rewrite(ehdr->e_phnum, phnum, elf->e_ehdr_flags);
@@ -295,12 +295,12 @@ _elf32_layout(Elf *elf, unsigned *flag) {
 	}
     }
     if (shnum >= SHN_LORESERVE) {
-	Elf_Scn *scn = elf->e_scn_1;
-	Elf32_Shdr *shdr = &scn->s_shdr32;
+	Elf_Scn *scn2 = elf->e_scn_1;
+	Elf32_Shdr *shdr = &scn2->s_shdr32;
 
-	elf_assert(scn->s_index == 0);
-	rewrite(shdr->sh_size, shnum, scn->s_shdr_flags);
-	*flag |= scn->s_shdr_flags;
+	elf_assert(scn2->s_index == 0);
+	rewrite(shdr->sh_size, shnum, scn2->s_shdr_flags);
+	*flag |= scn2->s_shdr_flags;
 	shnum = 0;
     }
     rewrite(ehdr->e_shnum, shnum, elf->e_ehdr_flags);
@@ -379,14 +379,14 @@ _elf64_layout(Elf *elf, unsigned *flag) {
 	}
     }
     if (phnum >= PN_XNUM) {
-	Elf_Scn *scn = elf->e_scn_1;
-	Elf32_Shdr *shdr = &scn->s_shdr32;
+	Elf_Scn *scn2 = elf->e_scn_1;
+	Elf32_Shdr *shdr = &scn2->s_shdr32;
 
 	/* modify first section header, too! */
-	elf_assert(scn);
-	elf_assert(scn->s_index == 0);
-	rewrite(shdr->sh_info, phnum, scn->s_shdr_flags);
-	*flag |= scn->s_shdr_flags;
+	elf_assert(scn2);
+	elf_assert(scn2->s_index == 0);
+	rewrite(shdr->sh_info, phnum, scn2->s_shdr_flags);
+	*flag |= scn2->s_shdr_flags;
 	phnum = PN_XNUM;
     }
     rewrite(ehdr->e_phnum, phnum, elf->e_ehdr_flags);
@@ -498,12 +498,12 @@ _elf64_layout(Elf *elf, unsigned *flag) {
 	}
     }
     if (shnum >= SHN_LORESERVE) {
-	Elf_Scn *scn = elf->e_scn_1;
-	Elf64_Shdr *shdr = &scn->s_shdr64;
+	Elf_Scn *scn2 = elf->e_scn_1;
+	Elf64_Shdr *shdr = &scn2->s_shdr64;
 
-	elf_assert(scn->s_index == 0);
-	rewrite(shdr->sh_size, shnum, scn->s_shdr_flags);
-	*flag |= scn->s_shdr_flags;
+	elf_assert(scn2->s_index == 0);
+	rewrite(shdr->sh_size, shnum, scn2->s_shdr_flags);
+	*flag |= scn2->s_shdr_flags;
 	shnum = 0;
     }
     rewrite(ehdr->e_shnum, shnum, elf->e_ehdr_flags);
@@ -595,27 +595,27 @@ _elf_update_pointers(Elf *elf, char *outbuf, size_t len) {
 	    elf_assert(sd->sd_magic == DATA_MAGIC);
 	    elf_assert(sd->sd_scn == scn);
 	    if (sd->sd_memdata && sd->sd_free_data) {
-		size_t off, len;
+		size_t off, len2;
 
 		if (elf->e_class == ELFCLASS32) {
 		    off = scn->s_shdr32.sh_offset;
-		    len = scn->s_shdr32.sh_size;
+		    len2 = scn->s_shdr32.sh_size;
 		}
 #if __LIBELF64
 		else if (elf->e_class == ELFCLASS64) {
 		    off = scn->s_shdr64.sh_offset;
-		    len = scn->s_shdr64.sh_size;
+		    len2 = scn->s_shdr64.sh_size;
 		}
 #endif /* __LIBELF64 */
 		else {
 		    seterr(ERROR_UNIMPLEMENTED);
 		    return -1;
 		}
-		if (!(rawdata = (char*)realloc(sd->sd_memdata, len))) {
+		if (!(rawdata = (char*)realloc(sd->sd_memdata, len2))) {
 		    seterr(ERROR_IO_2BIG);
 		    return -1;
 		}
-		memcpy(rawdata, outbuf + off, len);
+		memcpy(rawdata, outbuf + off, len2);
 		if (sd->sd_data.d_buf == sd->sd_memdata) {
 		    sd->sd_data.d_buf = rawdata;
 		}
@@ -885,7 +885,7 @@ _elf64_write(Elf *elf, char *outbuf, size_t len) {
 #endif /* __LIBELF64 */
 
 static int
-xwrite(int fd, char *buffer, size_t len) {
+xwrite(int fd, const char *buffer, size_t len) {
     size_t done = 0;
     size_t n;
 
@@ -914,7 +914,10 @@ _elf_output(Elf *elf, int fd, size_t len, off_t (*_elf_write)(Elf*, char*, size_
 
     elf_assert(len);
 #if HAVE_FTRUNCATE
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
     ftruncate(fd, 0);
+#pragma GCC diagnostic pop
 #endif /* HAVE_FTRUNCATE */
 #if HAVE_MMAP
     /*

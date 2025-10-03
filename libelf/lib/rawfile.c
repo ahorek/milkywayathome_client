@@ -20,7 +20,7 @@
 #include <private.h>
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: rawfile.c,v 1.8 2009/05/22 17:07:46 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: rawfile.c,v 1.8 2009/05/22 17:07:46 michael Exp $";
 #endif /* lint */
 
 char*

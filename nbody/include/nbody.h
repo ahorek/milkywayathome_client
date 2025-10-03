@@ -38,19 +38,19 @@ extern "C" {
 /* Command line arguments */
 typedef struct
 {
-    char* inputFile;
-    char* outFileName;
-    char* checkpointFileName;
-    char* histogramFileName;
-    char* histoutFileName;
-    char* matchHistogram;   /* Just match this histogram to other histogram, no simulation */
-    char* matchHistVelDisp;   /* Just match this histogram to other histogram, no simulation -- with vel dispersion calc*/
-    char* matchHistBetaDisp;  /* Just match this histogram to other histogram, no simulation -- with beta dispersion calc*/
-    char* matchHistBetaVelDisp; /* Just match this histogram to other histogram, no simulation -- with beta and vel dispersion calc*/
-    char* matchHistBetaVlosDist; /* Just match this histogram to other histogram, no simulation -- with avg beta, avg vlos, dist calc*/
-    char* matchHistAll;          /* Match this histogram to other histogram, no simulation -- with veta and vel disp, avg beta/vlos/dist */
-    char* graphicsBin;
-    char* visArgs;
+    const char* inputFile;
+    const char* outFileName;
+    const char* checkpointFileName;
+    const char* histogramFileName;
+    const char* histoutFileName;
+    const char* matchHistogram;   /* Just match this histogram to other histogram, no simulation */
+    const char* matchHistVelDisp;   /* Just match this histogram to other histogram, no simulation -- with vel dispersion calc*/
+    const char* matchHistBetaDisp;  /* Just match this histogram to other histogram, no simulation -- with beta dispersion calc*/
+    const char* matchHistBetaVelDisp; /* Just match this histogram to other histogram, no simulation -- with beta and vel dispersion calc*/
+    const char* matchHistBetaVlosDist; /* Just match this histogram to other histogram, no simulation -- with avg beta, avg vlos, dist calc*/
+    const char* matchHistAll;          /* Match this histogram to other histogram, no simulation -- with veta and vel disp, avg beta/vlos/dist */
+    const char* graphicsBin;
+    const char* visArgs;
 
     const char** forwardedArgs;
     unsigned int numForwardedArgs;
@@ -82,14 +82,14 @@ typedef struct
     int verbose;
 } NBodyFlags;
 
-#define EMPTY_NBODY_FLAGS { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
+#define EMPTY_NBODY_FLAGS { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
 
 NBodyStatus nbStepSystem(const NBodyCtx* ctx, NBodyState* st);
 NBodyStatus nbRunSystem(const NBodyCtx* ctx, NBodyState* st, const NBodyFlags* nbf);
 int nbVerifyFile(const NBodyFlags* nbf);
 int nbMain(const NBodyFlags* nbf);
-static NBodyCtx _ctx = EMPTY_NBODYCTX;
-static NBodyState _st = EMPTY_NBODYSTATE;
+static NBodyCtx _ctx __attribute__((unused)) = EMPTY_NBODYCTX;
+static NBodyState _st __attribute__((unused)) = EMPTY_NBODYSTATE;
 
 #ifdef _cplusplus
 }

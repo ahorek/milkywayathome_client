@@ -20,7 +20,7 @@
 #include <private.h>
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: data.c,v 1.8 2008/05/23 08:15:34 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: data.c,v 1.8 2008/05/23 08:15:34 michael Exp $";
 #endif /* lint */
 
 unsigned _elf_version = EV_NONE;

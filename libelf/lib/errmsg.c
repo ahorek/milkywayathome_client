@@ -20,7 +20,7 @@
 #include <private.h>
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: errmsg.c,v 1.11 2008/05/23 08:15:34 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: errmsg.c,v 1.11 2008/05/23 08:15:34 michael Exp $";
 #endif /* lint */
 
 #if HAVE_DGETTEXT

@@ -22,7 +22,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: memset.c,v 1.11 2008/05/23 08:15:35 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: memset.c,v 1.11 2008/05/23 08:15:35 michael Exp $";
 #endif /* lint */
 
 #include <stddef.h>	/* for size_t */
@@ -32,22 +32,34 @@ void*
 _elf_memset(void *s, int c, size_t n) {
     char *t = (char*)s;
 
-    if (n) {
+    if (n > 0) {
+	while(n >= 8) {
+	    *t++ = (char)c;
+	    *t++ = (char)c;
+	    *t++ = (char)c;
+	    *t++ = (char)c;
+	    *t++ = (char)c;
+	    *t++ = (char)c;
+	    *t++ = (char)c;
+	    *t++ = (char)c;
+	    n -= 8;
+	}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 	switch (n % 8u) {
-	    do {
-		n -= 8;
-		default:
-		case 0: *t++ = (char)c;
-		case 7: *t++ = (char)c;
-		case 6: *t++ = (char)c;
-		case 5: *t++ = (char)c;
-		case 4: *t++ = (char)c;
-		case 3: *t++ = (char)c;
-		case 2: *t++ = (char)c;
-		case 1: *t++ = (char)c;
-	    }
-	    while (n > 8);
+	case 7: *t++ = (char)c;
+	case 6: *t++ = (char)c;
+	case 5: *t++ = (char)c;
+	case 4: *t++ = (char)c;
+	case 3: *t++ = (char)c;
+	case 2: *t++ = (char)c;
+	case 1: *t++ = (char)c;
+	case 0:
+	default:
 	}
     }
+#pragma GCC diagnostic pop
+
     return s;
 }

@@ -23,7 +23,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 #if __LIBELF64
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: swap64.c,v 1.6 2008/05/23 08:15:35 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: swap64.c,v 1.6 2008/05/23 08:15:35 michael Exp $";
 #endif /* lint */
 
 __libelf_u64_t

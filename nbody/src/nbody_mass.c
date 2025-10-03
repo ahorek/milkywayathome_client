@@ -159,7 +159,10 @@ real IncompleteGammaFunc(real a, real x)
 //     static const real max_a = 100;
     real gamma = GammaFunc(a);
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
     if (x == 0.0) return gamma;
+#pragma GCC diagnostic pop
     // Use the series representation. 
     return gamma - series_approx(a,x);
     
@@ -243,7 +246,7 @@ void nbCalcDisp(NBodyHistogram* histogram, mwbool initial, real correction_facto
     
 }
 
-void nbRemoveOutliers(const NBodyState* st, NBodyHistogram* histogram, real * use_body, real * var, real sigma_cutoff, real sunGCdist, int histBins)
+void nbRemoveOutliers(const NBodyState* st, NBodyHistogram* histogram, real * use_body, real * var, real sigma_cutoff, real sunGCdist __attribute__((unused)), int histBins)
 {
     unsigned int Histindex;
     Body* p;
@@ -262,7 +265,7 @@ void nbRemoveOutliers(const NBodyState* st, NBodyHistogram* histogram, real * us
     real temp_sqr[histBins];
     real temp_removed[histBins];
 
-    for (unsigned int indx1 = 0; indx1 < histBins; ++indx1)
+    for (int indx1 = 0; indx1 < histBins; ++indx1)
     {
         new_count = (real) (histData[indx1].rawCount - histData[indx1].outliersRemoved);
         bin_ave[indx1] = histData[indx1].sum / new_count;
@@ -305,7 +308,7 @@ void nbRemoveOutliers(const NBodyState* st, NBodyHistogram* histogram, real * us
             counter++;
         }
     }
-    for (unsigned int indx2 = 0; indx2 < histBins; ++indx2)
+    for (int indx2 = 0; indx2 < histBins; ++indx2)
     {
         histData[indx2].sum = temp_sum[indx2];
         histData[indx2].sq_sum = temp_sqr[indx2];
@@ -335,8 +338,11 @@ real nbCostComponent(const NBodyHistogram* data, const NBodyHistogram* histogram
         return NAN;
     }
 
-    if (nSim == 0 || nData == 0)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+    if (nSim == 0.0 || nData == 0.0)
     {
+#pragma GCC diagnostic pop
         /* If the histogram is totally empty, it is worse than the worst case */
         return INFINITY;
     }
@@ -416,10 +422,10 @@ real nbLikelihood(const NBodyHistogram* data, const NBodyHistogram* histogram, i
                 unsigned int n = avgBins; /*number of bins used in average*/
                 real varSum = 0.0;
                 real valSum = 0.0; 
-                for (unsigned int k = 0; k < avgBins; ++k)
+                for (int k = 0; k < avgBins; ++k)
                 {
                     int index = i - (avgBins-1)/2 + k;
-                    if (index<0 || index>=nbins) /*do not try to use bins that are off the range of the histogram*/
+                    if (index<0 || (unsigned)index>=nbins) /*do not try to use bins that are off the range of the histogram*/
                     {
                         n -= 1;
                     }

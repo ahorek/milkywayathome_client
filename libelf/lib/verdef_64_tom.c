@@ -24,7 +24,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 #if __LIBELF64 && __LIBELF_SYMBOL_VERSIONS
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: verdef_64_tom.c,v 1.5 2008/05/23 08:15:35 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: verdef_64_tom.c,v 1.5 2008/05/23 08:15:35 michael Exp $";
 #endif /* lint */
 
 typedef Elf64_Verdaux		verdaux_mtype;

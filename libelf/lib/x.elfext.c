@@ -20,7 +20,7 @@
 #include <private.h>
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: x.elfext.c,v 1.5 2009/07/07 17:57:43 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: x.elfext.c,v 1.5 2009/07/07 17:57:43 michael Exp $";
 #endif /* lint */
 
 int

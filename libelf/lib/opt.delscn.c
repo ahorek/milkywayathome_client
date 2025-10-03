@@ -20,7 +20,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 #include <private.h>
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: opt.delscn.c,v 1.12 2008/05/23 08:15:35 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: opt.delscn.c,v 1.12 2008/05/23 08:15:35 michael Exp $";
 #endif /* lint */
 
 static size_t

@@ -22,7 +22,7 @@
 #include <byteswap.h>
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: 32.xlatetof.c,v 1.27 2008/05/23 08:15:34 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: 32.xlatetof.c,v 1.27 2008/05/23 08:15:34 michael Exp $";
 #endif /* lint */
 
 /*

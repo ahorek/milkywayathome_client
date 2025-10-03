@@ -20,7 +20,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 #include <private.h>
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: getdata.c,v 1.13 2008/05/23 08:15:34 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: getdata.c,v 1.13 2008/05/23 08:15:34 michael Exp $";
 #endif /* lint */
 
 static Elf_Data*
@@ -136,7 +136,7 @@ elf_getdata(Elf_Scn *scn, Elf_Data *data) {
 	    /* already cooked */
 	    return &sd->sd_data;
 	}
-	else if (scn->s_offset < 0 || scn->s_offset > elf->e_size) {
+	else if (scn->s_offset > elf->e_size) {
 	    seterr(ERROR_OUTSIDE);
 	}
 	else if (scn->s_type == SHT_NOBITS || !scn->s_size) {

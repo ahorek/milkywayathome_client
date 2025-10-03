@@ -39,7 +39,7 @@ their copyright to their programs which execute similar algorithms.
 
 
 /*      MODEL SPECIFIC FUNCTIONS       */
-static inline real potential( real r, real * args, dsfmt_t* dsfmtState)
+static inline real potential( real r, real * args, dsfmt_t* dsfmtState __attribute__((unused)))
 {
     /*Be Careful! this function returns the negative of the potential! this is the value of interest, psi*/
     //-------------------------------
@@ -55,7 +55,7 @@ static inline real potential( real r, real * args, dsfmt_t* dsfmtState)
     return (-potential_result);
 }
 
-static inline real density( real r, real * args, dsfmt_t* dsfmtState)
+static inline real density( real r, real * args, dsfmt_t* dsfmtState __attribute__((unused)))
 {
     /*this is the density distribution function. Returns the density at a given radius.*/
     //-------------------------------
@@ -133,7 +133,7 @@ static real gauss_quad(real (*func)(real, real *, dsfmt_t*), real lower, real up
     real intv = 0.0;//initial value of integral
     real coef1, coef2;//parameters for gaussian quad
     real c1, c2, c3;
-    real x1, x2, x3;
+    real x1, x2 __attribute__((unused)), x3;
     real x1n, x2n, x3n;
     real a, b;
     real benchmark;
@@ -433,8 +433,11 @@ real fun(real ri, real * args, dsfmt_t* dsfmtState)
     
     
     /*just in case*/
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
     if(first_deriv_psi == 0.0)
     {
+#pragma GCC diagnostic pop
         first_deriv_psi = 1.0e-6;//this should be small enough
     }
     
@@ -443,8 +446,11 @@ real fun(real ri, real * args, dsfmt_t* dsfmtState)
     
     
     /*we don't want to have a 0 in the demon*/
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
     if(diff != 0.0)
     {
+#pragma GCC diagnostic pop
         denominator = minushalf( mw_fabs(energy - potential(ri, args, dsfmtState) ) );
     }
     else
@@ -475,7 +481,13 @@ static inline real find_upperlimit_r(dsfmt_t* dsfmtState, real * args, real ener
     {
         upperlimit_r = root_finder(potential, args, energy, 0.0, search_range, dsfmtState); 
 
-        if(isinf(upperlimit_r) == FALSE && upperlimit_r != 0.0 && isnan(upperlimit_r) == FALSE){break;}
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+        if(isinf(upperlimit_r) == FALSE && upperlimit_r != 0.0 && isnan(upperlimit_r) == FALSE)
+        {
+            break;
+        }
+#pragma GCC diagnostic pop
         
         counter++;
         
@@ -490,7 +502,7 @@ static inline real find_upperlimit_r(dsfmt_t* dsfmtState, real * args, real ener
     return mw_fabs(upperlimit_r);
 }
  
-static inline real dist_fun(real v, real * args, dsfmt_t* dsfmtState)
+static real dist_fun(real v, real * args, dsfmt_t* dsfmtState)
 {
     /*This returns the value of the distribution function*/
     
@@ -642,7 +654,7 @@ static inline real vel_mag(dsfmt_t* dsfmtState, real r, real * args)
 static inline mwvector get_components(dsfmt_t* dsfmtState, real rad)
 {
     /* assigns angles. Allows for non-circular orbits.*/
-    mwvector vec;
+    mwvector vec = ZERO_VECTOR;
     real phi, theta;
     
     /*defining some angles*/
@@ -707,7 +719,7 @@ static int cm_correction(real * x, real * y, real * z, real * vx, real * vy, rea
 }
 
 /*      DWARF GENERATION        */
-static int nbGenerateIsotropicCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody, unsigned int nbody_baryon, real mass1, real mass2, mwbool ignore, mwvector rShift, mwvector vShift, real radiusScale1, real radiusScale2)
+static int nbGenerateIsotropicCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody, unsigned int nbody_baryon, real mass1, real mass2, mwbool ignore __attribute__((unused)), mwvector rShift, mwvector vShift, real radiusScale1, real radiusScale2)
 {
     /* generatePlummer: generate Plummer model initial conditions for test
     * runs, scaled to units such that M = -4E = G = 1 (Henon, Heggie,
@@ -727,7 +739,7 @@ static int nbGenerateIsotropicCore(lua_State* luaSt, dsfmt_t* prng, unsigned int
         real * vz = mwCalloc(nbody, sizeof(real));
         real * masses = mwCalloc(nbody, sizeof(real));
         
-        mwvector vec;
+        mwvector vec = ZERO_VECTOR;
         real dwarf_mass = mass1 + mass2;
         
         
@@ -785,7 +797,13 @@ static int nbGenerateIsotropicCore(lua_State* luaSt, dsfmt_t* prng, unsigned int
                     masses[i] = mass_dark_particle;
                 }
                 /*to ensure that r is finite and nonzero*/
-                if(isinf(r) == FALSE && r != 0.0 && isnan(r) == FALSE){break;}
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+                if(isinf(r) == FALSE && r != 0.0 && isnan(r) == FALSE)
+                {
+                    break;
+                }
+#pragma GCC diagnostic pop
                 
                 if(counter > 1000)
                 {
@@ -805,7 +823,13 @@ static int nbGenerateIsotropicCore(lua_State* luaSt, dsfmt_t* prng, unsigned int
             do
             {
                 v = vel_mag(prng, r, args);
-                if(isinf(v) == FALSE && v != 0.0 && isnan(v) == FALSE){break;}
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+                if(isinf(v) == FALSE && v != 0.0 && isnan(v) == FALSE)
+                {
+                    break;
+                }
+#pragma GCC diagnostic pop
                 
                 if(counter > 1000)
                 {

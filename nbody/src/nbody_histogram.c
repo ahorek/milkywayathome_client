@@ -112,17 +112,20 @@ unsigned int nbCorrectTotalNumberInHistogram(const NBodyHistogram* histogram, /*
 static void nbPrintHistogramHeader(FILE* f,
                                    const NBodyCtx* ctx,
                                    const HistogramParams* hp,
-                                   NBodyState* st)
+                                   const NBodyState* st)
 {
     int nbody = st->nbody;
     real bestLikelihood_time = st->bestLikelihood_time;
     real bestLikelihood = st->bestLikelihood;
     char tBuf[256];
     const Potential* p = &ctx->pot;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
     if (bestLikelihood_time == 0.0)
     {
         bestLikelihood_time = ctx->timeEvolve;
     }
+#pragma GCC diagnostic pop
 
     mwLocalTimeFull(tBuf, sizeof(tBuf));
 
@@ -196,7 +199,7 @@ static void nbPrintHistogramHeader(FILE* f,
         return;
     }
 
-    switch (p->sphere[1].type)
+    switch (p->sphere[0].type)
     {
         case HernquistSpherical:
 
@@ -678,7 +681,7 @@ MainStruct* nbCreateHistogram(const NBodyCtx* ctx,        /* Simulation context 
     real v_line_of_sight;
     real mu_ra;
     real mu_dec;
-    mwvector lambdaBetaR;
+    mwvector lambdaBetaR = ZERO_VECTOR;
     unsigned int lambdaIndex;
     unsigned int betaIndex;
     unsigned int Histindex;
@@ -1289,13 +1292,13 @@ MainStruct* nbReadHistogram(const char* histogramFile)
 
         if (!readEMDRange)
         {
-            rc = sscanf(lineBuf, " EMDRange = {%s} \n", &rangeString);
+            rc = sscanf(lineBuf, " EMDRange = {%s} \n", rangeString);
             if (strlen(rangeString) + 1 >= sizeof(rangeString))
-        {
-            mw_printf("Error reading EMDRange: string is too large");
-            error = TRUE;
-            break;
-        }
+            {
+                mw_printf("Error reading EMDRange: string is too large");
+                error = TRUE;
+                break;
+            }
             if(rc == 1)
             {
                 readEMDRange = TRUE;
@@ -1525,13 +1528,13 @@ MainStruct* nbReadHistogram(const char* histogramFile)
 
     if (error || used_hist == 0)
     {
-        for(int i = 0; i < num; i++)
+        for(unsigned int i = 0; i < num; i++)
             free(all->histograms[i]);
         free(all);
         return NULL;
     }
 
-    for(int i = 0; i < num; i++)
+    for(unsigned int i = 0; i < num; i++)
     {
         if(all->usage[i])
         {
@@ -1575,7 +1578,7 @@ MainStruct* nbReadHistogram(const char* histogramFile)
 mwvector getHistogramCenter(const NBodyHistogram* hist, HistogramParams* hp, NBodyState* st, NBodyCtx* ctx){
     int i;
     real bestLambda, highestCount = 0, tmpCount;
-    mwvector center, pos;
+    mwvector center = ZERO_VECTOR, pos = ZERO_VECTOR;
     center.x = 0;
     center.y = 0;
     center.z = 0;
@@ -1590,7 +1593,7 @@ mwvector getHistogramCenter(const NBodyHistogram* hist, HistogramParams* hp, NBo
     }
 
     real lambdaBinSize = getAngleDiffDegrees(hp->lambdaStart, hp->lambdaEnd)/lambdaBins;
-    mwvector lambdaBeta;
+    mwvector lambdaBeta = ZERO_VECTOR;
     NBHistTrig histTrig;
     real maxLambda, minLambda, betaCount, betas = 0;
     nbGetHistTrig(&histTrig, hp);

@@ -183,7 +183,7 @@ static real nbCalculateEps2_OLD(real nbody, real a_b, real a_d, real M_b, real M
 static int luaCalculateEps2(lua_State* luaSt)
 {
     int nbody, arg_num, use_old_softening_length;
-    real r0, a_b, a_d, M_b, M_d;
+    real a_b, a_d, M_b, M_d;
 
     arg_num = lua_gettop(luaSt);
 
@@ -225,7 +225,7 @@ static int luaCalculateEps2(lua_State* luaSt)
 
 static int luaReverseOrbit(lua_State* luaSt)
 {
-    mwvector finalPos, finalVel;
+    mwvector finalPos = ZERO_VECTOR, finalVel = ZERO_VECTOR;
     static real dt = 0.0;
     static real tstop = 0.0;
     static Potential* pot = NULL;
@@ -273,7 +273,7 @@ static int luaReverseOrbit(lua_State* luaSt)
 
 static int luaReverseOrbit_LMC(lua_State* luaSt)
 {
-    mwvector finalPos, finalVel, LMCfinalPos, LMCfinalVel;
+    mwvector finalPos = ZERO_VECTOR, finalVel = ZERO_VECTOR, LMCfinalPos = ZERO_VECTOR, LMCfinalVel = ZERO_VECTOR;
     static real dt = 0.0;
     static real tstop = 0.0;
     static real ftime = 0.0;
@@ -344,7 +344,7 @@ static int luaReverseOrbit_LMC(lua_State* luaSt)
 
 static int luaPrintReverseOrbit(lua_State* luaSt)
 {
-    mwvector finalPos, finalVel;
+    mwvector finalPos = ZERO_VECTOR, finalVel = ZERO_VECTOR;
     static real dt = 0.0;
     static real tstop = 0.0;
     static real tstopf = 0.0;

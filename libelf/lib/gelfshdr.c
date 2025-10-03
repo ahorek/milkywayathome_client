@@ -22,7 +22,7 @@
 #if __LIBELF64
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: gelfshdr.c,v 1.10 2008/05/23 08:15:34 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: gelfshdr.c,v 1.10 2008/05/23 08:15:34 michael Exp $";
 #endif /* lint */
 
 #define check_and_copy(type, d, s, name, eret)		\
@@ -36,8 +36,8 @@ static const char rcsid[] = "@(#) $Id: gelfshdr.c,v 1.10 2008/05/23 08:15:34 mic
     } while (0)
 
 GElf_Shdr*
-gelf_getshdr(Elf_Scn *scn, GElf_Shdr *dst) {
-    GElf_Shdr buf;
+gelf_getshdr(Elf_Scn *scn, GElf_Shdr *dst_in) {
+    GElf_Shdr *dst;
 
     if (!scn) {
 	return NULL;
@@ -45,8 +45,14 @@ gelf_getshdr(Elf_Scn *scn, GElf_Shdr *dst) {
     elf_assert(scn->s_magic == SCN_MAGIC);
     elf_assert(scn->s_elf);
     elf_assert(scn->s_elf->e_magic == ELF_MAGIC);
-    if (!dst) {
-	dst = &buf;
+    if (dst_in) {
+        dst = dst_in; 
+    } else {
+	dst = (GElf_Shdr*)malloc(sizeof(GElf_Shdr));
+	if (!dst) {
+	    seterr(ERROR_MEM_SHDR);
+	    return NULL;
+	}
     }
     if (scn->s_elf->e_class == ELFCLASS64) {
 	*dst = scn->s_shdr64;
@@ -72,15 +78,10 @@ gelf_getshdr(Elf_Scn *scn, GElf_Shdr *dst) {
 	else {
 	    seterr(ERROR_UNKNOWN_CLASS);
 	}
-	return NULL;
-    }
-    if (dst == &buf) {
-	dst = (GElf_Shdr*)malloc(sizeof(GElf_Shdr));
-	if (!dst) {
-	    seterr(ERROR_MEM_SHDR);
-	    return NULL;
+	if (!dst_in) {
+	    free(dst);
 	}
-	*dst = buf;
+	return NULL;
     }
     return dst;
 }

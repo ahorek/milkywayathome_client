@@ -20,7 +20,7 @@
 #include <private.h>
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: cook.c,v 1.29 2008/05/23 08:15:34 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: cook.c,v 1.29 2008/05/23 08:15:34 michael Exp $";
 #endif /* lint */
 
 const Elf_Scn _elf_scn_init = INIT_SCN;
@@ -47,8 +47,8 @@ _elf_scn_type(unsigned t) {
 	case SHT_GNU_versym:    return ELF_T_HALF;
 #endif /* __LIBELF_SUN_SYMBOL_VERSIONS */
 #endif /* __LIBELF_SYMBOL_VERSIONS */
+        default:                return ELF_T_BYTE;
     }
-    return ELF_T_BYTE;
 }
 
 /*
@@ -82,7 +82,7 @@ _elf_item(void *buf, Elf *elf, Elf_Type type, size_t off) {
     Elf_Data src, dst;
 
     elf_assert(valid_type(type));
-    if (off < 0 || off > elf->e_size) {
+    if (off > elf->e_size) {
 	seterr(ERROR_OUTSIDE);
 	return NULL;
     }
@@ -245,7 +245,7 @@ _elf_cook_shdr(Elf *elf) {
 	Scn_Data *sd;
 	unsigned i;
 
-	if (off < 0 || off > elf->e_size) {
+	if (off > elf->e_size) {
 	    seterr(ERROR_OUTSIDE);
 	    return 0;
 	}

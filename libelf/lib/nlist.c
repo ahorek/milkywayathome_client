@@ -21,7 +21,7 @@
 #include <nlist.h>
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: nlist.c,v 1.15 2008/05/23 08:15:35 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: nlist.c,v 1.15 2008/05/23 08:15:35 michael Exp $";
 #endif /* lint */
 
 #if !defined(_WIN32)
@@ -65,7 +65,7 @@ symbol_name(Elf *elf, const void *syms, const char *names, size_t nlimit, size_t
     else {
 	return NULL;
     }
-    if (off >= 0 && off < nlimit) {
+    if (off < nlimit) {
 	return &names[off];
     }
     return NULL;

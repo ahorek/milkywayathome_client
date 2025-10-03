@@ -21,7 +21,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 #include <ext_types.h>
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: 32.fsize.c,v 1.13 2008/05/23 08:15:33 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: 32.fsize.c,v 1.13 2008/05/23 08:15:33 michael Exp $";
 #endif /* lint */
 
 const size_t

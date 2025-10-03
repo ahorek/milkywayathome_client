@@ -22,7 +22,7 @@
 #if __LIBELF64
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: gelfphdr.c,v 1.9 2008/05/23 08:15:34 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: gelfphdr.c,v 1.9 2008/05/23 08:15:34 michael Exp $";
 #endif /* lint */
 
 #define check_and_copy(type, d, s, name, eret)		\
@@ -36,9 +36,9 @@ static const char rcsid[] = "@(#) $Id: gelfphdr.c,v 1.9 2008/05/23 08:15:34 mich
     } while (0)
 
 GElf_Phdr*
-gelf_getphdr(Elf *elf, int ndx, GElf_Phdr *dst) {
-    GElf_Phdr buf;
+gelf_getphdr(Elf *elf, int ndx, GElf_Phdr *dst_in) {
     char *tmp;
+    GElf_Phdr *dst;
     size_t n;
 
     if (!elf) {
@@ -49,17 +49,26 @@ gelf_getphdr(Elf *elf, int ndx, GElf_Phdr *dst) {
     if (!tmp) {
 	return NULL;
     }
-    if (ndx < 0 || ndx >= elf->e_phnum) {
+    if (ndx < 0 || (unsigned) ndx >= elf->e_phnum) {
 	seterr(ERROR_BADINDEX);
+	free(tmp);
 	return NULL;
     }
     n = _msize(elf->e_class, _elf_version, ELF_T_PHDR);
     if (n == 0) {
 	seterr(ERROR_UNIMPLEMENTED);
+	free(tmp);
 	return NULL;
     }
-    if (!dst) {
-	dst = &buf;
+    if (dst_in) {
+        dst = dst_in;
+    } else {
+	dst = (GElf_Phdr*)malloc(sizeof(GElf_Phdr));
+	if (!dst) {
+	    seterr(ERROR_MEM_PHDR);
+	    free(tmp);
+	    return NULL;
+	}
     }
     if (elf->e_class == ELFCLASS64) {
 	*dst = *(Elf64_Phdr*)(tmp + ndx * n);
@@ -83,16 +92,13 @@ gelf_getphdr(Elf *elf, int ndx, GElf_Phdr *dst) {
 	else {
 	    seterr(ERROR_UNKNOWN_CLASS);
 	}
+	if (!dst_in) {
+	    free(dst);
+	}
+	free(tmp);
 	return NULL;
     }
-    if (dst == &buf) {
-	dst = (GElf_Phdr*)malloc(sizeof(GElf_Phdr));
-	if (!dst) {
-	    seterr(ERROR_MEM_PHDR);
-	    return NULL;
-	}
-	*dst = buf;
-    }
+    free(tmp);
     return dst;
 }
 
@@ -109,7 +115,7 @@ gelf_update_phdr(Elf *elf, int ndx, GElf_Phdr *src) {
     if (!tmp) {
 	return 0;
     }
-    if (ndx < 0 || ndx >= elf->e_phnum) {
+    if (ndx < 0 || (unsigned)ndx >= elf->e_phnum) {
 	seterr(ERROR_BADINDEX);
 	return 0;
     }

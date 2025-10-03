@@ -321,7 +321,7 @@ typedef struct
 
 } HistogramParams;
 
-#define EMPTY_HISTOGRAM_PARAMS { 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0 }
+#define EMPTY_HISTOGRAM_PARAMS { 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0, 0, {0.0} }
 #define HISTOGRAM_PARAMS_TYPE "HistogramParams"
 
 typedef struct

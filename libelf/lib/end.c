@@ -20,7 +20,7 @@
 #include <private.h>
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: end.c,v 1.12 2008/05/23 08:15:34 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: end.c,v 1.12 2008/05/23 08:15:34 michael Exp $";
 #endif /* lint */
 
 #if HAVE_MMAP
@@ -35,7 +35,7 @@ _elf_free(void *ptr) {
 }
 
 static void
-_elf_free_scns(Elf *elf, Elf_Scn *scn) {
+_elf_free_scns(Elf *elf __attribute__((unused)), Elf_Scn *scn) {
     Scn_Data *sd, *tmp;
     Elf_Scn *freescn;
 

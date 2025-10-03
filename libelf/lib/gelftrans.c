@@ -22,7 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 #if __LIBELF64
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: gelftrans.c,v 1.10 2008/05/23 08:15:34 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: gelftrans.c,v 1.10 2008/05/23 08:15:34 michael Exp $";
 #endif /* lint */
 
 #define check_and_copy(type, d, s, name, eret)		\
@@ -105,18 +105,26 @@ get_addr_and_class(const Elf_Data *data, int ndx, Elf_Type type, unsigned *cls) 
 }
 
 GElf_Sym*
-gelf_getsym(Elf_Data *src, int ndx, GElf_Sym *dst) {
-    GElf_Sym buf;
+gelf_getsym(Elf_Data *src_in, int ndx, GElf_Sym *dst_in) {
+    GElf_Sym *dst;
     unsigned cls;
     char *tmp;
 
-    if (!dst) {
-	dst = &buf;
-    }
-    tmp = get_addr_and_class(src, ndx, ELF_T_SYM, &cls);
+    tmp = get_addr_and_class(src_in, ndx, ELF_T_SYM, &cls);
     if (!tmp) {
 	return NULL;
     }
+    if (dst_in) {
+        dst = dst_in;
+    } else {
+        dst = (GElf_Sym*)malloc(sizeof(GElf_Sym));
+	if (!dst) {
+	    free(tmp);
+	    seterr(ERROR_MEM_SYM);
+	    return NULL;
+	}
+    }
+
     if (cls == ELFCLASS64) {
 	*dst = *(Elf64_Sym*)tmp;
     }
@@ -131,26 +139,23 @@ gelf_getsym(Elf_Data *src, int ndx, GElf_Sym *dst) {
 	check_and_copy(GElf_Xword,    dst, src, st_size,  NULL);
     }
     else {
+	free(tmp);
+	if (!dst_in) {
+	    free(dst);
+	}
 	seterr(ERROR_UNIMPLEMENTED);
 	return NULL;
     }
-    if (dst == &buf) {
-	dst = (GElf_Sym*)malloc(sizeof(GElf_Sym));
-	if (!dst) {
-	    seterr(ERROR_MEM_SYM);
-	    return NULL;
-	}
-	*dst = buf;
-    }
+    free(tmp);
     return dst;
 }
 
 int
-gelf_update_sym(Elf_Data *dst, int ndx, GElf_Sym *src) {
+gelf_update_sym(Elf_Data *dst_in, int ndx, GElf_Sym *src) {
     unsigned cls;
     char *tmp;
 
-    tmp = get_addr_and_class(dst, ndx, ELF_T_SYM, &cls);
+    tmp = get_addr_and_class(dst_in, ndx, ELF_T_SYM, &cls);
     if (!tmp) {
 	return 0;
     }
@@ -168,25 +173,36 @@ gelf_update_sym(Elf_Data *dst, int ndx, GElf_Sym *src) {
 	check_and_copy(Elf32_Half,    dst, src, st_shndx, 0);
     }
     else {
+        free(tmp);
 	seterr(ERROR_UNIMPLEMENTED);
 	return 0;
     }
+    free(tmp);
     return 1;
 }
 
 GElf_Dyn*
-gelf_getdyn(Elf_Data *src, int ndx, GElf_Dyn *dst) {
-    GElf_Dyn buf;
+gelf_getdyn(Elf_Data *src_in, int ndx, GElf_Dyn *dst_in) {
     unsigned cls;
     char *tmp;
+    GElf_Dyn *dst;
 
-    if (!dst) {
-	dst = &buf;
-    }
-    tmp = get_addr_and_class(src, ndx, ELF_T_DYN, &cls);
+    tmp = get_addr_and_class(src_in, ndx, ELF_T_DYN, &cls);
     if (!tmp) {
 	return NULL;
     }
+
+    if (dst_in) {
+      dst = dst_in;
+    } else {
+      dst = (GElf_Dyn*)malloc(sizeof(GElf_Dyn));
+      if (!dst) {
+	free(tmp);
+	seterr(ERROR_MEM_DYN);
+	return NULL;
+      }
+    }
+
     if (cls == ELFCLASS64) {
 	*dst = *(Elf64_Dyn*)tmp;
     }
@@ -197,26 +213,23 @@ gelf_getdyn(Elf_Data *src, int ndx, GElf_Dyn *dst) {
 	check_and_copy(GElf_Xword,  dst, src, d_un.d_val, NULL);
     }
     else {
+        if (!dst_in) {
+	  free(dst);
+	}
+	free(tmp);
 	seterr(ERROR_UNIMPLEMENTED);
 	return NULL;
     }
-    if (dst == &buf) {
-	dst = (GElf_Dyn*)malloc(sizeof(GElf_Dyn));
-	if (!dst) {
-	    seterr(ERROR_MEM_DYN);
-	    return NULL;
-	}
-	*dst = buf;
-    }
+    free(tmp);
     return dst;
 }
 
 int
-gelf_update_dyn(Elf_Data *dst, int ndx, GElf_Dyn *src) {
+gelf_update_dyn(Elf_Data *dst_in, int ndx, GElf_Dyn *src) {
     unsigned cls;
     char *tmp;
 
-    tmp = get_addr_and_class(dst, ndx, ELF_T_DYN, &cls);
+    tmp = get_addr_and_class(dst_in, ndx, ELF_T_DYN, &cls);
     if (!tmp) {
 	return 0;
     }
@@ -237,18 +250,27 @@ gelf_update_dyn(Elf_Data *dst, int ndx, GElf_Dyn *src) {
 }
 
 GElf_Rela*
-gelf_getrela(Elf_Data *src, int ndx, GElf_Rela *dst) {
-    GElf_Rela buf;
+gelf_getrela(Elf_Data *src_in, int ndx, GElf_Rela *dst_in) {
     unsigned cls;
     char *tmp;
+    GElf_Rela *dst;
 
-    if (!dst) {
-	dst = &buf;
-    }
-    tmp = get_addr_and_class(src, ndx, ELF_T_RELA, &cls);
+    tmp = get_addr_and_class(src_in, ndx, ELF_T_RELA, &cls);
     if (!tmp) {
 	return NULL;
     }
+
+    if (dst_in) {
+      dst = dst_in;
+    } else {
+      dst = (GElf_Rela*)malloc(sizeof(GElf_Rela));
+      if (!dst) {
+	free(tmp);
+	seterr(ERROR_MEM_RELA);
+	return NULL;
+      }
+    }
+
     if (cls == ELFCLASS64) {
 	*dst = *(Elf64_Rela*)tmp;
     }
@@ -261,26 +283,23 @@ gelf_getrela(Elf_Data *src, int ndx, GElf_Rela *dst) {
 	check_and_copy(GElf_Sxword, dst, src, r_addend, NULL);
     }
     else {
+	if (!dst_in) {
+	  free(dst);
+	}
+        free(tmp);
 	seterr(ERROR_UNIMPLEMENTED);
 	return NULL;
     }
-    if (dst == &buf) {
-	dst = (GElf_Rela*)malloc(sizeof(GElf_Rela));
-	if (!dst) {
-	    seterr(ERROR_MEM_RELA);
-	    return NULL;
-	}
-	*dst = buf;
-    }
+    free(tmp);
     return dst;
 }
 
 int
-gelf_update_rela(Elf_Data *dst, int ndx, GElf_Rela *src) {
+gelf_update_rela(Elf_Data *dst_in, int ndx, GElf_Rela *src) {
     unsigned cls;
     char *tmp;
 
-    tmp = get_addr_and_class(dst, ndx, ELF_T_RELA, &cls);
+    tmp = get_addr_and_class(dst_in, ndx, ELF_T_RELA, &cls);
     if (!tmp) {
 	return 0;
     }
@@ -308,18 +327,26 @@ gelf_update_rela(Elf_Data *dst, int ndx, GElf_Rela *src) {
 }
 
 GElf_Rel*
-gelf_getrel(Elf_Data *src, int ndx, GElf_Rel *dst) {
-    GElf_Rel buf;
+gelf_getrel(Elf_Data *src_in, int ndx, GElf_Rel *dst_in) {
     unsigned cls;
     char *tmp;
+    GElf_Rel *dst;
 
-    if (!dst) {
-	dst = &buf;
-    }
-    tmp = get_addr_and_class(src, ndx, ELF_T_REL, &cls);
+    tmp = get_addr_and_class(src_in, ndx, ELF_T_REL, &cls);
     if (!tmp) {
 	return NULL;
     }
+    if (dst_in) {
+      dst = dst_in;
+    } else {
+      dst = (GElf_Rel*)malloc(sizeof(GElf_Rel));
+      if (!dst) {
+	free(tmp);
+	seterr(ERROR_MEM_REL);
+	return NULL;
+      }
+    }
+
     if (cls == ELFCLASS64) {
 	*dst = *(Elf64_Rel*)tmp;
     }
@@ -331,26 +358,23 @@ gelf_getrel(Elf_Data *src, int ndx, GElf_Rel *dst) {
 				   (Elf64_Xword)ELF32_R_TYPE(src->r_info));
     }
     else {
+        if (!dst_in) {
+	  free(dst);
+	}
+	free(tmp);
 	seterr(ERROR_UNIMPLEMENTED);
 	return NULL;
     }
-    if (dst == &buf) {
-	dst = (GElf_Rel*)malloc(sizeof(GElf_Rel));
-	if (!dst) {
-	    seterr(ERROR_MEM_REL);
-	    return NULL;
-	}
-	*dst = buf;
-    }
+    free(tmp);
     return dst;
 }
 
 int
-gelf_update_rel(Elf_Data *dst, int ndx, GElf_Rel *src) {
+gelf_update_rel(Elf_Data *dst_in, int ndx, GElf_Rel *src) {
     unsigned cls;
     char *tmp;
 
-    tmp = get_addr_and_class(dst, ndx, ELF_T_REL, &cls);
+    tmp = get_addr_and_class(dst_in, ndx, ELF_T_REL, &cls);
     if (!tmp) {
 	return 0;
     }

@@ -52,9 +52,9 @@
 }                                                                                                                        //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*                            NFW                                                                                        */
-/* this density is taken from the 1997 paper by nfw. the potential is taken from binney 2nd ed                           */                         
+/* this density is taken from the 1997 paper by nfw. the potential is taken from binney 2nd ed                           */
  static real nfw_den(const Dwarf* model, real r)                                                                         //
-{                                                                                                                        //                                                                                       
+{                                                                                                                        //
     const real rscale = model->scaleLength;                                                                              //
     const real p0 = model->p0;                                                                                           //
     real R = r / rscale;                                                                                                 //
@@ -63,7 +63,7 @@
 }                                                                                                                        //
                                                                                                                          //
  static real nfw_pot(const Dwarf* model, real r)                                                                         //
-{                                                                                                                        //                                                                                      
+{                                                                                                                        //
     const real rscale = model->scaleLength;                                                                              //
     const real p0 = model->p0;                                                                                           //
     real R = r / rscale;                                                                                                 //
@@ -89,9 +89,9 @@ static real gen_hern_pot(const Dwarf* model, real r)                            
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*                             EINASTO                                                                                   */
 /* these are taken from the einasto paper. There are many problems with this, so it is currently unused.                 */
-static real einasto_den(const Dwarf* model, real r)                                                                      //
+__attribute__((unused)) static real einasto_den(const Dwarf* model, real r)                                              //                                                                     //
 {                                                                                                                        //
-    const real mass = model->mass;                                                                                       //
+    const real mass __attribute__((unused)) = model->mass;                                                               //
     const real h = model->scaleLength;                                                                                   //
     const real n = model->n;                                                                                             //
                                                                                                                          //
@@ -100,7 +100,7 @@ static real einasto_den(const Dwarf* model, real r)                             
     return coeff * mw_exp(-thing);                                                                                       //
 }                                                                                                                        //
                                                                                                                          //
-static real einasto_pot(const Dwarf* model, real r)                                                                      //
+__attribute__((unused)) static real einasto_pot(const Dwarf* model, real r)                                              //
 {                                                                                                                        //
     const real mass = model->mass;                                                                                       //
     const real h = model->scaleLength;                                                                                   //
@@ -118,65 +118,65 @@ static real einasto_pot(const Dwarf* model, real r)                             
 /*                             CORED                                                                                     */
 /* this potential and density are cored profiles to be used with SIDM.                                                   */
 static real cored_den(const Dwarf* model, real r)                                                                        //
-{                              																							 //
-	const real r1 = model->r1;																							 //
-	real p;																							 			         //
-	real rscale;																									     //
-	if(r <= r1)																											 //
-	{																													 //
-		p = model->p0;																								     //
-		rscale = model->rc;	       																						 //
-		return p / (1.0 + sqr(r / rscale));																				 //
-	}																													 //
-	else																												 //
-	{																													 //
-		p = model->ps;																								     //
-		rscale = model->scaleLength;																					 //
-		return p / ((r / rscale) * sqr(1.0 + r / rscale));																 //
-	}																													 //
+{                                                                                                                        //
+    const real r1 = model->r1;                                                                                           //
+    real p = 0.0;                                                                                                        //
+    real rscale = 0.0;                                                                                                   //
+    if(r <= r1)                                                                                                          //
+    {                                                                                                                    //
+        p = model->p0;                                                                                                   //
+        rscale = model->rc;                                                                                              //
+        return p / (1.0 + sqr(r / rscale));                                                                              //
+    }                                                                                                                    //
+    else                                                                                                                 //
+    {                                                                                                                    //
+        p = model->ps;                                                                                                   //
+        rscale = model->scaleLength;                                                                                     //
+        return p / ((r / rscale) * sqr(1.0 + r / rscale));                                                               //
+    }                                                                                                                    //
 }                                                                                                                        //
                                                                                                                          //
 static real cored_pot(const Dwarf* model, real r)                                                                        //
 {                                                                                                                        //
-	const real r1 = model->r1;                                                                                           //
-	const real p0 = model->p0;                                                                                           //
-	const real rc = model->rc;                                                                                           //
-	const real ps = model->ps;                                                                                           //
-	const real rs = model->scaleLength;                                                                                  //                                                                                                  //
-	const real C3 = 4.0 * M_PI * (                                                                                       //                     
+    const real r1 = model->r1;                                                                                           //
+    const real p0 = model->p0;                                                                                           //
+    const real rc = model->rc;                                                                                           //
+    const real ps = model->ps;                                                                                           //
+    const real rs = model->scaleLength;                                                                                  //
+    const real C3 = 4.0 * M_PI * (                                                                                       //
             ps * cube(rs) * (                                                                                            //
                 mw_log((1.0 + r1 / rs)) - r1 / (rs + r1)                                                                 //
             )                                                                                                            //
             - p0 * sqr(rc) * (                                                                                           //
                 r1 - rc * mw_atan(r1 / rc)                                                                               //
             )                                                                                                            //
-        );                                                                                                               // 
+        );                                                                                                               //
                                                                                                                          //
-	if(r <= r1)                                                                                                          //
-	{                                                                                                                    //
-		const real C2 = C3 / r1 - (4.0 * M_PI) / r1 * (                                                                  //
+    if(r <= r1)                                                                                                          //
+    {                                                                                                                    //
+            const real C2 = C3 / r1 - (4.0 * M_PI) / r1 * (                                                              //
             ps * cube(rs) * mw_log(1 + r1 / rs) +                                                                        //
             p0 * (                                                                                                       //
                 (sqr(rc) * r1) / 2.0 * mw_log(sqr(r1) + sqr(rc)) +                                                       //
                 cube(rc) * mw_atan(r1 / rc)                                                                              //
-            )                                                                                                            // 
+            )                                                                                                            //
         );                                                                                                               //
-		return -1.0 * (4.0 * M_PI * p0 * (                                                                               //
+        return -1.0 * (4.0 * M_PI * p0 * (                                                                               //
             sqr(rc) / 2.0 * mw_log(sqr(r) + sqr(rc)) +                                                                   //
             cube(rc) / r * mw_atan(r / rc)                                                                               //
-        ) + C2);                                                                                                         // 
-	}                                                                                                                    //
-	else                                                                                                                 //
-	{                                                                                                                    //
-		return  -1.0 * (-4.0 * M_PI * ps * cube(rs) / r * mw_log(1.0 + r / rs) + C3 / r);                                // 
-	}																													 //
+        ) + C2);                                                                                                         //
+    }                                                                                                                    //
+    else                                                                                                                 //
+    {                                                                                                                    //
+            return  -1.0 * (-4.0 * M_PI * ps * cube(rs) / r * mw_log(1.0 + r / rs) + C3 / r);                            //
+    }                                                                                                                    //
 }                                                                                                                        //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 real get_potential(const Dwarf* model, real r)
 {
-    real pot_temp;
-    
+    real pot_temp = 0.0;
+
     switch(model->type)
     {
         case Plummer:
@@ -196,7 +196,7 @@ real get_potential(const Dwarf* model, real r)
             break;
         case InvalidDwarf:
         default:
-            mw_fail("Invalid dwarf type\n");
+            mw_fail("Invalid dwarf type, %d\n", model->type);
     }
 
     return pot_temp;
@@ -206,8 +206,8 @@ real get_potential(const Dwarf* model, real r)
 
 real get_density(const Dwarf* model, real r)
 {
-    real den_temp;
-    
+    real den_temp = 0.0;
+
     switch(model->type)
     {
         case Plummer:
@@ -227,10 +227,10 @@ real get_density(const Dwarf* model, real r)
             break;
         case InvalidDwarf:
         default:
-            mw_fail("Invalid dwarf type");
-            
+            mw_fail("Invalid dwarf type, %d\n", model->type);
+
     }
-    
+
     return den_temp;
 }
 

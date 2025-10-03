@@ -151,7 +151,7 @@ static void nbPrintVersion(int boincTag, int verbose)
     }
 }
 
-static int nbInit(const NBodyFlags* nbf)
+static int nbInit(const NBodyFlags* nbf __attribute__((unused)))
 {
     MWInitType initType = MW_PLAIN;
 
@@ -524,8 +524,9 @@ static void nbSetDefaultFlags(NBodyFlags* nbf)
     }
 }
 
-static void freeNBodyFlags(NBodyFlags* nbf)
+static void freeNBodyFlags(NBodyFlags* nbf __attribute__((unused)))
 {
+    /* These values come from argv, not malloc, do don't free them.
     free(nbf->inputFile);
     free(nbf->outFileName);
     free(nbf->checkpointFileName);
@@ -535,6 +536,7 @@ static void freeNBodyFlags(NBodyFlags* nbf)
     free(nbf->forwardedArgs);
     free(nbf->graphicsBin);
     free(nbf->visArgs);
+    */
 }
 
 static int nbSetNumThreads(int numThreads)

@@ -20,7 +20,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 #include <private.h>
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: checksum.c,v 1.7 2008/05/23 08:15:34 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: checksum.c,v 1.7 2008/05/23 08:15:34 michael Exp $";
 #endif /* lint */
 
 /*
@@ -54,6 +54,7 @@ skip_section(Elf_Scn *scn, unsigned cls) {
 	    case SHT_DYNSYM:
 	    case SHT_DYNAMIC:
 		return 1;
+	    default:
 	}
     }
 #if __LIBELF64
@@ -70,6 +71,7 @@ skip_section(Elf_Scn *scn, unsigned cls) {
 	    case SHT_DYNSYM:
 	    case SHT_DYNAMIC:
 		return 1;
+	    default:
 	}
     }
 #endif /* __LIBELF64 */

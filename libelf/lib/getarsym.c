@@ -21,7 +21,7 @@
 #include <byteswap.h>
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: getarsym.c,v 1.9 2008/05/23 08:15:34 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: getarsym.c,v 1.9 2008/05/23 08:15:34 michael Exp $";
 #endif /* lint */
 
 Elf_Arsym*

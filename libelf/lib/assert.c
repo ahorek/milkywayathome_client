@@ -20,7 +20,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 #include <private.h>
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: assert.c,v 1.5 2008/05/23 08:15:34 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: assert.c,v 1.5 2008/05/23 08:15:34 michael Exp $";
 #endif /* lint */
 
 #include <stdio.h>

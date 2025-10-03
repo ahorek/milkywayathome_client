@@ -22,7 +22,7 @@
 #if __LIBELF64
 
 #ifndef lint
-static const char rcsid[] = "@(#) $Id: gelfehdr.c,v 1.9 2008/05/23 08:15:34 michael Exp $";
+static const char rcsid[] __attribute__((unused)) = "@(#) $Id: gelfehdr.c,v 1.9 2008/05/23 08:15:34 michael Exp $";
 #endif /* lint */
 
 #define check_and_copy(type, d, s, name, eret)		\
@@ -36,9 +36,9 @@ static const char rcsid[] = "@(#) $Id: gelfehdr.c,v 1.9 2008/05/23 08:15:34 mich
     } while (0)
 
 GElf_Ehdr*
-gelf_getehdr(Elf *elf, GElf_Ehdr *dst) {
-    GElf_Ehdr buf;
+gelf_getehdr(Elf *elf, GElf_Ehdr *dst_in) {
     char *tmp;
+    GElf_Ehdr *dst;
 
     if (!elf) {
 	return NULL;
@@ -48,9 +48,18 @@ gelf_getehdr(Elf *elf, GElf_Ehdr *dst) {
     if (!tmp) {
 	return NULL;
     }
-    if (!dst) {
-	dst = &buf;
+
+    if (dst_in) {
+      dst = dst_in;
+    } else {
+      dst = (GElf_Ehdr*)malloc(sizeof(GElf_Ehdr));
+      if (!dst) {
+	  seterr(ERROR_MEM_EHDR);
+	  free(tmp);
+	  return NULL;
+      }
     }
+
     if (elf->e_class == ELFCLASS64) {
 	*dst = *(Elf64_Ehdr*)tmp;
     }
@@ -79,16 +88,14 @@ gelf_getehdr(Elf *elf, GElf_Ehdr *dst) {
 	else {
 	    seterr(ERROR_UNKNOWN_CLASS);
 	}
+	if (!dst_in) {
+	  free(dst);
+	}
+	free(tmp);
 	return NULL;
     }
-    if (dst == &buf) {
-	dst = (GElf_Ehdr*)malloc(sizeof(GElf_Ehdr));
-	if (!dst) {
-	    seterr(ERROR_MEM_EHDR);
-	    return NULL;
-	}
-	*dst = buf;
-    }
+
+    free(tmp);
     return dst;
 }
 
