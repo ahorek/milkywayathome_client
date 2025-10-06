@@ -528,8 +528,11 @@ void nbPrintHistogram(FILE* f, const MainStruct* all)
     fprintf(f, "totalSimulated = %u\n", all->histograms[0]->totalSimulated);
     fprintf(f, "lambdaBins = %u\n", all->histograms[0]->lambdaBins);
     fprintf(f, "betaBins = %u\n", all->histograms[0]->betaBins);
-    fprintf(f, "L = {%lf, %lf, %lf}\n", all->histograms[0]->params.L.x, all->histograms[0]->params.L.y, all->histograms[0]->params.L.z);
-    fprintf(f, "LErr = {%lf, %lf, %lf}\n", all->histograms[0]->params.LErr.x, all->histograms[0]->params.LErr.y, all->histograms[0]->params.LErr.z);
+    if(all->histograms[0]->params.LErr.x != 0 && all->histograms[0]->params.LErr.y != 0 && all->histograms[0]->params.LErr.z != 0)
+    {
+        fprintf(f, "L = {%lf, %lf, %lf}\n", all->histograms[0]->params.L.x, all->histograms[0]->params.L.y, all->histograms[0]->params.L.z);
+        fprintf(f, "LErr = {%lf, %lf, %lf}\n", all->histograms[0]->params.LErr.x, all->histograms[0]->params.LErr.y, all->histograms[0]->params.LErr.z);
+    }
     if(all->usage[6]) fprintf(f, "hasPM = 1\n");
     if(all->usage[3]) fprintf(f, "!\n");
     

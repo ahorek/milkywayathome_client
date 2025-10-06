@@ -113,7 +113,7 @@ use_pm_comp          = true  -- calculate proper motion, use in likelihood
 -- histogram (after <histogram> )with the following lines:
     -- L = {Lx, Ly, Lz} (angular momentum vector)
     -- LErr = {Err_Lx, Err_Ly, Err_Lz} (uncertainty in angular momentum vector)
--- These are in units of SMU * kpc^2/Gyr
+-- These are in units of kpc^2/Gyr (no mass included)
 use_momentum         = true  -- calculate angular momentum, use in likelihood
 
 -- number of additional forward evolutions to do to calibrate the rotation of the bar
