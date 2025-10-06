@@ -394,9 +394,7 @@ void nbRemoveMomentumOutliers(const NBodyState* st, NBodyHistogram* histogram, i
                     }
                 }
             }
-            LErr.x = X(LDiff_sum)/(real)(counts-1); /*variance in average angular momentum vector of simulation*/
-            LErr.y = Y(LDiff_sum)/(real)(counts-1);
-            LErr.z = Z(LDiff_sum)/(real)(counts-1);
+            LErr = mw_divvs(LDiff_sum, (real)(counts-1)); /*variance in average angular momentum vector of simulation*/
             /*replace values*/
             LErr.x = mw_sqrt(X(LErr));
             LErr.y = mw_sqrt(Y(LErr));
@@ -419,8 +417,6 @@ void nbRemoveMomentumOutliers(const NBodyState* st, NBodyHistogram* histogram, i
         histogram->params.LErr.x = LErr.x;
         histogram->params.LErr.y = LErr.y;
         histogram->params.LErr.z = LErr.z;
-
-        printf("Iteration %d: L = {%.15f, %.15f, %.15f} LErr = {%.15f, %.15f, %.15f} Counts = %.0f\n",i,L_avg.x,L_avg.y,L_avg.z,LErr.x,LErr.y,LErr.z,counts);
 
         L_avg = histogram->params.L;
         LErr = histogram->params.LErr;
@@ -695,9 +691,6 @@ void nbCalcMomentum(const NBodyState* st, const NBodyCtx* ctx, const NBodyHistog
     histogram->params.LErr.x = LErr.x;
     histogram->params.LErr.y = LErr.y;
     histogram->params.LErr.z = LErr.z;
-
-    printf("Initial Momentum: L = [%.15f, %.15f, %.15f] +/- [%.15f, %.15f, %.15f] \n", X(L_avg), Y(L_avg), Z(L_avg), X(LErr), Y(LErr), Z(LErr));
-    printf("Bodies in Momentum Calculation: %.0f \n", counter);
 
     nbRemoveMomentumOutliers(st, histogram, in_hist, ctx->MomentumSigma, ctx->IterMax, ctx->MomentumCorrect, nbody, counter); /*Remove outliers now that we have a standard deviation*/
     return;

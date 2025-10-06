@@ -43,30 +43,30 @@
   #include <sys/stat.h>
 #endif
 
-//#ifndef _WIN32
-//
-//typedef struct
-//{
-//    int fd;            /* File descriptor for checkpoint file */
-//    char* mptr;        /* mmap'd pointer for checkpoint file */
-//    size_t cpFileSize; /* For checking how big the file should be for expected bodies */
-//} CheckpointHandle;
-//
-//#define EMPTY_CHECKPOINT_HANDLE { 1, NULL, 0 }
-//
-//#else
-//
-//typedef struct
-//{
-//    HANDLE file;
-//    HANDLE mapFile;
-//    char* mptr;
-//    DWORD cpFileSize;
-//} CheckpointHandle;
-//
-//#define EMPTY_CHECKPOINT_HANDLE { INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, NULL, 0 }
-//
-//#endif /* _WIN32 */
+#ifndef _WIN32
+
+typedef struct
+{
+    int fd;            /* File descriptor for checkpoint file */
+    char* mptr;        /* mmap'd pointer for checkpoint file */
+    size_t cpFileSize; /* For checking how big the file should be for expected bodies */
+} CheckpointHandle;
+
+#define EMPTY_CHECKPOINT_HANDLE { 1, NULL, 0 }
+
+#else
+
+typedef struct
+{
+    HANDLE file;
+    HANDLE mapFile;
+    char* mptr;
+    DWORD cpFileSize;
+} CheckpointHandle;
+
+#define EMPTY_CHECKPOINT_HANDLE { INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, NULL, 0 }
+
+#endif /* _WIN32 */
 
 
 /* Checkpoint file: Very simple binary "format"
@@ -80,31 +80,30 @@
    ending                  string     "end"      Kind of dumb and pointless
  */
 
-//static const char hdr[] = "mwnbody";
-//static const char tail[] = "end";
+static const char hdr[] = "mwnbody";
+static const char tail[] = "end";
 
-//typedef struct
-//{
-//    char header[128];                     /* "mwnbody" */
-//    uint32_t majorVersion, minorVersion;  /* Version check */
-//    uint32_t nbody;
-//    uint32_t step;
-//    uint32_t realSize;                   /* Does the checkpoint use float or double */
-//    uint32_t ptrSize;
-//    uint32_t nOrbitTrace;
-//    uint32_t nShiftLMC;
-//    uint32_t treeIncest;
-//    real rsize;
-//    NBodyCtx ctx;
-//} NBodyCheckpointHeader;
+typedef struct
+{
+    char header[128];                     /* "mwnbody" */
+    uint32_t majorVersion, minorVersion;  /* Version check */
+    uint32_t nbody;
+    uint32_t step;
+    uint32_t realSize;                   /* Does the checkpoint use float or double */
+    uint32_t ptrSize;
+    uint32_t nOrbitTrace;
+    uint32_t nShiftLMC;
+    uint32_t treeIncest;
+    real rsize;
+    NBodyCtx ctx;
+} NBodyCheckpointHeader;
 
-//static const size_t hdrSize = sizeof(NBodyCheckpointHeader) + sizeof(tail);
+static const size_t hdrSize = sizeof(NBodyCheckpointHeader) + sizeof(tail);
 
 
 
 static void nbPrepareWriteCheckpointHeader(NBodyCheckpointHeader* cp, const NBodyCtx* ctx, const NBodyState* st)
 {
-    static const char hdr[] = "mwnbody";
     strcpy(cp->header, hdr);
     cp->realSize = sizeof(real);
     cp->ptrSize = sizeof(void*);
@@ -121,7 +120,7 @@ static void nbPrepareWriteCheckpointHeader(NBodyCheckpointHeader* cp, const NBod
     cp->treeIncest = st->treeIncest;
 }
 
-void nbReadCheckpointHeader(NBodyCheckpointHeader* cp, NBodyCtx* ctx, NBodyState* st)
+static void nbReadCheckpointHeader(NBodyCheckpointHeader* cp, NBodyCtx* ctx, NBodyState* st)
 {
     memcpy(ctx, &cp->ctx, sizeof(*ctx));
     st->nbody = cp->nbody;
@@ -130,12 +129,12 @@ void nbReadCheckpointHeader(NBodyCheckpointHeader* cp, NBodyCtx* ctx, NBodyState
     st->treeIncest = cp->treeIncest;
 }
 
-int nbVerifyCheckpointHeader(const NBodyCheckpointHeader* cpHdr,
+static int nbVerifyCheckpointHeader(const NBodyCheckpointHeader* cpHdr,
                                     const CheckpointHandle* cp,
                                     const NBodyState* st,
                                     size_t supposedCheckpointSize)
 {
-    static const char hdr[] = "mwnbody";
+    //static const char hdr[] = "mwnbody";
     if (strncmp(cpHdr->header, hdr, sizeof(cpHdr->header)))
     {
         mw_printf("Didn't find header for checkpoint file.\n");
@@ -208,8 +207,6 @@ static int nbOpenCheckpointHandle(const NBodyState* st,
         mw_printf("Checkpoint '%s' is not a file\n", filename);
         return TRUE;
     }
-    static const char tail[] = "end";
-    static const size_t hdrSize = sizeof(NBodyCheckpointHeader) + sizeof(tail);
     if (writing)
     {
                    /*Header Size +     Total Body Size        +      Best Likelihood Info       +         Total Orbit Size           +           Shift Array Size       + LMC Coord Size*/
@@ -316,7 +313,6 @@ static int nbOpenCheckpointHandle(const NBodyState* st,
         mwPerrorW32("Failed to open checkpoint file '%s'\n", filename);
         return TRUE;
     }
-    static const size_t hdrSize = sizeof(NBodyCheckpointHeader) + sizeof(tail);
     if (writing)
     {
                             /*Header Size +      Total Body Size       +      Best Likelihood Info       +         Total Orbit Size           +           Shift Array Size       + LMC Coord Size*/
@@ -396,7 +392,7 @@ static int nbCloseCheckpointHandle(CheckpointHandle* cp)
 #endif /* _WIN32 */
 
 /* Should be given the same context as the dump. Returns nonzero if the state failed to be thawed */
-int nbThawState(NBodyCtx* ctx, NBodyState* st, CheckpointHandle* cp)
+static int nbThawState(NBodyCtx* ctx, NBodyState* st, CheckpointHandle* cp)
 {
     size_t bodySize, likelihoodSize, traceSize, ShiftLMCSize, LMCPosVelSize, supposedCheckpointSize;
     NBodyCheckpointHeader cpHdr;
@@ -477,8 +473,6 @@ int nbThawState(NBodyCtx* ctx, NBodyState* st, CheckpointHandle* cp)
         p += sizeof(mwvector);
         //mw_printf("Read LMC position: [%.15f,%.15f,%.15f]\n",X(st->LMCpos[0]),Y(st->LMCpos[0]),Z(st->LMCpos[0]));
     }
-    static const char tail[] = "end";
-    static const size_t hdrSize = sizeof(NBodyCheckpointHeader) + sizeof(tail);
     supposedCheckpointSize = hdrSize + 2*bodySize + likelihoodSize + traceSize + ShiftLMCSize + LMCPosVelSize + *sizeOfData + sizeof(size_t);
 
     if (nbVerifyCheckpointHeader(&cpHdr, cp, st, supposedCheckpointSize))
@@ -581,7 +575,6 @@ static void nbFreezeState(const NBodyCtx* ctx, const NBodyState* st, CheckpointH
         memcpy(p, &st->LMCvel, sizeof(mwvector));
         p += sizeof(mwvector);
     }
-    static const char tail[] = "end";
 
     strcpy(p, tail);
 }
