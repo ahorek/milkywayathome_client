@@ -67,8 +67,8 @@ char* find_lua_file(const char* filename) {
             snprintf(result, MAX_PATH_LENGTH, "%s%s/%s", 
                     (relative_paths[i][0] == '/') ? cwd : "", 
                     relative_paths[i], filename);
-        }
 #pragma GCC diagnostic pop
+        }
         
         printf("Trying path: %s\n", result);
         fflush(stdout);
@@ -220,8 +220,7 @@ int run_nbody(const char** dwarf_params, const char* lua_file) {
     printf("Running command: %s\n", command);
     fflush(stdout);
     
-    int result = 22;
-    result = system(command);
+    int result = system(command);
     if (result != 0) {
         fprintf(stderr, "Error: Command execution failed with code %d\n", result);
     }

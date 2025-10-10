@@ -485,9 +485,9 @@ static inline real find_upperlimit_r(dsfmt_t* dsfmtState, real * args, real ener
 #pragma GCC diagnostic ignored "-Wfloat-equal"
         if(isinf(upperlimit_r) == FALSE && upperlimit_r != 0.0 && isnan(upperlimit_r) == FALSE)
         {
+#pragma GCC diagnostic pop
             break;
         }
-#pragma GCC diagnostic pop
         
         counter++;
         
@@ -801,9 +801,9 @@ static int nbGenerateIsotropicCore(lua_State* luaSt, dsfmt_t* prng, unsigned int
 #pragma GCC diagnostic ignored "-Wfloat-equal"
                 if(isinf(r) == FALSE && r != 0.0 && isnan(r) == FALSE)
                 {
+#pragma GCC diagnostic pop
                     break;
                 }
-#pragma GCC diagnostic pop
                 
                 if(counter > 1000)
                 {
@@ -827,9 +827,9 @@ static int nbGenerateIsotropicCore(lua_State* luaSt, dsfmt_t* prng, unsigned int
 #pragma GCC diagnostic ignored "-Wfloat-equal"
                 if(isinf(v) == FALSE && v != 0.0 && isnan(v) == FALSE)
                 {
+#pragma GCC diagnostic pop
                     break;
                 }
-#pragma GCC diagnostic pop
                 
                 if(counter > 1000)
                 {

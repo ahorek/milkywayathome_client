@@ -161,9 +161,9 @@ static inline int get_likelihood(const NBodyCtx* ctx, NBodyState* st, const NBod
         }
         else if(likelihood == 0.0)
         {
+#pragma GCC diagnostic pop
             likelihood = DEFAULT_BEST_CASE;
         }
-#pragma GCC diagnostic pop
 
         /* this checks to see if the likelihood is an improvement */
         if(mw_fabs(likelihood) < mw_fabs(st->bestLikelihood))

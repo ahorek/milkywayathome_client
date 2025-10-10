@@ -123,9 +123,9 @@ static void nbPrintHistogramHeader(FILE* f,
 #pragma GCC diagnostic ignored "-Wfloat-equal"
     if (bestLikelihood_time == 0.0)
     {
+#pragma GCC diagnostic pop
         bestLikelihood_time = ctx->timeEvolve;
     }
-#pragma GCC diagnostic pop
 
     mwLocalTimeFull(tBuf, sizeof(tBuf));
 

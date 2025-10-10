@@ -397,9 +397,9 @@ static real fun(real ri, const Dwarf* comp1, const Dwarf* comp2, real energy, mw
 #pragma GCC diagnostic ignored "-Wfloat-equal"
     if(first_deriv_psi == 0.0)
     {
+#pragma GCC diagnostic pop
         first_deriv_psi = 1.0e-6;//this should be small enough
     }
-#pragma GCC diagnostic pop
 
     /*second derivative of density with respect to -potential (psi) */
     real dsqden_dpsisq = second_deriv_density * inv(first_deriv_psi) - first_deriv_density * second_deriv_psi * inv(sqr(first_deriv_psi));
@@ -941,9 +941,9 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
 #pragma GCC diagnostic ignored "-Wfloat-equal"
                 if(isinf(r) == FALSE && r != 0.0 && isnan(r) == FALSE)
                 {
+#pragma GCC diagnostic pop
                   break;
                 }
-#pragma GCC diagnostic pop
                 if(counter > 1000)
                 {
                     exit(-1);
@@ -973,9 +973,9 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
 #pragma GCC diagnostic ignored "-Wfloat-equal"
                 if(isinf(v) == FALSE && v != 0.0 && isnan(v) == FALSE)
                 {
+#pragma GCC diagnostic pop
                   break;
                 }
-#pragma GCC diagnostic pop
 
                 if(counter > 1000)
                 {

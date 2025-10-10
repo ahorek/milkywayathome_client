@@ -355,7 +355,6 @@ int main()
         }
     }
 
-    /* TODO: This test always fails because it finds no mass enclosed.  Fix that.
     //Plummer Spherical Potential  
     for (i = 0; i < nPotentials; i++)
     {
@@ -366,7 +365,6 @@ int main()
             break;
         }
     }
-    */
 
     //TEST DISK COMPONENTS
 //    //Freeman Disk Potential                  /** This potential is an infinitely thin disk, so it's difficult to test this one. May need more terms at lower z values. **/

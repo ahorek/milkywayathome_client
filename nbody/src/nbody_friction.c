@@ -58,9 +58,9 @@ static inline real velDispersion(const Potential* pot, const mwvector pos, real 
 #pragma GCC diagnostic ignored "-Wfloat-equal"
     if ((width <= 0)||(rho0 == 0.0)) /** To avoid divide by zero later **/
     {
+#pragma GCC diagnostic pop
         return -1;       /** Want to ignore any contribution more than 50 scale radii from galactic center. Chose this value because dispersion is never negative. **/
     }
-#pragma GCC diagnostic pop
     integral = 0.0;
     for (i = 0; i < nDivs; i++) {
         a = dist + i*width;
@@ -81,9 +81,9 @@ static inline real getHaloScaleLength(const Halo* halo){
 #pragma GCC diagnostic ignored "-Wfloat-equal"
     if (scale == 0.0)
     {
+#pragma GCC diagnostic pop
         scale = 1.0;    /** This is the case when there is no halo **/
     }
-#pragma GCC diagnostic pop
     return scale;
 }
 

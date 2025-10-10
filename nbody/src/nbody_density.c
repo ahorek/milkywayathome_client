@@ -41,9 +41,8 @@ static inline real plummerSphericalDensity(const Spherical* sph, real r)
     const real M = sph->mass;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wfloat-equal"
-    if(a == 0)
+    if(a == 0) {
 #pragma GCC diagnostic pop
-    {
         return 0;
     }
     real r_a = r/a;
@@ -191,9 +190,8 @@ static inline real plummerHaloDensity(const Halo* h, real r)
     const real M = h->mass;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wfloat-equal"
-    if(a == 0)
+    if(a == 0) {
 #pragma GCC diagnostic pop
-    {
         return 0;
     }
     real r_a = r/a;
