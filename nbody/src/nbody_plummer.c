@@ -29,7 +29,7 @@ along with Milkyway@Home.  If not, see <http://www.gnu.org/licenses/>.
 static inline mwvector pickShell(dsfmt_t* dsfmtState, real rad)
 {
     real rsq, rsc;
-    mwvector vec;
+    mwvector vec = ZERO_VECTOR;
 
     do                      /* pick point in NDIM-space */
     {
@@ -81,7 +81,7 @@ static inline real plummerRandomV(dsfmt_t* dsfmtState, real r)
 
 static inline mwvector plummerBodyPosition(dsfmt_t* dsfmtState, mwvector rshift, real rsc, real r)
 {
-    mwvector pos;
+    mwvector pos = ZERO_VECTOR;
 
     pos = pickShell(dsfmtState, rsc * r);  /* pick scaled position */
     mw_incaddv(pos, rshift);               /* move the position */
@@ -91,7 +91,7 @@ static inline mwvector plummerBodyPosition(dsfmt_t* dsfmtState, mwvector rshift,
 
 static inline mwvector plummerBodyVelocity(dsfmt_t* dsfmtState, mwvector vshift, real vsc, real r)
 {
-    mwvector vel;
+    mwvector vel = ZERO_VECTOR;
     real v;
 
     v = plummerRandomV(dsfmtState, r);

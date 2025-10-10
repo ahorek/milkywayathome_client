@@ -34,7 +34,7 @@
 #include "nbody_potential.h"
 #include "nbody_density.h"
 
-static const real pi = 3.1415926535;
+static const real pi __attribute__((unused)) = 3.1415926535;
 
 static const MWEnumAssociation criterionOptions[] =
 {

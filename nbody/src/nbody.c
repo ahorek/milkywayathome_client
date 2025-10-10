@@ -121,7 +121,7 @@ static void nbSetCLRequestFromFlags(CLRequest* clr, const NBodyFlags* nbf)
 /* Try to run a potential function and see if it fails. Return TRUE on failure. */
 static int nbVerifyPotentialFunction(const NBodyFlags* nbf, const NBodyCtx* ctx, NBodyState* st)
 {
-    mwvector acc;
+    mwvector acc = ZERO_VECTOR;
     mwvector pos = mw_vec(1.0, 1.0, 0.0);
 
     if (ctx->potentialType != EXTERNAL_POTENTIAL_CUSTOM_LUA)
@@ -189,7 +189,7 @@ NBodyStatus nbStepSystem(const NBodyCtx* ctx, NBodyState* st)
   #endif
     if(!ctx->LMC)
     {
-        mwvector zero;
+        mwvector zero = ZERO_VECTOR;
         SET_VECTOR(zero,0,0,0);
         return nbStepSystemPlain(ctx, st, zero, zero); 
     }
@@ -310,9 +310,12 @@ static NBodyStatus nbReportResults(const NBodyCtx* ctx, const NBodyState* st, co
         {
             mw_printf("Poor likelihood.  Returning worst case.\n");
             likelihood = DEFAULT_WORST_CASE;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
         }
         else if(likelihood == 0.0)
         {
+#pragma GCC diagnostic pop
             likelihood = DEFAULT_BEST_CASE;
         }
         
@@ -445,7 +448,7 @@ int nbMain(const NBodyFlags* nbf)
         ctx->calibrationRuns = 0;
     }
     //Run forward evolution calibrationRuns + 1 times
-    for(int i = 0; i <= ctx->calibrationRuns; i++){
+    for(unsigned i = 0; i <= ctx->calibrationRuns; ++i){
         //these for checkpointing
         nbSetCtxFromFlags(ctx, nbf); /* Do this after setup to avoid the setup clobbering the flags */
         nbSetStateFromFlags(st, nbf); 
