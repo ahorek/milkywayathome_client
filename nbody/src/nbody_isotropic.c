@@ -887,16 +887,16 @@ int nbGenerateIsotropic(lua_State* luaSt)
 
         static const MWNamedArg argTable[] =
         {
-            { "nbody",                LUA_TNUMBER,     NULL,                    TRUE,    &nbodyf            },
-            { "nbody_baryon",         LUA_TNUMBER,     NULL,                    FALSE,   &nbody_baryonf     },
-            { "mass1",                LUA_TNUMBER,     NULL,                    TRUE,    &mass1             },
-            { "mass2",                LUA_TNUMBER,     NULL,                    TRUE,    &mass2             },
-            { "scaleRadius1",         LUA_TNUMBER,     NULL,                    TRUE,    &radiusScale1      },
-            { "scaleRadius2",         LUA_TNUMBER,     NULL,                    TRUE,    &radiusScale2      },
-            { "position",             LUA_TUSERDATA,   MWVECTOR_TYPE,           TRUE,    &position          },
-            { "velocity",             LUA_TUSERDATA,   MWVECTOR_TYPE,           TRUE,    &velocity          },
-            { "ignore",               LUA_TBOOLEAN,    NULL,                    FALSE,   &ignore            },
-            { "prng",                 LUA_TUSERDATA,   DSFMT_TYPE,              TRUE,    &prng              },
+            { "nbody",                LUA_TNUMBER,     NULL,                    TRUE,    &nbodyf,           1 },
+            { "nbody_baryon",         LUA_TNUMBER,     NULL,                    FALSE,   &nbody_baryonf,    1 },
+            { "mass1",                LUA_TNUMBER,     NULL,                    TRUE,    &mass1,            1 },
+            { "mass2",                LUA_TNUMBER,     NULL,                    TRUE,    &mass2,            1 },
+            { "scaleRadius1",         LUA_TNUMBER,     NULL,                    TRUE,    &radiusScale1,     1 },
+            { "scaleRadius2",         LUA_TNUMBER,     NULL,                    TRUE,    &radiusScale2,     1 },
+            { "position",             LUA_TUSERDATA,   MWVECTOR_TYPE,           TRUE,    &position,         1 },
+            { "velocity",             LUA_TUSERDATA,   MWVECTOR_TYPE,           TRUE,    &velocity,         1 },
+            { "ignore",               LUA_TBOOLEAN,    NULL,                    FALSE,   &ignore,           1 },
+            { "prng",                 LUA_TUSERDATA,   DSFMT_TYPE,              TRUE,    &prng,             1 },
             END_MW_NAMED_ARG
             
         };

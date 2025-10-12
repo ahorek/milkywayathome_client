@@ -262,6 +262,29 @@ int getString(lua_State* luaSt, void* v)
     return 1;
 }
 
+int getRealArray(lua_State* luaSt, void* v, size_t len)
+{
+    lua_newtable(luaSt);
+    real* arr = (real*)v;
+    for (size_t i = 0; i < len; ++i) {
+        lua_pushnumber(luaSt, arr[i]);
+        lua_rawseti(luaSt, -2, i + 1);
+    }
+    return 1;
+}
+
+int setRealArray(lua_State* luaSt, void* v, size_t len)
+{
+    if (!lua_istable(luaSt, 3)) return luaL_error(luaSt, "Expected table");
+    real* arr = (real*)v;
+    for (size_t i = 0; i < len; ++i) {
+        lua_rawgeti(luaSt, 3, i + 1);
+        arr[i] = lua_tonumber(luaSt, -1);
+        lua_pop(luaSt, 1);
+    }
+    return 0;
+}
+
 void Xet_add(lua_State* luaSt, Xet_reg l)
 {
     for (; l->name; l++)
@@ -541,6 +564,21 @@ static void setValueFromType(lua_State* luaSt, const MWNamedArg* p, int idx)
             break;
 
         case LUA_TTABLE:
+            // Handle real arrays
+            if (p->userDataTypeName && strcmp(p->userDataTypeName, REAL_TYPE) == 0 && p->arrayLen >= 0)
+            {
+                real* arr = (real*)v;
+                for (size_t i = 0; i < p->arrayLen; ++i) {
+                    lua_rawgeti(luaSt, idx, i + 1);
+                    arr[i] = (real)lua_tonumber(luaSt, -1);
+                    lua_pop(luaSt, 1);
+                }
+            }
+            else
+            {
+                mw_panic("Unhandled table type in setValueFromType\n");
+            }
+            break;
         case LUA_TFUNCTION:
         case LUA_TLIGHTUSERDATA:
         case LUA_TTHREAD:

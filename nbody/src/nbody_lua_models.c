@@ -66,10 +66,10 @@ static int luaPlummerTimestepIntegral(lua_State* luaSt)
 
     static const MWNamedArg argTable[] =
         {
-            { "smalla", LUA_TNUMBER, NULL, TRUE,  &smalla },
-            { "biga",   LUA_TNUMBER, NULL, TRUE,  &biga   },
-            { "Md",     LUA_TNUMBER, NULL, TRUE,  &Md     },
-            { "step",   LUA_TNUMBER, NULL, FALSE, &step   },
+            { "smalla", LUA_TNUMBER, NULL, TRUE,  &smalla, 1 },
+            { "biga",   LUA_TNUMBER, NULL, TRUE,  &biga,   1 },
+            { "Md",     LUA_TNUMBER, NULL, TRUE,  &Md,     1 },
+            { "step",   LUA_TNUMBER, NULL, FALSE, &step,   1 },
             END_MW_NAMED_ARG
         };
 
@@ -234,11 +234,11 @@ static int luaReverseOrbit(lua_State* luaSt)
 
     static const MWNamedArg argTable[] =
         {
-            { "potential",  LUA_TUSERDATA, POTENTIAL_TYPE, TRUE, &pot           },
-            { "position",   LUA_TUSERDATA, MWVECTOR_TYPE,  TRUE, &pos           },
-            { "velocity",   LUA_TUSERDATA, MWVECTOR_TYPE,  TRUE, &vel           },
-            { "tstop",      LUA_TNUMBER,   NULL,           TRUE, &tstop         },
-            { "dt",         LUA_TNUMBER,   NULL,           TRUE, &dt            },
+            { "potential",  LUA_TUSERDATA, POTENTIAL_TYPE, TRUE, &pot,           1 },
+            { "position",   LUA_TUSERDATA, MWVECTOR_TYPE,  TRUE, &pos,           1 },
+            { "velocity",   LUA_TUSERDATA, MWVECTOR_TYPE,  TRUE, &vel,           1 },
+            { "tstop",      LUA_TNUMBER,   NULL,           TRUE, &tstop,         1 },
+            { "dt",         LUA_TNUMBER,   NULL,           TRUE, &dt,            1 },
             END_MW_NAMED_ARG
         };
 
@@ -289,18 +289,18 @@ static int luaReverseOrbit_LMC(lua_State* luaSt)
 
     static const MWNamedArg argTable[] =
         {
-            { "potential",   LUA_TUSERDATA, POTENTIAL_TYPE, TRUE, &pot         },
-            { "position",    LUA_TUSERDATA, MWVECTOR_TYPE,  TRUE, &pos         },
-            { "velocity",    LUA_TUSERDATA, MWVECTOR_TYPE,  TRUE, &vel         },
-            { "LMCposition", LUA_TUSERDATA, MWVECTOR_TYPE,  TRUE, &LMCpos      },
-            { "LMCvelocity", LUA_TUSERDATA, MWVECTOR_TYPE,  TRUE, &LMCvel      },
-            { "LMCmass",     LUA_TNUMBER,   NULL,           TRUE, &LMCmass     },
-            { "LMCscale",    LUA_TNUMBER,   NULL,           TRUE, &LMCscale    },
-            { "coulomb_log", LUA_TNUMBER,   NULL,           TRUE, &coulomb_log },
-            { "LMCDynaFric", LUA_TBOOLEAN,  NULL,           TRUE, &LMCDynaFric },
-            { "tstop",       LUA_TNUMBER,   NULL,           TRUE, &tstop       },
-            { "ftime",       LUA_TNUMBER,   NULL,           TRUE, &ftime       },
-            { "dt",          LUA_TNUMBER,   NULL,           TRUE, &dt          },
+            { "potential",   LUA_TUSERDATA, POTENTIAL_TYPE, TRUE, &pot,         1 },
+            { "position",    LUA_TUSERDATA, MWVECTOR_TYPE,  TRUE, &pos,         1 },
+            { "velocity",    LUA_TUSERDATA, MWVECTOR_TYPE,  TRUE, &vel,         1 },
+            { "LMCposition", LUA_TUSERDATA, MWVECTOR_TYPE,  TRUE, &LMCpos,      1 },
+            { "LMCvelocity", LUA_TUSERDATA, MWVECTOR_TYPE,  TRUE, &LMCvel,      1 },
+            { "LMCmass",     LUA_TNUMBER,   NULL,           TRUE, &LMCmass,     1 },
+            { "LMCscale",    LUA_TNUMBER,   NULL,           TRUE, &LMCscale,    1 },
+            { "coulomb_log", LUA_TNUMBER,   NULL,           TRUE, &coulomb_log, 1 },
+            { "LMCDynaFric", LUA_TBOOLEAN,  NULL,           TRUE, &LMCDynaFric, 1 },
+            { "tstop",       LUA_TNUMBER,   NULL,           TRUE, &tstop,       1 },
+            { "ftime",       LUA_TNUMBER,   NULL,           TRUE, &ftime,       1 },
+            { "dt",          LUA_TNUMBER,   NULL,           TRUE, &dt,          1 },
             END_MW_NAMED_ARG
         };
 
@@ -355,12 +355,12 @@ static int luaPrintReverseOrbit(lua_State* luaSt)
 
     static const MWNamedArg argTable[] =
         {
-            { "potential",  LUA_TUSERDATA, POTENTIAL_TYPE, TRUE, &pot           },
-            { "position",   LUA_TUSERDATA, MWVECTOR_TYPE,  TRUE, &pos           },
-            { "velocity",   LUA_TUSERDATA, MWVECTOR_TYPE,  TRUE, &vel           },
-            { "tstop",      LUA_TNUMBER,   NULL,           TRUE, &tstop         },
-            { "tstopf",     LUA_TNUMBER,   NULL,           TRUE, &tstopf        },
-            { "dt",         LUA_TNUMBER,   NULL,           TRUE, &dt            },
+            { "potential",  LUA_TUSERDATA, POTENTIAL_TYPE, TRUE, &pot,           1 },
+            { "position",   LUA_TUSERDATA, MWVECTOR_TYPE,  TRUE, &pos,           1 },
+            { "velocity",   LUA_TUSERDATA, MWVECTOR_TYPE,  TRUE, &vel,           1 },
+            { "tstop",      LUA_TNUMBER,   NULL,           TRUE, &tstop,         1 },
+            { "tstopf",     LUA_TNUMBER,   NULL,           TRUE, &tstopf,        1 },
+            { "dt",         LUA_TNUMBER,   NULL,           TRUE, &dt,            1 },
             END_MW_NAMED_ARG
         };
 

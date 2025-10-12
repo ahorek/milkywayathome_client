@@ -392,7 +392,14 @@ function makeHistogram()
      
      betaStart = bta_lower_range,
      betaEnd   = bta_upper_range,
-     betaBins  = bta_bins
+     betaBins  = bta_bins,
+
+     -- Optional params
+     L = Vector.create(0.0, 0.0, 0.0), --Setting L and LErr does nothing, as they are overwritten if used
+     LErr = Vector.create(0.0, 0.0, 0.0), --But if you want to set them to print meaningless numbers go ahead
+
+     nRange = 0, --Currently does nothing, setting EMDRange from lua will be included later
+     EMDRange = {}
 }
 end
 

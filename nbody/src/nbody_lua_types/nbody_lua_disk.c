@@ -59,9 +59,9 @@ static int createMiyamotoNagaiDisk(lua_State* luaSt)
 
     static const MWNamedArg argTable[] =
         {
-            { "mass",        LUA_TNUMBER, NULL, TRUE, &d.mass        },
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &d.scaleLength },
-            { "scaleHeight", LUA_TNUMBER, NULL, TRUE, &d.scaleHeight },
+            { "mass",        LUA_TNUMBER, NULL, TRUE, &d.mass,        1 },
+            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &d.scaleLength, 1 },
+            { "scaleHeight", LUA_TNUMBER, NULL, TRUE, &d.scaleHeight, 1 },
             END_MW_NAMED_ARG
         };
 
@@ -74,9 +74,9 @@ static int createDoubleExponentialDisk(lua_State* luaSt)
 
     static const MWNamedArg argTable[] =
         {
-            { "mass",        LUA_TNUMBER, NULL, TRUE, &d.mass        },
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &d.scaleLength },
-            { "scaleHeight", LUA_TNUMBER, NULL, TRUE, &d.scaleHeight },
+            { "mass",        LUA_TNUMBER, NULL, TRUE, &d.mass,        1 },
+            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &d.scaleLength, 1 },
+            { "scaleHeight", LUA_TNUMBER, NULL, TRUE, &d.scaleHeight, 1 },
             END_MW_NAMED_ARG
         };
 
@@ -89,9 +89,9 @@ static int createSech2ExponentialDisk(lua_State* luaSt)
 
     static const MWNamedArg argTable[] =
         {
-            { "mass",        LUA_TNUMBER, NULL, TRUE, &d.mass        },
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &d.scaleLength },
-            { "scaleHeight", LUA_TNUMBER, NULL, TRUE, &d.scaleHeight },
+            { "mass",        LUA_TNUMBER, NULL, TRUE, &d.mass,        1 },
+            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &d.scaleLength, 1 },
+            { "scaleHeight", LUA_TNUMBER, NULL, TRUE, &d.scaleHeight, 1 },
             END_MW_NAMED_ARG
         };
 
@@ -104,8 +104,8 @@ static int createFreemanDisk(lua_State* luaSt)
 
     static const MWNamedArg argTable[] =
         {
-            { "mass",        LUA_TNUMBER, NULL, TRUE, &d.mass        },
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &d.scaleLength },
+            { "mass",        LUA_TNUMBER, NULL, TRUE, &d.mass,        1 },
+            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &d.scaleLength, 1 },
             END_MW_NAMED_ARG
         };
 
@@ -118,10 +118,10 @@ static int createBar(lua_State* luaSt)
 
     static const MWNamedArg argTable[] =
         {
-            { "mass",        LUA_TNUMBER, NULL, TRUE, &d.mass        },
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &d.scaleLength },
-            { "patternSpeed", LUA_TNUMBER, NULL, TRUE, &d.patternSpeed },
-            { "startAngle", LUA_TNUMBER, NULL, TRUE, &d.startAngle },
+            { "mass",         LUA_TNUMBER, NULL, TRUE, &d.mass,         1 },
+            { "scaleLength",  LUA_TNUMBER, NULL, TRUE, &d.scaleLength,  1 },
+            { "patternSpeed", LUA_TNUMBER, NULL, TRUE, &d.patternSpeed, 1 },
+            { "startAngle",   LUA_TNUMBER, NULL, TRUE, &d.startAngle,   1 },
             END_MW_NAMED_ARG
         };
 
@@ -134,7 +134,7 @@ static int createNoDisk(lua_State* luaSt)
 
     static const MWNamedArg argTable[] =
         {
-            { "mass",        LUA_TNUMBER, NULL, TRUE, &d.mass        },
+            { "mass",        LUA_TNUMBER, NULL, TRUE, &d.mass,       1 },
             END_MW_NAMED_ARG
         };
 

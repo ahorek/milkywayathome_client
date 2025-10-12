@@ -533,6 +533,19 @@ void nbPrintHistogram(FILE* f, const MainStruct* all)
         fprintf(f, "L = {%lf, %lf, %lf}\n", all->histograms[0]->params.L.x, all->histograms[0]->params.L.y, all->histograms[0]->params.L.z);
         fprintf(f, "LErr = {%lf, %lf, %lf}\n", all->histograms[0]->params.LErr.x, all->histograms[0]->params.LErr.y, all->histograms[0]->params.LErr.z);
     }
+    if(all->histograms[0]->params.nRange != 0)
+    {
+        fprintf(f, "EMDRange = {");
+        for(unsigned int i = 0; i < all->histograms[0]->params.nRange; i++)
+        {
+            fprintf(f, "%lf", all->histograms[0]->params.EMDRange[i]);
+            if(i != all->histograms[0]->params.nRange-1)
+            {
+                fprintf(f, ", ");
+            }
+        }
+        fprintf(f, "}\n");
+    }
     if(all->usage[6]) fprintf(f, "hasPM = 1\n");
     if(all->usage[3]) fprintf(f, "!\n");
     

@@ -589,6 +589,23 @@ int test_virial_ratio(TestContext* tctx)
 	real U1 = 0; //Potential to be calculated using the dwarf's potential
 	real U2 = 0; //potential to be calculated using newtonian gravity
 
+    if(tctx->comp1->type > 4 || tctx->comp2->type > 4) //temp fix for comp 2 being set to 880 on plummer-hernquist after the nbody for some reason. revisit this!
+    {
+        const char* dwarf_params[] = {
+        EVOLUTION_TIME,
+        EVOLUTION_RATIO,
+        BARYON_SCALE_RADIUS,
+        SCALE_RADIUS_RATIO,
+        BARYON_MASS,
+        MASS_RATIO
+        };
+        if (read_lua_parameters(tctx->input_lua_file, dwarf_params, &tctx->nbody, &tctx->nbody_baryon, &tctx->comp1, &tctx->comp2, &tctx->timestep, NULL) != 0) {
+            fprintf(stderr, "Error: Failed to read Lua parameters\n");
+            fflush(stdout);
+            failed = 1;
+            return failed;
+        }
+    }
 	//now doing the math
 	for(unsigned int i = 0; i < tctx->particle_data->count; i++)
 	{

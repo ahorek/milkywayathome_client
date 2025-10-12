@@ -103,9 +103,13 @@ const HistogramParams defaultHistogramParams =
     /* .lambdaStart */  histogramlambdaStart,
     /* .lambdaEnd   */  histogramlambdaEnd,
     /* .lambdaBins  */  histogramlambdaBins,
-    /* .lambdaStart */  histogrambetaStart,
-    /* .lambdaEnd   */  histogrambetaEnd,
-    /* .lambdaBins  */  histogrambetaBins
+    /* .betaStart   */  histogrambetaStart,
+    /* .betaEnd     */  histogrambetaEnd,
+    /* .betaBins    */  histogrambetaBins,
+    /* .L           */  histogramL,
+    /* .LErr        */  histogramLErr,
+    /* .nRange      */  histogramnRange,
+    /* .EMDRange    */  histogramEMDRange
 };
 
 

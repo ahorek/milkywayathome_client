@@ -38,21 +38,21 @@ extern "C" {
 /* Command line arguments */
 typedef struct
 {
-    char* inputFile;
-    char* outFileName;
-    char* checkpointFileName;
-    char* histogramFileName;
-    char* histoutFileName;
-    char* matchHistogram;   /* Histogram to match */
-    char* matchVelDisp;   /* Match Velocity Dispersion */
-    char* matchBetaDisp;  /* Match Beta Disp */
-    char* matchBetaAvg; /* Match Beta Average */
-    char* matchVlos; /* Match Line of Sight Velocity */
-    char* matchDist; /* Match Distance */
-    char* matchPM; /* Match Proper Motion */
-    char* matchMomentum; /* Match Momentum */
-    char* graphicsBin;
-    char* visArgs;
+    const char* inputFile;
+    const char* outFileName;
+    const char* checkpointFileName;
+    const char* histogramFileName;
+    const char* histoutFileName;
+    const char* matchHistogram;   /* Histogram to match */
+    const char* matchVelDisp;   /* Match Velocity Dispersion */
+    const char* matchBetaDisp;  /* Match Beta Disp */
+    const char* matchBetaAvg; /* Match Beta Average */
+    const char* matchVlos; /* Match Line of Sight Velocity */
+    const char* matchDist; /* Match Distance */
+    const char* matchPM; /* Match Proper Motion */
+    const char* matchMomentum; /* Match Momentum */
+    const char* graphicsBin;
+    const char* visArgs;
 
     const char** forwardedArgs;
     unsigned int numForwardedArgs;
