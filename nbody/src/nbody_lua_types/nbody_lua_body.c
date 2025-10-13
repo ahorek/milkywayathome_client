@@ -57,8 +57,7 @@ int pushBody(lua_State* luaSt, const Body* p)
     return pushType(luaSt, BODY_TYPE, sizeof(Body), (void*) p);
 }
 
-static const Body _emptyBody = EMPTY_BODY;
-
+static const Body _emptyBody __attribute__((unused)) = EMPTY_BODY;
 
 static int createBody(lua_State* luaSt)
 {

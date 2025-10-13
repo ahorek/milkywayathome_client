@@ -57,7 +57,7 @@ static real hernqNextRadius(real startRadius, real goalMass, real radius, real a
 static mwvector hernqPickShell(dsfmt_t* dsfmtState, real rad)
 {
     real rsq, rsc;
-    mwvector vec;
+    mwvector vec = ZERO_VECTOR;
 
     do                      /* pick point in NDIM-space */
     {
@@ -83,6 +83,8 @@ static real hernqRandomR(dsfmt_t* dsfmtState, real startradius, real endradius)
     return (endradius - startradius) * rnd + startradius;
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 static real hernqSelectFromG(dsfmt_t* dsfmtState)
 {
     real x, y;
@@ -96,6 +98,7 @@ static real hernqSelectFromG(dsfmt_t* dsfmtState)
 
     return x;
 }
+#pragma GCC diagnostic pop
 
 static real hernqCalculateV(real r, real radius, real a, real mass)
 {

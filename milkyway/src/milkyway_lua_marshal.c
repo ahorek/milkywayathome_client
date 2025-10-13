@@ -392,12 +392,11 @@ static void checkEnumErrorStr(char* errBuf, size_t errBufSize, const MWEnumAssoc
 {
     const MWEnumAssociation* nextP;
     static const char errStart[] = "Expected enum value where options are: ";
-    char badOpt[1024];
-    size_t badSize, enumLen, errLen;
-    size_t remSize; /* Remaining size in buffer */
+    static const char invalidOption[] = " Invalid option '";
+    size_t enumLen, errLen, optionLen;
 
     strcpy(errBuf, errStart);
-    errLen = sizeof(errStart) - 1;
+    errLen = strlen(errBuf);
     while (p->enumName)
     {
         nextP = &p[1];
@@ -421,11 +420,13 @@ static void checkEnumErrorStr(char* errBuf, size_t errBufSize, const MWEnumAssoc
     }
 
     /* If there's extra space, might as well say what the bad option was */
-    badSize = snprintf(badOpt, sizeof(badOpt), " Invalid option '%s'", badStr);
-    remSize = sizeof(errBuf) - errLen - 1;
-    if ((badSize != sizeof(badOpt)) && (badSize < remSize))
+    errLen = strlen(errBuf);
+    optionLen = strlen(invalidOption);
+    if (errLen + optionLen + 2 < errBufSize)
     {
-        strncat(errBuf, badOpt, remSize);
+        strcat(errBuf, invalidOption);
+	strncat(errBuf, badStr, errBufSize - errLen - optionLen - 1);
+	strcat(errBuf, "'");
     }
 }
 

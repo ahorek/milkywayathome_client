@@ -55,7 +55,7 @@ static int createDisk(lua_State* luaSt, const MWNamedArg* argTable, Disk* d)
 
 static int createMiyamotoNagaiDisk(lua_State* luaSt)
 {
-    static Disk d = { MiyamotoNagaiDisk, 0.0, 0.0, 0.0 };
+    static Disk d = { MiyamotoNagaiDisk, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
     static const MWNamedArg argTable[] =
         {
@@ -70,7 +70,7 @@ static int createMiyamotoNagaiDisk(lua_State* luaSt)
 
 static int createDoubleExponentialDisk(lua_State* luaSt)
 {
-    static Disk d = { DoubleExponentialDisk, 0.0, 0.0, 0.0 };
+    static Disk d = { DoubleExponentialDisk, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
     static const MWNamedArg argTable[] =
         {
@@ -85,7 +85,7 @@ static int createDoubleExponentialDisk(lua_State* luaSt)
 
 static int createSech2ExponentialDisk(lua_State* luaSt)
 {
-    static Disk d = { Sech2ExponentialDisk, 0.0, 0.0, 0.0 };
+    static Disk d = { Sech2ExponentialDisk, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
     static const MWNamedArg argTable[] =
         {
@@ -100,7 +100,7 @@ static int createSech2ExponentialDisk(lua_State* luaSt)
 
 static int createFreemanDisk(lua_State* luaSt)
 {
-    static Disk d = { FreemanDisk, 0.0, 0.0, 0.0 };
+    static Disk d = { FreemanDisk, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
     static const MWNamedArg argTable[] =
         {
@@ -114,7 +114,7 @@ static int createFreemanDisk(lua_State* luaSt)
 
 static int createBar(lua_State* luaSt)
 {
-    static Disk d = { OrbitingBar, 0.0, 0.0, 0.0, 0.0 };
+    static Disk d = { OrbitingBar, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
     static const MWNamedArg argTable[] =
         {
@@ -130,7 +130,7 @@ static int createBar(lua_State* luaSt)
 
 static int createNoDisk(lua_State* luaSt)
 {
-    static Disk d = { NoDisk, 0.0, 0.0, 0.0 };
+    static Disk d = { NoDisk, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
     static const MWNamedArg argTable[] =
         {

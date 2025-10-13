@@ -52,7 +52,7 @@ typedef struct
     mwbool allowIncest;
 } NBodyCtxTest;
 
-#define EMPTY_NBODYCTXTEST { 0.0, 0.0, InvalidCriterion, FALSE, FALSE, FALSE }
+#define EMPTY_NBODYCTXTEST { 0.0, 0.0, InvalidCriterion, FALSE, FALSE, FALSE, FALSE }
 
 typedef struct
 {
@@ -83,7 +83,7 @@ static void showHash(char* buf, const MWHash* hash)
 }
 
 #if USE_SSL_TESTS
-static int hashValueFromType(lua_State* luaSt, EVP_MD_CTX* hashCtx, int type, int idx)
+__attribute__((unused)) static int hashValueFromType(lua_State* luaSt, EVP_MD_CTX* hashCtx, int type, int idx)
 {
     int rc = 1;
     real n;
@@ -413,7 +413,7 @@ MWHash* getMWHash(const NBodyState* st, unsigned int nbody)
     return bodyHash;
 }
 
-static int compareHash(const MWHash* a, const MWHash* b)
+__attribute__((unused)) static int compareHash(const MWHash* a, const MWHash* b)
 {
     return memcmp(a, b, sizeof(MWHash));
 }

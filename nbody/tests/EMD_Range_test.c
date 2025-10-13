@@ -37,8 +37,11 @@ int main()
     mw_printf("Score without range: %f\n", scoreWithoutRange);
     
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
     if(scoreWithRange != 0)
     {
+#pragma GCC diagnostic pop
         printf("EMD calculated with given ranges not correct, gave %f should be 0 \n", scoreWithRange);
         return 1;
     }
