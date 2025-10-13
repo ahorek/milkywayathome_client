@@ -395,11 +395,11 @@ function makeHistogram()
      betaBins  = bta_bins,
 
      -- Optional params
-     L = Vector.create(0.0, 0.0, 0.0), --Setting L and LErr does nothing, as they are overwritten if used
-     LErr = Vector.create(0.0, 0.0, 0.0), --But if you want to set them to print meaningless numbers go ahead
+     L = {0.0, 0.0, 0.0}, --If any L components are nonzero, will use this L and LErr for momentum likelihood
+     LErr = {0.0, 0.0, 0.0}, --This will overwrite any momentum values passed in through histogram. Input these as lua tables
 
-     nRange = 0, --Currently does nothing, setting EMDRange from lua will be included later
-     EMDRange = {}
+     nRange = 0, --If non-zero, will use EMDRange values below. Overwrites values given in input histogram
+     EMDRange = {} --Make sure this has an even number of elements and matches nRange. Input as a lua table
 }
 end
 

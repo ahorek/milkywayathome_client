@@ -132,6 +132,13 @@ static inline int get_likelihood(const NBodyCtx* ctx, NBodyState* st, const NBod
              */
             return 0;
         }
+        /* If momentum information is passed in through lua, use that instead*/
+        if (histogram->histograms[0]->params.L.x > 0.00001 || histogram->histograms[0]->params.L.y > 0.00001 || histogram->histograms[0]->params.L.z > 0.00001 ||
+            histogram->histograms[0]->params.L.x < -0.00001 || histogram->histograms[0]->params.L.y < -0.00001 || histogram->histograms[0]->params.L.z < -0.00001)
+        {
+            data->histograms[0]->params.L = histogram->histograms[0]->params.L;
+            data->histograms[0]->params.LErr = histogram->histograms[0]->params.LErr;
+        }
         likelihoodArray = nbSystemLikelihood(st, ctx, data, histogram, method);
         likelihood         = likelihoodArray[0];
         likelihood_EMD     = likelihoodArray[1];

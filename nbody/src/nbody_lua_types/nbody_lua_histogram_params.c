@@ -63,8 +63,8 @@ static int createHistogramParams(lua_State* luaSt)
             { "betaStart",   LUA_TNUMBER,    REAL_TYPE,     TRUE,  &hp.betaStart,          1 },
             { "betaEnd",     LUA_TNUMBER,    REAL_TYPE,     TRUE,  &hp.betaEnd,            1 },
             { "betaBins",    LUA_TNUMBER,    UINT_TYPE,     TRUE,  &hp.betaBins,           1 },
-            { "L",           LUA_TUSERDATA,  MWVECTOR_TYPE, FALSE, &hp.L,                  1 },
-            { "LErr",        LUA_TUSERDATA,  MWVECTOR_TYPE, FALSE, &hp.LErr,               1 },
+            { "L",           LUA_TTABLE,     REAL_TYPE,     FALSE, &hp.L,                  3 }, // These two could probably be input as vectors, but when i tried it didnt work
+            { "LErr",        LUA_TTABLE,     REAL_TYPE,     FALSE, &hp.LErr,               3 }, // Using tables should be fine
             { "nRange",      LUA_TNUMBER,    UINT_TYPE,     FALSE, &hp.nRange,             1 },
             { "EMDRange",    LUA_TTABLE,     REAL_TYPE,     FALSE, &hp.EMDRange,           0 }, // This is an array, length set below. Used 0 so ignored if nRange isnt set
             END_MW_NAMED_ARG

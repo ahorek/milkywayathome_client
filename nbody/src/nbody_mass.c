@@ -585,7 +585,7 @@ real nbLikelihood(const NBodyHistogram* data, const NBodyHistogram* histogram, i
 Calculations are done with light matter particles that fall within histogram range,
 and outlier rejection is included as with all other calculations.
  */
-void nbCalcMomentum(const NBodyState* st, const NBodyCtx* ctx, const NBodyHistogram* data, NBodyHistogram* histogram)
+void nbCalcMomentum(const NBodyState* st, const NBodyCtx* ctx, NBodyHistogram* data, NBodyHistogram* histogram)
 {
     real nbody = st->nbody;
     HistogramParams* hp = &histogram->params;
@@ -613,6 +613,14 @@ void nbCalcMomentum(const NBodyState* st, const NBodyCtx* ctx, const NBodyHistog
             lambdaBetaR = nbXYZToLambdaBeta(&histTrig, Pos(p), ctx->sunGCDist);
             lambda = L(lambdaBetaR);
             beta = B(lambdaBetaR);
+            if(histogram->params.nRange > 0) // Make sure any values given through lua are used
+            {
+                data->params.nRange = histogram->params.nRange;
+                for(i = 0; i < histogram->params.nRange; i++)
+                {
+                    data->params.EMDRange[i] = histogram->params.EMDRange[i];
+                }
+            }
             if (data->params.nRange == 0) /*If no EMD range is given, use entire hist*/
             {
                 if ((lambda >= histogram->params.lambdaStart) && (lambda < histogram->params.lambdaEnd) &&

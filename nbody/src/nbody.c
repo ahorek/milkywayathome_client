@@ -283,6 +283,13 @@ static NBodyStatus nbReportResults(const NBodyCtx* ctx, const NBodyState* st, co
             return NBODY_LIKELIHOOD_ERROR;
         }
         
+        /* If momentum information is passed in through lua, use that instead*/
+        if (histogram->histograms[0]->params.L.x > 0.00001 || histogram->histograms[0]->params.L.y > 0.00001 || histogram->histograms[0]->params.L.z > 0.00001 ||
+            histogram->histograms[0]->params.L.x < -0.00001 || histogram->histograms[0]->params.L.y < -0.00001 || histogram->histograms[0]->params.L.z < -0.00001)
+        {
+            data->histograms[0]->params.L = histogram->histograms[0]->params.L;
+            data->histograms[0]->params.LErr = histogram->histograms[0]->params.LErr;
+        }
         
         likelihoodArray = nbSystemLikelihood(st, ctx, data, histogram, method);
         likelihood         = likelihoodArray[0];

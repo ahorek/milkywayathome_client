@@ -48,7 +48,8 @@ fi
 #-D -> Include distance average in the comparison
 #-U -> Include proper motion average in the comparison
 #-L -> Include momentum in the comparison
-#Values input through the histogram, such as EMDRange, will be read from the input histogram given with -h
+#Note that average beta bins with be read in with the histogram given with -h, 
+#while EMDRange will prioritze the range given in the histogram given with -s
 if $compare_only 
 then
     ./milkyway_nbody \

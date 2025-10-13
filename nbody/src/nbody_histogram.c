@@ -1619,13 +1619,14 @@ MainStruct* nbReadHistogram(const char* histogramFile)
         }
         all->histograms[0]->params.nRange = index;
     }
-    else /*If not given, default to the full histogram */
-    {
-        all->histograms[0]->params.EMDRange[0] = all->histograms[0]->data[0].lambda - ((all->histograms[0]->data[1].lambda - all->histograms[0]->data[0].lambda)/2);
-        all->histograms[0]->params.EMDRange[1] = all->histograms[0]->data[lambdaBins-1].lambda + ((all->histograms[0]->data[1].lambda - all->histograms[0]->data[0].lambda)/2);
-        all->histograms[0]->params.nRange = 2;
-        // mw_printf("No EMD Range given in input hist '%s', setting range as {%f,%f} \n", histogramFile, all->histograms[0]->params.EMDRange[0], all->histograms[0]->params.EMDRange[1]);
-    }
+    // This code conflicts with reading in simulated histograms now that EMDRange can be input from lua. Keeping it here just in case
+    //else /*If not given, default to the full histogram */
+    //{
+    //    all->histograms[0]->params.EMDRange[0] = all->histograms[0]->data[0].lambda - ((all->histograms[0]->data[1].lambda - all->histograms[0]->data[0].lambda)/2);
+    //    all->histograms[0]->params.EMDRange[1] = all->histograms[0]->data[lambdaBins-1].lambda + ((all->histograms[0]->data[1].lambda - all->histograms[0]->data[0].lambda)/2);
+    //    all->histograms[0]->params.nRange = 2;
+    //    // mw_printf("No EMD Range given in input hist '%s', setting range as {%f,%f} \n", histogramFile, all->histograms[0]->params.EMDRange[0], all->histograms[0]->params.EMDRange[1]);
+    //}
     
     
     return all;

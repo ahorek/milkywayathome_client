@@ -48,7 +48,7 @@ void nbRemoveMomentumOutliers(const NBodyState* st, NBodyHistogram* histogram, i
 
 real nbLikelihood(const NBodyHistogram* data, const NBodyHistogram* histogram, int avgBins);
 
-void nbCalcMomentum(const NBodyState* st, const NBodyCtx* ctx, const NBodyHistogram* data, NBodyHistogram* histogram);
+void nbCalcMomentum(const NBodyState* st, const NBodyCtx* ctx, NBodyHistogram* data, NBodyHistogram* histogram);
 
 real nbMomentumLikelihood(const NBodyHistogram* data, const NBodyHistogram* histogram);
 
