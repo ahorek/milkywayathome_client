@@ -44,9 +44,6 @@ int main()
     }
 
     st.bodytab = st.bestLikelihoodBodyTab; // use the best likelihood bodytab for the test, since this is the output we have
-    printf("best likelihood %lf\n", st.bestLikelihood);
-    printf("first body vel %lf %lf %lf\n", st.bodytab[0].vel.x, st.bodytab[0].vel.y, st.bodytab[0].vel.z);
-    printf("first best body vel %lf %lf %lf\n", st.bestLikelihoodBodyTab[0].vel.x, st.bestLikelihoodBodyTab[0].vel.y, st.bestLikelihoodBodyTab[0].vel.z);
 
 
     /* Set desired parameters for test */
