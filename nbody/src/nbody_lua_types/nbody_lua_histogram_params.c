@@ -145,6 +145,12 @@ static const luaL_reg methodsHistogramParams[] =
     { NULL, NULL }
 };
 
+int getEMDRange(lua_State* luaSt, void* v) 
+{
+    HistogramParams* hp = (HistogramParams*)((char*)v - offsetof(HistogramParams, EMDRange));
+    return getRealArray(luaSt, hp->EMDRange, hp->nRange);
+}
+
 static const Xet_reg_pre gettersHistogramParams[] =
 {
     { "phi" ,        getNumber,    offsetof(HistogramParams, phi)          },
@@ -159,7 +165,7 @@ static const Xet_reg_pre gettersHistogramParams[] =
     { "L",           getVector,    offsetof(HistogramParams, L)            }, 
     { "LErr",        getVector,    offsetof(HistogramParams, LErr)         },
     { "nRange",      getUInt,      offsetof(HistogramParams, nRange)       },
-    { "EMDRange",    getRealArray, offsetof(HistogramParams, EMDRange)     },
+    { "EMDRange",    getEMDRange, offsetof(HistogramParams, EMDRange)     },
     { NULL, NULL, 0 }
 };
 

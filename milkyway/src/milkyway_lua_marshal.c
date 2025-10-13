@@ -262,7 +262,7 @@ int getString(lua_State* luaSt, void* v)
     return 1;
 }
 
-int getRealArray(lua_State* luaSt, void* v, size_t len)
+int getRealArray(lua_State* luaSt, void* v, size_t len) //needs a wrapper function to pass len
 {
     lua_newtable(luaSt);
     real* arr = (real*)v;
@@ -273,9 +273,13 @@ int getRealArray(lua_State* luaSt, void* v, size_t len)
     return 1;
 }
 
-int setRealArray(lua_State* luaSt, void* v, size_t len)
+int setRealArray(lua_State* luaSt, void* v)
 {
-    if (!lua_istable(luaSt, 3)) return luaL_error(luaSt, "Expected table");
+    if (!lua_istable(luaSt, 3)) 
+    {
+        return luaL_error(luaSt, "Expected table");
+    }
+    size_t len = luaL_getn(luaSt, 3);
     real* arr = (real*)v;
     for (size_t i = 0; i < len; ++i) {
         lua_rawgeti(luaSt, 3, i + 1);
@@ -566,7 +570,7 @@ static void setValueFromType(lua_State* luaSt, const MWNamedArg* p, int idx)
 
         case LUA_TTABLE:
             // Handle real arrays
-            if (p->userDataTypeName && strcmp(p->userDataTypeName, REAL_TYPE) == 0 && p->arrayLen >= 0)
+            if (p->userDataTypeName && strcmp(p->userDataTypeName, REAL_TYPE) == 0)
             {
                 real* arr = (real*)v;
                 for (size_t i = 0; i < p->arrayLen; ++i) {

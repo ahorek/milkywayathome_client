@@ -41,11 +41,9 @@ int main()
 #pragma GCC diagnostic ignored "-Wfloat-equal"
     if(scoreWithRange != 0)
     {
-#pragma GCC diagnostic pop
         printf("EMD calculated with given ranges not correct, gave %f should be 0 \n", scoreWithRange);
         return 1;
     }
-
     if(scoreWithoutRange < 5.449190 || scoreWithoutRange > 5.449192) // should expect score of -5.449191188301354
     {
         printf("EMD calculated with whole histogram is not correct; either the function could not default to normal behavior or the EMD likelihood calculation has been changed. Got %1.15f, expected 5.449191188301354 \n", scoreWithoutRange);
@@ -56,8 +54,9 @@ int main()
         printf("EMD calculated with given ranges from simulation histogram not correct, gave %f should be 0 \n", scoreWithRange2);
         return 1;
     }
-    else //both cases return expected likelihood
-    {
-        return 0;
-    }
+    
+    //both cases return expected likelihood
+    #pragma GCC diagnostic pop
+    return 0;
+    
 }

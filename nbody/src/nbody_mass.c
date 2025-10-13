@@ -323,7 +323,6 @@ void nbRemoveMomentumOutliers(const NBodyState* st, NBodyHistogram* histogram, i
 {
     Body* p = NULL;
 
-    unsigned int counter = 0;
     mwbool initial = TRUE;
     mwbool corrected = FALSE;
 
@@ -356,9 +355,9 @@ void nbRemoveMomentumOutliers(const NBodyState* st, NBodyHistogram* histogram, i
                     L = mw_mulvs(L, mass);
 
                     /*If outside of cutoff in any component, remove the particle*/
-                    if(abs(X(L_avg) - X(L)) < sigma_cutoff * X(LErr) &&
-                       abs(Y(L_avg) - Y(L)) < sigma_cutoff * Y(LErr) &&
-                       abs(Z(L_avg) - Z(L)) < sigma_cutoff * Z(LErr))//if it is inside of the sigma limit
+                    if(fabs(X(L_avg) - X(L)) < sigma_cutoff * X(LErr) &&
+                       fabs(Y(L_avg) - Y(L)) < sigma_cutoff * Y(LErr) &&
+                       fabs(Z(L_avg) - Z(L)) < sigma_cutoff * Z(LErr))//if it is inside of the sigma limit
                     {
                         L_sum = mw_addv(L_sum, L);
                     }
@@ -371,20 +370,22 @@ void nbRemoveMomentumOutliers(const NBodyState* st, NBodyHistogram* histogram, i
                 }
             }
         }
-        mwvector L_avg = mw_mulvs(L_sum, 1.0/(real)counts);
+        L_avg = mw_mulvs(L_sum, 1.0/(real)counts);
 
         /*Recalculate error*/
         mwvector LDiff_sum = ZERO_VECTOR; /*sum of differences between particle angular momenta and average angular momentum*/
         mwvector LDiff = ZERO_VECTOR; /*difference between particle angular momenta and average angular momentum*/
-        mwvector LErr = ZERO_VECTOR;
+        LErr.x = 0;
+        LErr.y = 0;
+        LErr.z = 0;
         if(corrected)
         {
-            for(unsigned int i = 0; i < nbody; i++) /*sum over particles to find error in average momentum*/
+            for(unsigned int k = 0; k < nbody; k++) /*sum over particles to find error in average momentum*/
             {
-                p = &st->bodytab[i];
+                p = &st->bodytab[k];
                 if (!ignoreBody(p))
                 {
-                    if (in_hist[i] >0)
+                    if (in_hist[k] >0)
                     {
                         r = Pos(p);
                         v = Vel(p);
@@ -610,6 +611,15 @@ void nbCalcMomentum(const NBodyState* st, const NBodyCtx* ctx, NBodyHistogram* d
     /* Mass is not currently used in momentum calculation. Keeping it here in case someone needs it later*/
     real mass = 1.0; //histogram->massPerParticle; /*mass of each particle*/
 
+    if(histogram->params.nRange > 0) // Make sure any values given through lua are used
+    {
+        data->params.nRange = histogram->params.nRange;
+        for(unsigned int j = 0; j < histogram->params.nRange; j++)
+        {
+            data->params.EMDRange[j] = histogram->params.EMDRange[j];
+        }
+    }
+
     for (unsigned int i = 0; i < nbody; i++) /*sum over particles to find average momentum*/
     {
         p = &st->bodytab[i];
@@ -619,14 +629,6 @@ void nbCalcMomentum(const NBodyState* st, const NBodyCtx* ctx, NBodyHistogram* d
             lambdaBetaR = nbXYZToLambdaBeta(&histTrig, Pos(p), ctx->sunGCDist);
             lambda = L(lambdaBetaR);
             beta = B(lambdaBetaR);
-            if(histogram->params.nRange > 0) // Make sure any values given through lua are used
-            {
-                data->params.nRange = histogram->params.nRange;
-                for(i = 0; i < histogram->params.nRange; i++)
-                {
-                    data->params.EMDRange[i] = histogram->params.EMDRange[i];
-                }
-            }
             if (data->params.nRange == 0) /*If no EMD range is given, use entire hist*/
             {
                 if ((lambda >= histogram->params.lambdaStart) && (lambda < histogram->params.lambdaEnd) &&

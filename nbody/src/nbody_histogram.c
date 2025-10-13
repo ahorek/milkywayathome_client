@@ -531,11 +531,14 @@ void nbPrintHistogram(FILE* f, const MainStruct* all)
     fprintf(f, "totalSimulated = %u\n", all->histograms[0]->totalSimulated);
     fprintf(f, "lambdaBins = %u\n", all->histograms[0]->lambdaBins);
     fprintf(f, "betaBins = %u\n", all->histograms[0]->betaBins);
-    if(all->histograms[0]->params.LErr.x != 0 && all->histograms[0]->params.LErr.y != 0 && all->histograms[0]->params.LErr.z != 0)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wfloat-equal"
+    if(all->histograms[0]->params.L.x != 0 && all->histograms[0]->params.L.y != 0 && all->histograms[0]->params.L.z != 0)
     {
         fprintf(f, "L = {%lf, %lf, %lf}\n", all->histograms[0]->params.L.x, all->histograms[0]->params.L.y, all->histograms[0]->params.L.z);
         fprintf(f, "LErr = {%lf, %lf, %lf}\n", all->histograms[0]->params.LErr.x, all->histograms[0]->params.LErr.y, all->histograms[0]->params.LErr.z);
     }
+    #pragma GCC diagnostic pop
     if(all->histograms[0]->params.nRange != 0)
     {
         fprintf(f, "EMDRange = {");

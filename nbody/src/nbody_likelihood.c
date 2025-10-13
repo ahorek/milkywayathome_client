@@ -145,7 +145,7 @@ real nbMatchHistogramFiles(const char* datHist, const char* matchHist, mwbool us
         }
         if(use_momentum)
         {
-            real momentum_component = nbMomentumLikelihood(dat->histograms[0], match->histograms[0]);
+            momentum_component = nbMomentumLikelihood(dat->histograms[0], match->histograms[0]);
             likelihood += momentum_component;
         }
         

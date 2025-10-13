@@ -90,6 +90,8 @@ int main()
 
     nbCalcMomentum(&st, &ctx, data->histograms[0], histogram->histograms[0]);
 
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wfloat-equal"
     if (L.x != histogram->histograms[0]->params.L.x
         || L.y != histogram->histograms[0]->params.L.y
         || L.z != histogram->histograms[0]->params.L.z)
@@ -104,7 +106,7 @@ int main()
         printf("\tUsing EMD range did not return the same momentum error\n");
         return 1;
     }
-
+    #pragma GCC diagnostic pop
     //Final likelihood calculated in python is 771983.400390398
     //Note that likelihood calculated at this point is positive, and is made negative later
 

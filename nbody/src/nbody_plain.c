@@ -426,11 +426,13 @@ NBodyStatus nbRunSystemPlain(const NBodyCtx* ctx, NBodyState* st, const NBodyFla
     real curStep = st->step;
     real Nstep = ctx->nStep;
     
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wfloat-equal"
     if(st->bestLikelihood == 0.0)
     {
         st->bestLikelihood = DEFAULT_WORST_CASE; //initializing it.
     }
-    
+    #pragma GCC diagnostic pop
     while (st->step < ctx->nStep)
     {
         #ifdef NBODY_BLENDER_OUTPUT
