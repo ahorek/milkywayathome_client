@@ -392,6 +392,7 @@ typedef struct MW_ALIGN_TYPE
 
     unsigned int maxDepth;   /* Maximum depth before overflow. Used for CL version */
     
+    /* Note: if you are adding a new likelihood component, make sure you also adjust checkpointing to store it*/
     real bestLikelihood;           /* new parameter for best likelihood eval */
     real bestLikelihood_EMD;       /* EMD component of likelihood */
     real bestLikelihood_Mass;      /* Mass component of likelihood */
@@ -445,7 +446,7 @@ typedef struct MW_ALIGN_TYPE
                            0, 0, 0, 0, 0,                                                   \
                            0,                                                               \
                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, FALSE, FALSE, FALSE,      \
-                           FALSE, FALSE, FALSE ,FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,   \
+                           FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,   \
                            FALSE, FALSE, FALSE, 0, NULL, NULL, NULL, NULL}
 
 

@@ -332,7 +332,7 @@ void nbRemoveMomentumOutliers(const NBodyState* st, NBodyHistogram* histogram, i
     mwvector v = ZERO_VECTOR; /*velocity vector*/
     real mass = 1.0; //histogram->massPerParticle; /*mass of each particle*/
 
-    /*Calculate old average*/
+    /*Read in old average*/
     mwvector L_avg = histogram->params.L;
     mwvector LErr = histogram->params.LErr;
 
@@ -611,13 +611,17 @@ void nbCalcMomentum(const NBodyState* st, const NBodyCtx* ctx, NBodyHistogram* d
     /* Mass is not currently used in momentum calculation. Keeping it here in case someone needs it later*/
     real mass = 1.0; //histogram->massPerParticle; /*mass of each particle*/
 
-    if(histogram->params.nRange > 0) // Make sure any values given through lua are used
+    if(histogram->params.nRange >= 0) // Make sure any values given through lua are used
     {
         data->params.nRange = histogram->params.nRange;
         for(unsigned int j = 0; j < histogram->params.nRange; j++)
         {
             data->params.EMDRange[j] = histogram->params.EMDRange[j];
         }
+    }
+    if(data->params.nRange % 2 != 0)
+    {
+        data->params.nRange -= 1;
     }
 
     for (unsigned int i = 0; i < nbody; i++) /*sum over particles to find average momentum*/
@@ -709,12 +713,21 @@ void nbCalcMomentum(const NBodyState* st, const NBodyCtx* ctx, NBodyHistogram* d
     histogram->params.LErr.z = LErr.z;
 
     nbRemoveMomentumOutliers(st, histogram, in_hist, ctx->MomentumSigma, ctx->IterMax, ctx->MomentumCorrect, nbody, counter); /*Remove outliers now that we have a standard deviation*/
+    free(in_hist);
     return;
 }
 
 /*Actual likelihood calculation*/
 real nbMomentumLikelihood(const NBodyHistogram* data, const NBodyHistogram* histogram)
 {
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wfloat-equal"
+    if(data->params.LErr.x == 0 || data->params.LErr.y == 0 || data->params.LErr.z == 0 || 
+       histogram->params.LErr.x == 0 || histogram->params.LErr.y == 0 || histogram->params.LErr.z == 0)
+    {
+        mw_printf("WARNING: A momentum input is zero, it may not have been read in\n");
+    }
+    #pragma GCC diagnostic pop
     /* The likelihood only considers errors from the input data. This is so messy, unrealistic outputs with high errors will not return 
     reasonable scores, as the entire purpose of the momentum likelihood is to try to avoid these results*/
     real x_comp = (X(data->params.L) - X(histogram->params.L)) / X(data->params.LErr); //mw_sqrt(sqr(X(data->params.LErr)) + sqr(X(histogram->params.LErr)));

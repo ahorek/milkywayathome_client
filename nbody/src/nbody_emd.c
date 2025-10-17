@@ -1342,20 +1342,25 @@ real nbMatchEMD(const MainStruct* data, const MainStruct* histogram)
 
     emd = 0;
     totalRangeCount = 0;
-    if(first_data->params.nRange == 0 && first_hist->params.nRange == 0)
+    if(first_data->params.nRange == 0 && first_hist->params.nRange < 2) // If no ranges are defined, use full histogram
     {
         // mw_printf("No EMD Ranges defined, using full histogram\n");
         first_data->params.nRange = 2;
         first_data->params.EMDRange[0] = first_data->data[0].lambda;
         first_data->params.EMDRange[1] = first_data->data[bins - 1].lambda;
     }
-    else if(first_hist->params.nRange > 0) // If values are given through lua, use those
+    else if(first_hist->params.nRange >= 2) // If values are given through lua, use those
     {
         first_data->params.nRange = first_hist->params.nRange;
         for(i = 0; i < first_hist->params.nRange; i++)
         {
             first_data->params.EMDRange[i] = first_hist->params.EMDRange[i];
         }
+    }
+
+    if(first_data->params.nRange % 2 != 0)
+    {
+        first_data->params.nRange -= 1; //Make sure nRange is even
     }
     for(i = 0; i < first_data->params.nRange; i = i + 2)
     {

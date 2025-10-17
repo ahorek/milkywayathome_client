@@ -134,7 +134,6 @@ static int nbVerifyCheckpointHeader(const NBodyCheckpointHeader* cpHdr,
                                     const NBodyState* st,
                                     size_t supposedCheckpointSize)
 {
-    //static const char hdr[] = "mwnbody";
     if (strncmp(cpHdr->header, hdr, sizeof(cpHdr->header)))
     {
         mw_printf("Didn't find header for checkpoint file.\n");

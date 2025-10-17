@@ -71,10 +71,10 @@ static int createHistogramParams(lua_State* luaSt)
         };
 
     /* Read nRange first to set EMDRange length*/
+    unsigned int temp = 0;
     if (lua_istable(luaSt, 1))
     {
         lua_getfield(luaSt, 1, "nRange");
-        unsigned int temp = 0;
         if(lua_isnil(luaSt, -1))
         {
             lua_pop(luaSt, 1);
@@ -104,6 +104,22 @@ static int createHistogramParams(lua_State* luaSt)
     else
     {
         return luaL_argerror(luaSt, 1, "Expected argument table");
+    }
+    if(hp.nRange >= 2)
+    {
+        printf("NOTE: Using EMD Ranges given in lua. Histogram input will be ignored.\n");
+        if(hp.EMDRange[hp.nRange - 1] == 0)
+        {
+            printf("WARNING: EMDRange ends in zero. Is nRange too large?\n");
+        }
+    }
+    if(hp.L.x > 0.00001 || hp.L.y > 0.00001 || hp.L.z > 0.00001 || hp.L.x < -0.00001 || hp.L.y < -0.00001 || hp.L.z < -0.00001)
+    {
+        printf("NOTE: Using Momentum info given in lua. Histogram input will be ignored.\n");
+    }
+    if(hp.nRange % 2 != 0)
+    {
+        printf("WARNING: nRange is odd, but should be even. Will use nRange - 1.\n");
     }
 
     return 1;
@@ -165,7 +181,7 @@ static const Xet_reg_pre gettersHistogramParams[] =
     { "L",           getVector,    offsetof(HistogramParams, L)            }, 
     { "LErr",        getVector,    offsetof(HistogramParams, LErr)         },
     { "nRange",      getUInt,      offsetof(HistogramParams, nRange)       },
-    { "EMDRange",    getEMDRange, offsetof(HistogramParams, EMDRange)     },
+    { "EMDRange",    getEMDRange,  offsetof(HistogramParams, EMDRange)     },
     { NULL, NULL, 0 }
 };
 
