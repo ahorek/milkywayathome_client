@@ -327,7 +327,10 @@ void nbRemoveMomentumOutliers(const NBodyState* st, NBodyHistogram* histogram, i
     mwbool corrected = FALSE;
 
     mwvector L_sum = ZERO_VECTOR; /*angular momentum vector sum*/
+    mwvector L_sum2 = ZERO_VECTOR; /*angular momentum vector sum squared*/
     mwvector L = ZERO_VECTOR; /*angular momentum vector per particle*/
+    mwvector L2 = ZERO_VECTOR; /*angular momentum vector per particle squared*/
+    mwvector L_var = ZERO_VECTOR; /*variance in angular momentum vector of simulation*/
     mwvector r = ZERO_VECTOR; /*position vector*/
     mwvector v = ZERO_VECTOR; /*velocity vector*/
     real mass = 1.0; //histogram->massPerParticle; /*mass of each particle*/
@@ -360,6 +363,8 @@ void nbRemoveMomentumOutliers(const NBodyState* st, NBodyHistogram* histogram, i
                        fabs(Z(L_avg) - Z(L)) < sigma_cutoff * Z(LErr))//if it is inside of the sigma limit
                     {
                         L_sum = mw_addv(L_sum, L);
+                        L2 = mw_mulv(L, L);
+                        L_sum2 = mw_addv(L_sum2, L2);
                     }
                     else
                     {
@@ -371,43 +376,16 @@ void nbRemoveMomentumOutliers(const NBodyState* st, NBodyHistogram* histogram, i
             }
         }
         L_avg = mw_mulvs(L_sum, 1.0/(real)counts);
-
-        /*Recalculate error*/
-        mwvector LDiff_sum = ZERO_VECTOR; /*sum of differences between particle angular momenta and average angular momentum*/
-        mwvector LDiff = ZERO_VECTOR; /*difference between particle angular momenta and average angular momentum*/
-        LErr.x = 0;
-        LErr.y = 0;
-        LErr.z = 0;
         if(corrected)
         {
-            for(unsigned int k = 0; k < nbody; k++) /*sum over particles to find error in average momentum*/
-            {
-                p = &st->bodytab[k];
-                if (!ignoreBody(p))
-                {
-                    if (in_hist[k] >0)
-                    {
-                        r = Pos(p);
-                        v = Vel(p);
-                        L = mw_crossv(r, mw_mulvs(v, mass)); //angular momentum vector of particle without conisderation of mass
-                        LDiff = mw_subv(L, L_avg); //difference between particle angular momentum and average angular momentum
-                        LDiff.x = sqr(X(LDiff));
-                        LDiff.y = sqr(Y(LDiff));
-                        LDiff.z = sqr(Z(LDiff));
-                        LDiff_sum = mw_addv(LDiff_sum, LDiff);
-                    }
-                }
-            }
-            LErr = mw_divvs(LDiff_sum, (real)(counts-1)); /*variance in average angular momentum vector of simulation*/
-            /*replace values*/
-            LErr.x = mw_sqrt(X(LErr));
-            LErr.y = mw_sqrt(Y(LErr));
-            LErr.z = mw_sqrt(Z(LErr));
+            L_var = mw_divvs(mw_subv(L_sum2, mw_mulvs(mw_mulv(L_avg, L_avg), counts)), (real)(counts-1)); /*variance in angular momentum vector of simulation*/
+            LErr.x = mw_sqrt(X(L_var));
+            LErr.y = mw_sqrt(Y(L_var));
+            LErr.z = mw_sqrt(Z(L_var));
         }
         else
         {
-            /*If no outliers were removed, use previous error*/
-            LErr = histogram->params.LErr;
+            LErr= histogram->params.LErr; /*use previous error if no outliers were removed*/
         }
 
         if(corrected || initial) //only correct if wings are removed or if this is the first calculation and there were no wings
@@ -428,6 +406,7 @@ void nbRemoveMomentumOutliers(const NBodyState* st, NBodyHistogram* histogram, i
         corrected = FALSE;
         initial = FALSE;
         L_sum = (mwvector)ZERO_VECTOR;
+        L_sum2 = (mwvector)ZERO_VECTOR;
     }
     return;
 }   
@@ -605,13 +584,15 @@ void nbCalcMomentum(const NBodyState* st, const NBodyCtx* ctx, NBodyHistogram* d
     nbGetHistTrig(&histTrig, hp);
     real counter = 0; /*number of bodies used*/
     mwvector L_sum = ZERO_VECTOR; /*angular momentum vector sum*/
+    mwvector L_sum2 = ZERO_VECTOR; /*angular momentum vector sum squared*/
     mwvector L = ZERO_VECTOR; /*angular momentum vector per particle*/
+    mwvector L2 = ZERO_VECTOR; /*angular momentum vector per particle squared*/
     mwvector r = ZERO_VECTOR; /*position vector*/
     mwvector v = ZERO_VECTOR; /*velocity vector*/
     /* Mass is not currently used in momentum calculation. Keeping it here in case someone needs it later*/
     real mass = 1.0; //histogram->massPerParticle; /*mass of each particle*/
 
-    if(histogram->params.nRange >= 0) // Make sure any values given through lua are used
+    if(histogram->params.nRange >= 2) // Make sure any values given through lua are used
     {
         data->params.nRange = histogram->params.nRange;
         for(unsigned int j = 0; j < histogram->params.nRange; j++)
@@ -642,7 +623,9 @@ void nbCalcMomentum(const NBodyState* st, const NBodyCtx* ctx, NBodyHistogram* d
                     r = Pos(p);
                     v = Vel(p);
                     L = mw_crossv(r, v); /*angular momentum vector of particle without conisderation of mass*/
+                    L2 = mw_mulv(L, L); /*angular momentum vector squared*/
                     L_sum = mw_addv(L_sum, L);
+                    L_sum2 = mw_addv(L_sum2, L2);
                     counter++;
                 }
                 else
@@ -667,7 +650,9 @@ void nbCalcMomentum(const NBodyState* st, const NBodyCtx* ctx, NBodyHistogram* d
                     r = Pos(p);
                     v = Vel(p);
                     L = mw_crossv(r, v); /*angular momentum vector of particle without conisderation of mass*/
+                    L2 = mw_mulv(L, L); /*angular momentum vector squared*/
                     L_sum = mw_addv(L_sum, L);
+                    L_sum2 = mw_addv(L_sum2, L2);
                     counter++;
                 }
                 else
@@ -680,30 +665,13 @@ void nbCalcMomentum(const NBodyState* st, const NBodyCtx* ctx, NBodyHistogram* d
 
     L_sum = mw_mulvs(L_sum, mass); /*adjust momentum for mass*/
     mwvector L_avg = mw_mulvs(L_sum, 1.0/(real)counter); /*average angular momentum vector of simulation*/
+    L_sum2 = mw_mulvs(L_sum2, sqr(mass)); /*adjust momentum squared for mass*/
+    mwvector L_var = mw_divvs(mw_subv(L_sum2, mw_mulvs(mw_mulv(L_avg, L_avg), counter)), (real)(counter-1)); /*variance in angular momentum vector of simulation*/
 
-    mwvector LDiff_sum = ZERO_VECTOR; /*sum of differences between particle angular momenta and average angular momentum*/
-    mwvector LDiff = ZERO_VECTOR; /*difference between particle angular momenta and average angular momentum*/
-
-    for(unsigned int i = 0; i < nbody; i++) /*sum over particles to find error in average momentum*/
-    {
-        p = &st->bodytab[i];
-        if (in_hist[i] > 0) /*only include particles that were in the histogram and counted previously*/
-        {
-            r = Pos(p);
-            v = Vel(p);
-            L = mw_crossv(r, mw_mulvs(v, mass)); //angular momentum vector of particle
-            LDiff = mw_subv(L, L_avg); //difference between particle angular momentum and average angular momentum
-            LDiff.x = sqr(X(LDiff));
-            LDiff.y = sqr(Y(LDiff));
-            LDiff.z = sqr(Z(LDiff)); 
-            LDiff_sum = mw_addv(LDiff_sum, LDiff);
-        }
-    }
-
-    mwvector LErr = mw_divvs(LDiff_sum, (real)(counter-1)); /*variance in average angular momentum vector of simulation*/
-    LErr.x = mw_sqrt(X(LErr));
-    LErr.y = mw_sqrt(Y(LErr));
-    LErr.z = mw_sqrt(Z(LErr));
+    mwvector LErr = ZERO_VECTOR;
+    LErr.x = mw_sqrt(X(L_var));
+    LErr.y = mw_sqrt(Y(L_var));
+    LErr.z = mw_sqrt(Z(L_var));
 
     histogram->params.L.x = L_avg.x;
     histogram->params.L.y = L_avg.y;
