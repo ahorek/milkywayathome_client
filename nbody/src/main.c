@@ -640,13 +640,13 @@ int main(int argc, const char* argv[])
     else if (nbf.matchHistogram)
     {
         real emd;
-        mwbool vel_disp = nbf.matchVelDisp;
-        mwbool beta_disp = nbf.matchBetaDisp;
-        mwbool beta_avg = nbf.matchBetaAvg;
-        mwbool vlos_avg = nbf.matchVlos;
-        mwbool dist_avg = nbf.matchDist;
-        mwbool pm = nbf.matchPM;
-        mwbool momentum = nbf.matchMomentum;
+        mwbool vel_disp = nbf.matchVelDisp ? TRUE : FALSE;
+        mwbool beta_disp = nbf.matchBetaDisp ? TRUE : FALSE;
+        mwbool beta_avg = nbf.matchBetaAvg ? TRUE : FALSE;
+        mwbool vlos_avg = nbf.matchVlos ? TRUE : FALSE;
+        mwbool dist_avg = nbf.matchDist ? TRUE : FALSE;
+        mwbool pm = nbf.matchPM ? TRUE : FALSE;
+        mwbool momentum = nbf.matchMomentum ? TRUE : FALSE;
         /* runs the comparison of two input hists */
         emd = nbMatchHistogramFiles(nbf.histogramFileName, nbf.matchHistogram, vel_disp, beta_disp, beta_avg, vlos_avg, dist_avg, pm, momentum);
         mw_printf("<search_likelihood>%.15f</search_likelihood>\n", -emd);
