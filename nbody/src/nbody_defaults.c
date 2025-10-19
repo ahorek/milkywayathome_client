@@ -109,7 +109,7 @@ const HistogramParams defaultHistogramParams =
     /* .L           */  histogramL,
     /* .LErr        */  histogramLErr,
     /* .nRange      */  histogramnRange,
-    /* .EMDRange    */  {histogramEMDRange}
+    /* .EMDRange    */  histogramEMDRange
 };
 
 

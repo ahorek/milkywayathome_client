@@ -105,6 +105,8 @@ static int createHistogramParams(lua_State* luaSt)
     {
         return luaL_argerror(luaSt, 1, "Expected argument table");
     }
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wfloat-equal"
     if(hp.nRange >= 2)
     {
         printf("NOTE: Using EMD Ranges given in lua. Histogram input will be ignored.\n");
@@ -113,6 +115,7 @@ static int createHistogramParams(lua_State* luaSt)
             printf("WARNING: EMDRange ends in zero. Is nRange too large?\n");
         }
     }
+    #pragma GCC diagnostic pop
     if(hp.L.x > 0.00001 || hp.L.y > 0.00001 || hp.L.z > 0.00001 || hp.L.x < -0.00001 || hp.L.y < -0.00001 || hp.L.z < -0.00001)
     {
         printf("NOTE: Using Momentum info given in lua. Histogram input will be ignored.\n");

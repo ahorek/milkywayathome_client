@@ -93,7 +93,7 @@ extern "C" {
 #define histogramL ((mwvector) ZERO_VECTOR)
 #define histogramLErr ((mwvector) ZERO_VECTOR)
 #define histogramnRange ((unsigned int) 0)
-#define histogramEMDRange ((real) {0})
+#define histogramEMDRange ((real) {0.0})
 
 
 extern const NBodyCtx defaultNBodyCtx;
