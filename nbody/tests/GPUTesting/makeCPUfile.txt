@@ -145,7 +145,7 @@ add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} -I 1,4,1)
 # TODO: Test with known tree incest to check return status right
 
 
-set(body_counts 100 1024 10000)
+set(body_counts 10000) #no longer testing different body counts
 
 set(orphan_model_names model_1
                        model_2

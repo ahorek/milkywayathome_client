@@ -369,7 +369,7 @@ real nbExtDensity(const Potential* pot, mwvector pos, real time)
             break;
         case WilkinsonEvansHalo:
             density += wilkinsonEvansHaloDensity(&(pot->halo), r);
-	    break;
+	        break;
         case NFWMassHalo:
             density += NFWMHaloDensity(&(pot->halo), r);
             break;

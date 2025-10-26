@@ -25,7 +25,19 @@
 -- lua files in the test_env_lua directory (nbody/sample_workunits/test_env_lua/)
 -- especially if the changes are not backwards compatible with the previous format
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
-        
+
+-- -- -- -- -- -- -- -- -- DWARF STARTING LOCATION   -- -- -- -- -- -- -- --
+-- these only get used if only 6 parameters are input from shell script
+-- otherwise they get reset later with the inputs (if 11 given)
+preset_orbit_parameter_l  = 258
+preset_orbit_parameter_b  = 45.8
+preset_orbit_parameter_r  = 21.5
+preset_orbit_parameter_vx = -185.5
+preset_orbit_parameter_vy = 54.7
+preset_orbit_parameter_vz = 147.4
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+
+
         
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- -- -- -- -- -- -- -- -- STANDARD  SETTINGS   -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --      
@@ -55,6 +67,73 @@ SunVelz               = 6.9       -- -- Sun's z-velocity (kpc/Gyr)              
 UseOldSofteningLength = 0         -- -- Uses old softening length formula from v1.76 and eariler               -- --
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
+arg = { ... } -- -- TAKING USER INPUT
+assert((#arg == 6 or #arg == 7 or #arg == 8 or #arg == 12 or #arg == 13 or #arg == 14), "Expects either 6, 7, 8, 12, 13, or 14 arguments")
+assert(argSeed ~= nil, "Expected seed") -- STILL EXPECTING SEED AS INPUT FOR THE FUTURE
+argSeed = 34086709 -- -- SETTING SEED TO FIXED VALUE
+--argSeed = 34086710 -- -- SETTING SEED TO FIXED VALUE
+prng = DSFMT.create(argSeed)
+-- -- -- -- -- -- -- -- -- ROUNDING USER INPUT -- -- -- -- -- -- -- --
+function round(num, places)
+  local mult = 10.0^(places)
+  return floor(num * mult + 0.5) / mult
+end
+
+-- -- -- -- -- -- ROUNDING TO AVOID DIFFERENT COMPUTER TERMINAL PRECISION -- -- -- -- -- --
+dec = 9.0
+evolveTime       = round( tonumber(arg[1]), dec )    -- Forward Time (Gyrs)
+time_ratio       = round( tonumber(arg[2]), dec )    -- Forward Time / Backward Time
+rscale_l         = round( tonumber(arg[3]), dec )    -- Baryonic Radius (kpc)
+light_r_ratio    = round( tonumber(arg[4]), dec )    -- Baryonic Radius / (Baryonic Radius + Dark Matter Radius)
+mass_l           = round( tonumber(arg[5]), dec )    -- Baryonic Mass (Structure Mass Units)
+light_mass_ratio = round( tonumber(arg[6]), dec )    -- Baryonic Mass / (Baryonic Mass + Dark Matter Mass)
+if (#arg == 7) then
+    if manual_bodies then
+        manual_body_file = arg[7]
+    else 
+        LMC_Mass = round( tonumber(arg[7]), dec )
+    end
+elseif (#arg == 8) then
+    LMC_Mass = round( tonumber(arg[7]), dec )
+    manual_body_file = arg[8]
+elseif (#arg == 12) then
+    orbit_parameter_l   = round( tonumber(arg[7]), dec )
+    orbit_parameter_b   = round( tonumber(arg[8]), dec )
+    orbit_parameter_r   = round( tonumber(arg[9]), dec )
+    orbit_parameter_vx  = round( tonumber(arg[10]), dec )
+    orbit_parameter_vy  = round( tonumber(arg[11]), dec )
+    orbit_parameter_vz  = round( tonumber(arg[12]), dec )
+elseif (#arg == 13) then
+    orbit_parameter_l   = round( tonumber(arg[7]), dec )
+    orbit_parameter_b   = round( tonumber(arg[8]), dec )
+    orbit_parameter_r   = round( tonumber(arg[9]), dec )
+    orbit_parameter_vx  = round( tonumber(arg[10]), dec )
+    orbit_parameter_vy  = round( tonumber(arg[11]), dec )
+    orbit_parameter_vz  = round( tonumber(arg[12]), dec )
+    if manual_bodies then
+        manual_body_file = arg[13]
+    else
+        LMC_Mass = round( tonumber(arg[13]), dec )
+    end
+elseif (#arg == 14) then
+    orbit_parameter_l   = round( tonumber(arg[7]), dec )
+    orbit_parameter_b   = round( tonumber(arg[8]), dec )
+    orbit_parameter_r   = round( tonumber(arg[9]), dec )
+    orbit_parameter_vx  = round( tonumber(arg[10]), dec )
+    orbit_parameter_vy  = round( tonumber(arg[11]), dec )
+    orbit_parameter_vz  = round( tonumber(arg[12]), dec )
+    LMC_Mass = round( tonumber(arg[13]), dec )
+    manual_body_file = arg[14]
+else
+    -- fallback to preset orbit parameters and LMC mass if not enough args
+    orbit_parameter_l   = preset_orbit_parameter_l
+    orbit_parameter_b   = preset_orbit_parameter_b
+    orbit_parameter_r   = preset_orbit_parameter_r
+    orbit_parameter_vx  = preset_orbit_parameter_vx
+    orbit_parameter_vy  = preset_orbit_parameter_vy
+    orbit_parameter_vz  = preset_orbit_parameter_vz
+    LMC_Mass = preset_LMC_Mass
+end
 
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
@@ -67,6 +146,23 @@ UseOldSofteningLength = 0         -- -- Uses old softening length formula from v
 ModelComponents   = 2         -- -- TWO COMPONENTS SWITCH   -- -- -- -- -- --
 manual_bodies     = false     -- -- USE THE MANUAL BODY LIST   -- -- -- -- --
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+
+if(ModelComponents == 1) then
+   dwarfMass = mass_l
+   rscale_t  = rscale_l
+   rscale_d  = 1.0
+   mass_d    = 0.0
+else
+   dwarfMass = mass_l / light_mass_ratio
+   rscale_t  = rscale_l / light_r_ratio
+   rscale_d  = rscale_t *  (1.0 - light_r_ratio)
+   mass_d    = dwarfMass * (1.0 - light_mass_ratio)
+end
+
+--component 1 and 2 for 2 component model. comp 1 should always be updated even for 1 component, as it is used to 
+--calculate new softening length
+comp1 = Dwarf.plummer{mass = mass_l, scaleLength = rscale_l} -- Dwarf Options: plummer, nfw, general_hernquist, cored
+comp2 = Dwarf.plummer{mass = mass_d, scaleLength = rscale_d} -- Dwarf Options: plummer, nfw, general_hernquist, cored
 
 
 
@@ -140,16 +236,6 @@ max_soft_par          = 0.8         -- -- kpc, if switch above is turned on, use
 generateInitialOutput = false       -- -- save initial dwarf galaxy state to initial.out before evolution                   -- --
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
         
--- -- -- -- -- -- -- -- -- DWARF STARTING LOCATION   -- -- -- -- -- -- -- --
--- these only get used if only 6 parameters are input from shell script
--- otherwise they get reset later with the inputs (if 11 given)
-preset_orbit_parameter_l  = 258
-preset_orbit_parameter_b  = 45.8
-preset_orbit_parameter_r  = 21.5
-preset_orbit_parameter_vx = -185.5
-preset_orbit_parameter_vy = 54.7
-preset_orbit_parameter_vz = 147.4
--- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
         
 -- -- -- -- -- -- -- -- -- CHECK TIMESTEPS -- -- -- -- -- -- -- -- 
 TooManyTimesteps = 0
@@ -209,8 +295,11 @@ end
 function get_soft_par()
     --softening parameter only calculated based on dwarf,
     --so if manual bodies is turned on the calculated s.p. may be too large
-    sp = calculateEps2(totalBodies, rscale_l, rscale_d, mass_l, mass_d, UseOldSofteningLength)
-
+    if (UseOldSofteningLength == 1) then
+        sp = calculateEps2(totalBodies, rscale_l, rscale_d, mass_l, mass_d)
+    else
+        sp = calculateEps2Dwarf(comp1, totalLightBodies)
+    end
     if ((manual_bodies or use_max_soft_par) and (sp > max_soft_par^2)) then --dealing with softening parameter squared
         print("Using maximum softening parameter value of " .. tostring(max_soft_par) .. " kpc")
         return max_soft_par^2
@@ -329,11 +418,7 @@ function makeBodies(ctx, potential)
         print('Printing reverse orbit')
     end
 
-
-    if(ModelComponents == 2) then 
-        -- Create components
-        local comp1 = Dwarf.plummer{mass = mass_l, scaleLength = rscale_l} -- Dwarf Options: plummer, nfw, general_hernquist, cored        
-        local comp2 = Dwarf.plummer{mass = mass_d, scaleLength = rscale_d} -- Dwarf Options: plummer, nfw, general_hernquist, cored
+    if(ModelComponents == 2) then         
 
         firstModel = predefinedModels.mixeddwarf{
             nbody         = totalBodies,
@@ -404,74 +489,6 @@ function makeHistogram()
 end
 
 
-arg = { ... } -- -- TAKING USER INPUT
-assert((#arg == 6 or #arg == 7 or #arg == 8 or #arg == 12 or #arg == 13 or #arg == 14), "Expects either 6, 7, 8, 12, 13, or 14 arguments")
-assert(argSeed ~= nil, "Expected seed") -- STILL EXPECTING SEED AS INPUT FOR THE FUTURE
-argSeed = 34086709 -- -- SETTING SEED TO FIXED VALUE
---argSeed = 34086710 -- -- SETTING SEED TO FIXED VALUE
-prng = DSFMT.create(argSeed)
-
--- -- -- -- -- -- -- -- -- ROUNDING USER INPUT -- -- -- -- -- -- -- --
-function round(num, places)
-  local mult = 10.0^(places)
-  return floor(num * mult + 0.5) / mult
-end
-
--- -- -- -- -- -- ROUNDING TO AVOID DIFFERENT COMPUTER TERMINAL PRECISION -- -- -- -- -- --
-dec = 9.0
-evolveTime       = round( tonumber(arg[1]), dec )    -- Forward Time (Gyrs)
-time_ratio       = round( tonumber(arg[2]), dec )    -- Forward Time / Backward Time
-rscale_l         = round( tonumber(arg[3]), dec )    -- Baryonic Radius (kpc)
-light_r_ratio    = round( tonumber(arg[4]), dec )    -- Baryonic Radius / (Baryonic Radius + Dark Matter Radius)
-mass_l           = round( tonumber(arg[5]), dec )    -- Baryonic Mass (Structure Mass Units)
-light_mass_ratio = round( tonumber(arg[6]), dec )    -- Baryonic Mass / (Baryonic Mass + Dark Matter Mass)
-if (#arg == 7) then
-    if manual_bodies then
-        manual_body_file = arg[7]
-    else 
-        LMC_Mass = round( tonumber(arg[7]), dec )
-    end
-elseif (#arg == 8) then
-    LMC_Mass = round( tonumber(arg[7]), dec )
-    manual_body_file = arg[8]
-elseif (#arg == 12) then
-    orbit_parameter_l   = round( tonumber(arg[7]), dec )
-    orbit_parameter_b   = round( tonumber(arg[8]), dec )
-    orbit_parameter_r   = round( tonumber(arg[9]), dec )
-    orbit_parameter_vx  = round( tonumber(arg[10]), dec )
-    orbit_parameter_vy  = round( tonumber(arg[11]), dec )
-    orbit_parameter_vz  = round( tonumber(arg[12]), dec )
-elseif (#arg == 13) then
-    orbit_parameter_l   = round( tonumber(arg[7]), dec )
-    orbit_parameter_b   = round( tonumber(arg[8]), dec )
-    orbit_parameter_r   = round( tonumber(arg[9]), dec )
-    orbit_parameter_vx  = round( tonumber(arg[10]), dec )
-    orbit_parameter_vy  = round( tonumber(arg[11]), dec )
-    orbit_parameter_vz  = round( tonumber(arg[12]), dec )
-    if manual_bodies then
-        manual_body_file = arg[13]
-    else
-        LMC_Mass = round( tonumber(arg[13]), dec )
-    end
-elseif (#arg == 14) then
-    orbit_parameter_l   = round( tonumber(arg[7]), dec )
-    orbit_parameter_b   = round( tonumber(arg[8]), dec )
-    orbit_parameter_r   = round( tonumber(arg[9]), dec )
-    orbit_parameter_vx  = round( tonumber(arg[10]), dec )
-    orbit_parameter_vy  = round( tonumber(arg[11]), dec )
-    orbit_parameter_vz  = round( tonumber(arg[12]), dec )
-    LMC_Mass = round( tonumber(arg[13]), dec )
-    manual_body_file = arg[14]
-else
-    -- fallback to preset orbit parameters and LMC mass if not enough args
-    orbit_parameter_l   = preset_orbit_parameter_l
-    orbit_parameter_b   = preset_orbit_parameter_b
-    orbit_parameter_r   = preset_orbit_parameter_r
-    orbit_parameter_vx  = preset_orbit_parameter_vx
-    orbit_parameter_vy  = preset_orbit_parameter_vy
-    orbit_parameter_vz  = preset_orbit_parameter_vz
-    LMC_Mass = preset_LMC_Mass
-end
 
 -- -- -- -- -- -- -- -- -- DWARF PARAMETERS   -- -- -- -- -- -- -- --
 revOrbTime = evolveTime / time_ratio
@@ -483,17 +500,6 @@ else
 end
 
 
-if(ModelComponents == 1) then
-   dwarfMass = mass_l
-   rscale_t  = rscale_l
-   rscale_d  = 1.0
-   mass_d    = 0.0
-else
-   dwarfMass = mass_l / light_mass_ratio
-   rscale_t  = rscale_l / light_r_ratio
-   rscale_d  = rscale_t *  (1.0 - light_r_ratio)
-   mass_d    = dwarfMass * (1.0 - light_mass_ratio)
-end
    
 
 if(manual_bodies and manual_body_file == nil) then 
