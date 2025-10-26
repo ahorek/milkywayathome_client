@@ -283,7 +283,7 @@ int read_lua_parameters(const char* input_lua_file, const char** dwarf_params, r
     if (!lua_isnumber(L, -1)) {
         fprintf(stderr, "Error: totalBodies is not a number in Lua file\n");
         fflush(stdout);
-        //lua_close(L);
+        lua_close(L);
         return 1;
     }
     *nbody = lua_tonumber(L, -1);
@@ -295,7 +295,7 @@ int read_lua_parameters(const char* input_lua_file, const char** dwarf_params, r
     if (!lua_isnumber(L, -1)) {
         fprintf(stderr, "Error: totalLightBodies is not a number in Lua file\n");
         fflush(stdout);
-        //lua_close(L);
+        lua_close(L);
         return 1;
     }
     *nbody_baryon = lua_tonumber(L, -1);
@@ -307,7 +307,7 @@ int read_lua_parameters(const char* input_lua_file, const char** dwarf_params, r
     if (*nbody <= 0 || *nbody_baryon <= 0 || *nbody_baryon > *nbody) {
         fprintf(stderr, "Error: Invalid nbody values - nbody: %f, nbody_baryon: %f\n", *nbody, *nbody_baryon);
         fflush(stdout);
-        //lua_close(L);
+        lua_close(L);
         return 1;
     }
 
@@ -316,7 +316,7 @@ int read_lua_parameters(const char* input_lua_file, const char** dwarf_params, r
     if (!lua_isfunction(L, -1)) {
         fprintf(stderr, "Error: makeBodies function not found in Lua script\n");
         fflush(stdout);
-        //lua_close(L);
+        lua_close(L);
         return 1;
     }
 
@@ -325,7 +325,7 @@ int read_lua_parameters(const char* input_lua_file, const char** dwarf_params, r
     if (!lua_isfunction(L, -1)) {
         fprintf(stderr, "Error: makeContext function not found in Lua script\n");
         fflush(stdout);
-        //lua_close(L);
+        lua_close(L);
         return 1;
     }
 
@@ -335,7 +335,7 @@ int read_lua_parameters(const char* input_lua_file, const char** dwarf_params, r
     if (lua_pcall(L, 0, 1, 0) != 0) {
         fprintf(stderr, "Error calling makeContext: %s\n", lua_tostring(L, -1));
         fflush(stdout);
-        //lua_close(L);
+        lua_close(L);
         return 1;
     }
 
@@ -344,7 +344,7 @@ int read_lua_parameters(const char* input_lua_file, const char** dwarf_params, r
     if (!lua_isnumber(L, -1)) {
         fprintf(stderr, "Error: timestep is not a number in Lua context\n");
         fflush(stdout);
-        //lua_close(L);
+        lua_close(L);
         return 1;
     }
     *timestep = lua_tonumber(L, -1);
@@ -354,7 +354,7 @@ int read_lua_parameters(const char* input_lua_file, const char** dwarf_params, r
     if (*timestep <= 0.0 || !isfinite(*timestep)) {
         fprintf(stderr, "Error: Invalid timestep value: %f\n", *timestep);
         fflush(stdout);
-        //lua_close(L);
+        lua_close(L);
         return 1;
     }
     printf("Valid timestep value: %f\n", *timestep);
@@ -369,7 +369,7 @@ int read_lua_parameters(const char* input_lua_file, const char** dwarf_params, r
     if (lua_pcall(L, 2, 1, 0) != 0) {
         fprintf(stderr, "Error calling makeBodies: %s\n", lua_tostring(L, -1));
         fflush(stdout);
-        //lua_close(L);
+        lua_close(L);
         return 1;
     }
 
@@ -378,7 +378,7 @@ int read_lua_parameters(const char* input_lua_file, const char** dwarf_params, r
     if (!lua_istable(L, -1)) {
         fprintf(stderr, "Error: components table not found in model\n");
         fflush(stdout);
-        //lua_close(L);
+        lua_close(L);
         return 1;
     }
 
@@ -387,7 +387,7 @@ int read_lua_parameters(const char* input_lua_file, const char** dwarf_params, r
     if (!lua_isuserdata(L, -1)) {
         fprintf(stderr, "Error: comp1 is not a userdata in Lua model\n");
         fflush(stdout);
-        //lua_close(L);
+        lua_close(L);
         return 1;
     }
     *comp1 = (Dwarf*)lua_touserdata(L, -1);
@@ -398,7 +398,7 @@ int read_lua_parameters(const char* input_lua_file, const char** dwarf_params, r
     if (!lua_isuserdata(L, -1)) {
         fprintf(stderr, "Error: comp2 is not a userdata in Lua model\n");
         fflush(stdout);
-        //lua_close(L);
+        lua_close(L);
         return 1;
     }
     *comp2 = (Dwarf*)lua_touserdata(L, -1);
@@ -408,7 +408,7 @@ int read_lua_parameters(const char* input_lua_file, const char** dwarf_params, r
     if (!*comp1 || !*comp2) {
         fprintf(stderr, "Error: Invalid dwarf components\n");
         fflush(stdout);
-        //lua_close(L);
+        lua_close(L);
         return 1;
     }
 
@@ -429,7 +429,7 @@ int read_lua_parameters(const char* input_lua_file, const char** dwarf_params, r
         (*comp2)->mass <= 0 || (*comp2)->scaleLength <= 0) {
         fprintf(stderr, "Error: Invalid component parameters\n");
         fflush(stdout);
-        //lua_close(L);
+        lua_close(L);
         return 1;
     }
 

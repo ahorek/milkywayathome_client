@@ -173,13 +173,13 @@ static real nbCalculateEps2_NEW(const Dwarf* light_comp, unsigned int nbody) //n
     real logeps = 0.5 * (mw_log10(d) + mw_log10(r_strong));
     real eps = mw_pow(10, logeps);
     real eps2 = sqr(eps);
-    printf("Optimal Softening Length = %.15f kpc\n", eps);
+    mw_printf("Optimal Softening Length = %.15f kpc, Upper bound = %.15f kpc, Lower bound = %.15f kpc\n", eps, d, r_strong);
     return eps2;
 }
 
-static int luaCalculateEps2_NEW(lua_State* luaSt) //read in params from lua to calc new softening length
+static int luaCalculateEps2Dwarf(lua_State* luaSt) //read in params from lua to calc new softening length
 {
-    Dwarf* model = (Dwarf*) mw_checknamedudata(luaSt, 1, DWARF_TYPE);
+    const Dwarf* model = (const Dwarf*) mw_checknamedudata(luaSt, 1, DWARF_TYPE);
     unsigned int nbody = (unsigned int) luaL_checkinteger(luaSt, 2);
     
     lua_pushnumber(luaSt, nbCalculateEps2_NEW(model, nbody));
@@ -218,7 +218,7 @@ static int luaCalculateEps2_OLD(lua_State* luaSt) //read in params from lua to c
 
     arg_num = lua_gettop(luaSt);
 
-    if (arg_num == 5 || arg_num == 6) //6 for backwards compatibility
+    if (arg_num == 5)
     {
         nbody = (int) luaL_checkinteger(luaSt, 1);
         a_b = luaL_checknumber(luaSt, 2);
@@ -227,7 +227,7 @@ static int luaCalculateEps2_OLD(lua_State* luaSt) //read in params from lua to c
         M_d = luaL_checknumber(luaSt, 5);
         
     }
-    else if (arg_num == 2 || arg_num == 3) /** Single component only requires scale radius. 3 for backwards compatibility **/
+    else if (arg_num == 2) /** Single component only requires scale radius **/
     {
         nbody = (int) luaL_checkinteger(luaSt, 1);
         a_b = luaL_checknumber(luaSt, 2);
@@ -243,48 +243,6 @@ static int luaCalculateEps2_OLD(lua_State* luaSt) //read in params from lua to c
     return 1;
 }
 
-__attribute__((unused)) static int luaCalculateEps2(lua_State* luaSt) //old function, no longer used
-{
-    int nbody, arg_num, use_old_softening_length;
-    real a_b, a_d, M_b, M_d;
-
-    arg_num = lua_gettop(luaSt);
-
-    if (arg_num == 6)
-    {
-        nbody = (int) luaL_checkinteger(luaSt, 1);
-        a_b = luaL_checknumber(luaSt, 2);
-        a_d = luaL_checknumber(luaSt, 3);
-        M_b = luaL_checknumber(luaSt, 4);
-        M_d = luaL_checknumber(luaSt, 5);
-        use_old_softening_length = (int) luaL_checkinteger(luaSt, 6);
-        
-    }
-    else if (arg_num == 3) /** Single component only requires scale radius. **/
-    {
-        nbody = (int) luaL_checkinteger(luaSt, 1);
-        a_b = luaL_checknumber(luaSt, 2);
-        a_d = 1.0; /** can be anything but zero **/
-        M_b = 1.0; /** can be anything but zero **/
-        M_d = 0.0; /** must be zero **/
-        use_old_softening_length = (int) luaL_checkinteger(luaSt, 3);
-    }
-    else
-    {
-        return luaL_argerror(luaSt, 0, "Expected 3 or 6 arguments");
-    }
-
-    if (use_old_softening_length)
-    {
-        lua_pushnumber(luaSt, nbCalculateEps2_OLD((real) nbody, a_b, a_d, M_b, M_d));
-    }
-    else
-    {
-        lua_pushnumber(luaSt, nbCalculateEps2((real) nbody, a_b, a_d, M_b, M_d));
-    }
-
-    return 1;
-}
 
 static int luaReverseOrbit(lua_State* luaSt)
 {
@@ -464,6 +422,6 @@ void registerModelFunctions(lua_State* luaSt)
     lua_register(luaSt, "reverseOrbit_LMC", luaReverseOrbit_LMC);
     lua_register(luaSt, "PrintReverseOrbit", luaPrintReverseOrbit);
     lua_register(luaSt, "calculateEps2", luaCalculateEps2_OLD);
-    lua_register(luaSt, "calculateEps2_NEW", luaCalculateEps2_NEW);
+    lua_register(luaSt, "calculateEps2Dwarf", luaCalculateEps2Dwarf);
     lua_register(luaSt, "calculateTimestep", luaCalculateTimestep);
 }
