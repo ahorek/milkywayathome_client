@@ -83,7 +83,8 @@ function randomNBodyCtx(prng)
       LMCmass       = prng:random(1.0e5,1.0e6),
       LMCscale      = prng:random(1.0,20.0),
       LMCscale2     = prng:random(1.0,20.0),
-      LMCDynaFric   = prng:randomBool()
+      LMCDynaFric   = prng:randomBool(),
+      coulomb_log   = 15
    }
 end
 

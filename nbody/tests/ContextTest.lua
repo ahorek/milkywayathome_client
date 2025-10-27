@@ -64,7 +64,8 @@ function getTestNBodyState(t)
       LMCmass     = 449865.888,
       LMCscale    = 15.0,
       LMCscale2   = 16.6,
-      LMCDynaFric = t.LMCDynaFric
+      LMCDynaFric = t.LMCDynaFric,
+      coulomb_log   = 15
    }
    --Add potential to context
    ctx:addPotential(pot)

@@ -88,16 +88,13 @@ static inline real getHaloScaleLength(const Halo* halo){
 }
 
 /** Formula for Dynamical Friction using Chandrasekhar's formula and assuming an isotropic Maxwellian velocity distribution **/
-mwvector dynamicalFriction_LMC(const Potential* pot, mwvector pos, mwvector vel, real mass_LMC, real scaleLength_LMC, real scaleLength2_LMC, mwbool dynaFric, real time, real coulomb_log){
-    mwvector result = mw_vec(0.0,0.0,0.0);        //Vector with acceleration due to DF
-mwvector dynamicalFriction_LMC(const Potential* pot, mwvector pos, mwvector vel, real mass_LMC, real scaleLength_LMC __attribute__((unused)), mwbool dynaFric, real time, real coulomb_log){
+mwvector dynamicalFriction_LMC(const Potential* pot, mwvector pos, mwvector vel, real mass_LMC, real scaleLength_LMC __attribute__((unused)), real scaleLength2_LMC __attribute__((unused)), mwbool dynaFric, real time, real coulomb_log){
     mwvector result = mw_vec(0.0,0.0,0.0);  // Vector with acceleration due to DF
     if (!dynaFric) {
         return result;
     }
     real X;
     real ln_lambda;
-    Halo *mw_halo;
     const Halo* mw_halo;
 
     const real G_CONST = 1; //(Time: Gyrs, Distance: kpc, Mass: SMU = 222288.47 solar masses)

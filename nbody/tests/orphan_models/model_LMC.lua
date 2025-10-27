@@ -50,7 +50,8 @@ function makeContext()
       LMCmass       = LMCMASS,
       LMCscale      = LMCSCALE,
       LMCscale2     = LMCCUTOFF,
-      LMCDynaFric   = true
+      LMCDynaFric   = true,
+      coulomb_log   = 15
    }
 end
 

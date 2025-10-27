@@ -84,8 +84,8 @@ static int createSphericalNFWerkalHalo(lua_State* luaSt)
     static Halo h = EMPTY_HALO;
     static const MWNamedArg argTable[] =
         {
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength },
-            { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass        },
+            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength, 1 },
+            { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
             END_MW_NAMED_ARG
         };
 

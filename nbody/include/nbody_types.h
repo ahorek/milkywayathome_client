@@ -541,8 +541,8 @@ typedef struct MW_ALIGN_TYPE
                          FALSE, FALSE, FALSE, FALSE,                                                    \
                          0, 0,                                                                          \
                          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                                               \
-                         FALSE,                                                                         \
-                         0, 0, FALSE, 0,                                                                \
+                         FALSE, 0,                                                                      \
+                         0, 0, 0, FALSE, 0,                                                             \
                          0,                                                                             \
                          0, 0, 0,                                                                       \
                          EMPTY_POTENTIAL}
