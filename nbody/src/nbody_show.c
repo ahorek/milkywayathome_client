@@ -125,6 +125,8 @@ const char* showHaloT(halo_t x)
             return "NoHalo";
         case InvalidHalo:
             return "InvalidHalo";
+        case CausticHalo:
+            return "CausticHalo";
         default:
             return "Bad halo_t";
     }

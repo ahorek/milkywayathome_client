@@ -112,15 +112,18 @@ unsigned int nbCorrectTotalNumberInHistogram(const NBodyHistogram* histogram, /*
 static void nbPrintHistogramHeader(FILE* f,
                                    const NBodyCtx* ctx,
                                    const HistogramParams* hp,
-                                   NBodyState* st)
+                                   const NBodyState* st)
 {
     int nbody = st->nbody;
     real bestLikelihood_time = st->bestLikelihood_time;
     real bestLikelihood = st->bestLikelihood;
     char tBuf[256];
     const Potential* p = &ctx->pot;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
     if (bestLikelihood_time == 0.0)
     {
+#pragma GCC diagnostic pop
         bestLikelihood_time = ctx->timeEvolve;
     }
 
@@ -196,7 +199,7 @@ static void nbPrintHistogramHeader(FILE* f,
         return;
     }
 
-    switch (p->sphere[1].type)
+    switch (p->sphere[0].type)
     {
         case HernquistSpherical:
 
@@ -538,6 +541,27 @@ void nbPrintHistogram(FILE* f, const MainStruct* all)
     fprintf(f, "totalSimulated = %u\n", all->histograms[0]->totalSimulated);
     fprintf(f, "lambdaBins = %u\n", all->histograms[0]->lambdaBins);
     fprintf(f, "betaBins = %u\n", all->histograms[0]->betaBins);
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wfloat-equal"
+    if(all->histograms[0]->params.L.x != 0 && all->histograms[0]->params.L.y != 0 && all->histograms[0]->params.L.z != 0)
+    {
+        fprintf(f, "L = {%lf, %lf, %lf}\n", all->histograms[0]->params.L.x, all->histograms[0]->params.L.y, all->histograms[0]->params.L.z);
+        fprintf(f, "LErr = {%lf, %lf, %lf}\n", all->histograms[0]->params.LErr.x, all->histograms[0]->params.LErr.y, all->histograms[0]->params.LErr.z);
+    }
+    #pragma GCC diagnostic pop
+    if(all->histograms[0]->params.nRange != 0)
+    {
+        fprintf(f, "EMDRange = {");
+        for(unsigned int i = 0; i < all->histograms[0]->params.nRange; i++)
+        {
+            fprintf(f, "%lf", all->histograms[0]->params.EMDRange[i]);
+            if(i != all->histograms[0]->params.nRange-1)
+            {
+                fprintf(f, ", ");
+            }
+        }
+        fprintf(f, "}\n");
+    }
     if(all->usage[6]) fprintf(f, "hasPM = 1\n");
     if(all->usage[3]) fprintf(f, "!\n");
     
@@ -688,7 +712,7 @@ MainStruct* nbCreateHistogram(const NBodyCtx* ctx,        /* Simulation context 
     real v_line_of_sight;
     real mu_ra;
     real mu_dec;
-    mwvector lambdaBetaR;
+    mwvector lambdaBetaR = ZERO_VECTOR;
     unsigned int lambdaIndex;
     unsigned int betaIndex;
     unsigned int Histindex;
@@ -713,7 +737,7 @@ MainStruct* nbCreateHistogram(const NBodyCtx* ctx,        /* Simulation context 
     unsigned int body_count = 0;
     unsigned int ub_counter = 0;
     
-    MainStruct* all = mwCalloc(7*(sizeof(NBodyHistogram) + nBin * sizeof(HistData)), sizeof(char)); 
+    MainStruct* all = mwCalloc(8*(sizeof(NBodyHistogram) + nBin * sizeof(HistData)), sizeof(char)); 
 
     real Nbodies = st->nbody;
     mwbool islight = FALSE;//is it light matter?
@@ -839,8 +863,8 @@ MainStruct* nbCreateHistogram(const NBodyCtx* ctx,        /* Simulation context 
     real * use_velbody   = mwCalloc(body_count, sizeof(real));
     real * use_betabody  = mwCalloc(body_count, sizeof(real));
     real * use_distbody  = mwCalloc(body_count, sizeof(real));
-    real * use_murabody = mwCalloc(body_count, sizeof(real));
     real * use_mudecbody = mwCalloc(body_count, sizeof(real));
+    real * use_murabody = mwCalloc(body_count, sizeof(real));
 
     real * vlos      = mwCalloc(body_count, sizeof(real));       
     real * betas     = mwCalloc(body_count, sizeof(real));
@@ -882,8 +906,8 @@ MainStruct* nbCreateHistogram(const NBodyCtx* ctx,        /* Simulation context 
             use_betabody[ub_counter] = DEFAULT_NOT_USE;//defaulted to not use body
             use_velbody[ub_counter] = DEFAULT_NOT_USE;//defaulted to not use body
             use_distbody[ub_counter] = DEFAULT_NOT_USE;
-            use_murabody[ub_counter] = DEFAULT_NOT_USE;
             use_mudecbody[ub_counter] = DEFAULT_NOT_USE;
+            use_murabody[ub_counter] = DEFAULT_NOT_USE;
             
             vlos[ub_counter]     = DEFAULT_NOT_USE;//default vlos
             betas[ub_counter]    = DEFAULT_NOT_USE;
@@ -1161,7 +1185,9 @@ MainStruct* nbReadHistogram(const char* histogramFile)
     mwbool readTotalSim = FALSE; /*Read the total number of particles simulated for the histogram */
     mwbool readMass = FALSE; /*Read the mass per particle for the histogram*/
     mwbool readLambdaBins = FALSE; /* Read the number of bins in the lambda direction */
-    mwbool readBetaBins = FALSE; /* Read the number of bins the beta direction */
+    mwbool readBetaBins = FALSE; /* Read the number of bins in the beta direction */
+    mwbool readL = FALSE; /* Read the angular momentum vector of the stream */
+    mwbool readLErr = FALSE; /* Read the error in the angular momentum vector of the stream */
     mwbool readEMDRange = FALSE; /* Read the ranges in Lambda over which to calculate EMD*/
     mwbool readBetaDispBins = FALSE; /*Read the number of beta dispersion bins to average over*/
     mwbool readHasPM = FALSE; /*Read if histogram contains proper motion bins*/
@@ -1172,6 +1198,8 @@ MainStruct* nbReadHistogram(const char* histogramFile)
     unsigned int totalSim = 0;  /*Total number of simulated particles read from the histogram */
     unsigned int lambdaBins = 0; /* Number of bins in lambda direction */
     unsigned int betaBins = 0; /* Number of bins in beta direction */
+    mwvector L = {0.0,0.0,0.0,0.0}; /* Angular momentum vector of the stream */
+    mwvector LErr = {0.0,0.0,0.0,0.0}; /* Error in the angular momentum */
     char rangeString[1024]; /* String containing ranges to be used for EMD calculation*/
     unsigned int betaDispBins = 0; /*Number of beta dispersion bins to average over*/
     mwbool usedOrbitParams = FALSE;  /* indicates whether or not to expect extra histogram parameters for orbit fitting */
@@ -1297,15 +1325,35 @@ MainStruct* nbReadHistogram(const char* histogramFile)
             }
         }
 
+        if (!readL)
+        {
+            rc = sscanf(lineBuf, " L = {%lf, %lf, %lf} \n", &L.x, &L.y, &L.z);
+            if (rc == 3)
+            {
+                readL = TRUE;
+                continue;
+            }
+        }
+
+        if (!readLErr)
+        {
+            rc = sscanf(lineBuf, " LErr = {%lf, %lf, %lf} \n", &LErr.x, &LErr.y, &LErr.z);
+            if (rc == 3)
+            {
+                readLErr = TRUE;
+                continue;
+            }
+        }
+
         if (!readEMDRange)
         {
-            rc = sscanf(lineBuf, " EMDRange = {%s} \n", &rangeString);
+            rc = sscanf(lineBuf, " EMDRange = {%s} \n", rangeString);
             if (strlen(rangeString) + 1 >= sizeof(rangeString))
-        {
-            mw_printf("Error reading EMDRange: string is too large");
-            error = TRUE;
-            break;
-        }
+            {
+                mw_printf("Error reading EMDRange: string is too large");
+                error = TRUE;
+                break;
+            }
             if(rc == 1)
             {
                 readEMDRange = TRUE;
@@ -1336,7 +1384,7 @@ MainStruct* nbReadHistogram(const char* histogramFile)
         if(readBetaBins && !buildHist) // only build the histogram once
         {
             unsigned int nBin = lambdaBins * betaBins;
-            all = mwCalloc(6*(sizeof(NBodyHistogram) + nBin * sizeof(HistData)), sizeof(char));
+            all = mwCalloc(8*(sizeof(NBodyHistogram) + nBin * sizeof(HistData)), sizeof(char));
 
             NBodyHistogram* hist0 = mwCalloc(sizeof(NBodyHistogram) + nBin * sizeof(HistData), sizeof(char));
             all->usage[0] = TRUE;
@@ -1364,13 +1412,16 @@ MainStruct* nbReadHistogram(const char* histogramFile)
                 all->usage[5] = TRUE;
                 all->histograms[5] = hist5;
 
-                NBodyHistogram* hist6 = mwCalloc(sizeof(NBodyHistogram) + nBin * sizeof(HistData), sizeof(char));
-                all->usage[6] = TRUE;
-                all->histograms[6] = hist6;
+                if(hasPM == 1)
+                {
+                    NBodyHistogram* hist6 = mwCalloc(sizeof(NBodyHistogram) + nBin * sizeof(HistData), sizeof(char));
+                    all->usage[6] = TRUE;
+                    all->histograms[6] = hist6;
 
-                NBodyHistogram* hist7 = mwCalloc(sizeof(NBodyHistogram) + nBin * sizeof(HistData), sizeof(char));
-                all->usage[7] = TRUE;
-                all->histograms[7] = hist7;
+                    NBodyHistogram* hist7 = mwCalloc(sizeof(NBodyHistogram) + nBin * sizeof(HistData), sizeof(char));
+                    all->usage[7] = TRUE;
+                    all->histograms[7] = hist7;
+                }
             }
             else
             {
@@ -1387,8 +1438,8 @@ MainStruct* nbReadHistogram(const char* histogramFile)
         unsigned int useBin = 0;
         double lambda = 0;
         double beta = 0;
-        double variable[7];
-        double errors[7];
+        double variable[8] = {0};  
+        double errors[8] = {0};   
 
         if(usedOrbitParams) // new histogram output, there are more parameters to read in
         {
@@ -1532,13 +1583,13 @@ MainStruct* nbReadHistogram(const char* histogramFile)
 
     if (error || used_hist == 0)
     {
-        for(int i = 0; i < num; i++)
+        for(unsigned int i = 0; i < num; i++)
             free(all->histograms[i]);
         free(all);
         return NULL;
     }
 
-    for(int i = 0; i < num; i++)
+    for(unsigned int i = 0; i < num; i++)
     {
         if(all->usage[i])
         {
@@ -1549,6 +1600,23 @@ MainStruct* nbReadHistogram(const char* histogramFile)
             all->histograms[i]->massPerParticle = mass;
             all->histograms[i]->betaDispBins = betaDispBins;
         }
+    }
+
+    if(readL)
+    {
+        all->histograms[0]->params.L = L;
+    }
+    if(readLErr)
+    {
+        all->histograms[0]->params.LErr = LErr;
+    }
+    if(readL && !readLErr)
+    {
+        mw_printf("Warning: Histogram '%s' has L but not LErr\n", histogramFile);
+    }
+    if(!readL && readLErr)
+    {
+        mw_printf("Warning: Histogram '%s' has LErr but not L\n", histogramFile);
     }
 
     if(readEMDRange) /*Set EMD range to what is given in histogram*/
@@ -1567,13 +1635,14 @@ MainStruct* nbReadHistogram(const char* histogramFile)
         }
         all->histograms[0]->params.nRange = index;
     }
-    else /*If not given, default to the full histogram */
-    {
-        all->histograms[0]->params.EMDRange[0] = all->histograms[0]->data[0].lambda - ((all->histograms[0]->data[1].lambda - all->histograms[0]->data[0].lambda)/2);
-        all->histograms[0]->params.EMDRange[1] = all->histograms[0]->data[lambdaBins-1].lambda + ((all->histograms[0]->data[1].lambda - all->histograms[0]->data[0].lambda)/2);
-        all->histograms[0]->params.nRange = 2;
-        mw_printf("No EMD Range given in input hist '%s', setting range as {%f,%f} \n", histogramFile, all->histograms[0]->params.EMDRange[0], all->histograms[0]->params.EMDRange[1]);
-    }
+    // This code conflicts with reading in simulated histograms now that EMDRange can be input from lua. Keeping it here just in case
+    //else /*If not given, default to the full histogram */
+    //{
+    //    all->histograms[0]->params.EMDRange[0] = all->histograms[0]->data[0].lambda - ((all->histograms[0]->data[1].lambda - all->histograms[0]->data[0].lambda)/2);
+    //    all->histograms[0]->params.EMDRange[1] = all->histograms[0]->data[lambdaBins-1].lambda + ((all->histograms[0]->data[1].lambda - all->histograms[0]->data[0].lambda)/2);
+    //    all->histograms[0]->params.nRange = 2;
+    //    // mw_printf("No EMD Range given in input hist '%s', setting range as {%f,%f} \n", histogramFile, all->histograms[0]->params.EMDRange[0], all->histograms[0]->params.EMDRange[1]);
+    //}
     
     
     return all;
@@ -1582,7 +1651,7 @@ MainStruct* nbReadHistogram(const char* histogramFile)
 mwvector getHistogramCenter(const NBodyHistogram* hist, HistogramParams* hp, NBodyState* st, NBodyCtx* ctx){
     int i;
     real bestLambda, highestCount = 0, tmpCount;
-    mwvector center, pos;
+    mwvector center = ZERO_VECTOR, pos = ZERO_VECTOR;
     center.x = 0;
     center.y = 0;
     center.z = 0;
@@ -1597,7 +1666,7 @@ mwvector getHistogramCenter(const NBodyHistogram* hist, HistogramParams* hp, NBo
     }
 
     real lambdaBinSize = getAngleDiffDegrees(hp->lambdaStart, hp->lambdaEnd)/lambdaBins;
-    mwvector lambdaBeta;
+    mwvector lambdaBeta = ZERO_VECTOR;
     NBHistTrig histTrig;
     real maxLambda, minLambda, betaCount, betas = 0;
     nbGetHistTrig(&histTrig, hp);

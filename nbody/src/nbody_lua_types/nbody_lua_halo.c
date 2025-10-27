@@ -69,9 +69,9 @@ static int createLogarithmicHalo(lua_State* luaSt)
     static Halo h = EMPTY_HALO;
     static const MWNamedArg argTable[] =
         {
-            { "vhalo",       LUA_TNUMBER, NULL, TRUE, &h.vhalo       },
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength },
-            { "flattenZ",    LUA_TNUMBER, NULL, TRUE, &h.flattenZ    },
+            { "vhalo",       LUA_TNUMBER, NULL, TRUE, &h.vhalo,       1 },
+            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength, 1 },
+            { "flattenZ",    LUA_TNUMBER, NULL, TRUE, &h.flattenZ,    1 },
             END_MW_NAMED_ARG
         };
 
@@ -98,12 +98,12 @@ static int createTriaxialHalo(lua_State* luaSt)
     static Halo h = EMPTY_HALO;
     static const MWNamedArg argTable[] =
         {
-            { "vhalo",       LUA_TNUMBER, NULL, TRUE, &h.vhalo       },
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength },
-            { "flattenX",    LUA_TNUMBER, NULL, TRUE, &h.flattenX    },
-            { "flattenY",    LUA_TNUMBER, NULL, TRUE, &h.flattenY    },
-            { "flattenZ",    LUA_TNUMBER, NULL, TRUE, &h.flattenZ    },
-            { "triaxAngle",  LUA_TNUMBER, NULL, TRUE, &h.triaxAngle  },
+            { "vhalo",       LUA_TNUMBER, NULL, TRUE, &h.vhalo,       1 },
+            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength, 1 },
+            { "flattenX",    LUA_TNUMBER, NULL, TRUE, &h.flattenX,    1 },
+            { "flattenY",    LUA_TNUMBER, NULL, TRUE, &h.flattenY,    1 },
+            { "flattenZ",    LUA_TNUMBER, NULL, TRUE, &h.flattenZ,    1 },
+            { "triaxAngle",  LUA_TNUMBER, NULL, TRUE, &h.triaxAngle,  1 },
             END_MW_NAMED_ARG
         };
 
@@ -116,8 +116,8 @@ static int createNFWHalo(lua_State* luaSt)
     static Halo h = EMPTY_HALO;
     static const MWNamedArg argTable[] =
         {
-            { "vhalo",       LUA_TNUMBER, NULL, TRUE, &h.vhalo       },
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength },
+            { "vhalo",       LUA_TNUMBER, NULL, TRUE, &h.vhalo,       1 },
+            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength, 1 },
             END_MW_NAMED_ARG
         };
 
@@ -130,8 +130,8 @@ static int createCausticHalo(lua_State* luaSt)
     static Halo h = EMPTY_HALO;
     static const MWNamedArg argTable[] =
         {
-            { "vhalo",       LUA_TNUMBER, NULL, TRUE, &h.vhalo      },
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE,&h.scaleLength },
+            { "vhalo",       LUA_TNUMBER, NULL, TRUE, &h.vhalo,       1 },
+            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength, 1 },
             END_MW_NAMED_ARG
         };
 
@@ -144,10 +144,10 @@ static int createAllenSantillanHalo(lua_State* luaSt)
     static Halo h = EMPTY_HALO;
     static const MWNamedArg argTable[] =
         {
-            { "mass",       LUA_TNUMBER, NULL, TRUE, &h.mass      },
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE,&h.scaleLength },
-            { "gamma", LUA_TNUMBER, NULL, TRUE,&h.gamma },
-            { "lambda", LUA_TNUMBER, NULL, TRUE,&h.lambda },
+            { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
+            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength, 1 },
+            { "gamma",       LUA_TNUMBER, NULL, TRUE, &h.gamma,       1 },
+            { "lambda",      LUA_TNUMBER, NULL, TRUE, &h.lambda,      1 },
             END_MW_NAMED_ARG
         };
 
@@ -160,8 +160,8 @@ static int createWilkinsonEvansHalo(lua_State* luaSt)
     static Halo h = EMPTY_HALO;
     static const MWNamedArg argTable[] =
         {
-            { "mass",       LUA_TNUMBER, NULL, TRUE, &h.mass      },
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE,&h.scaleLength },
+            { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
+            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength, 1 },
             END_MW_NAMED_ARG
         };
 
@@ -174,8 +174,8 @@ static int createNFWMassHalo(lua_State* luaSt)
     static Halo h = EMPTY_HALO;
     static const MWNamedArg argTable[] =
         {
-            { "mass",       LUA_TNUMBER, NULL, TRUE, &h.mass      },
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE,&h.scaleLength },
+            { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
+            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength, 1 },
             END_MW_NAMED_ARG
         };
 
@@ -188,8 +188,8 @@ static int createPlummerHalo(lua_State* luaSt)
     static Halo h = EMPTY_HALO;
     static const MWNamedArg argTable[] =
         {
-            { "mass",       LUA_TNUMBER, NULL, TRUE, &h.mass      },
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE,&h.scaleLength },
+            { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
+            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength, 1 },
             END_MW_NAMED_ARG
         };
 
@@ -202,8 +202,8 @@ static int createHernquistHalo(lua_State* luaSt)
     static Halo h = EMPTY_HALO;
     static const MWNamedArg argTable[] =
         {
-            { "mass",       LUA_TNUMBER, NULL, TRUE, &h.mass      },
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE,&h.scaleLength },
+            { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
+            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength, 1 },
             END_MW_NAMED_ARG
         };
 
@@ -216,9 +216,9 @@ static int createNinkovicHalo(lua_State* luaSt)
     static Halo h = EMPTY_HALO;
     static const MWNamedArg argTable[] =
         {
-            { "rho0",       LUA_TNUMBER, NULL, TRUE, &h.rho0      },
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE,&h.scaleLength },
-            { "lambda", LUA_TNUMBER, NULL, TRUE,&h.lambda },
+            { "rho0",        LUA_TNUMBER, NULL, TRUE, &h.rho0,        1 },
+            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength, 1 },
+            { "lambda",      LUA_TNUMBER, NULL, TRUE, &h.lambda,      1 },
             END_MW_NAMED_ARG
         };
 
@@ -231,7 +231,7 @@ static int createNoHalo(lua_State* luaSt)
     static Halo h = EMPTY_HALO;
     static const MWNamedArg argTable[] =
         {
-            { "mass",       LUA_TNUMBER, NULL, TRUE, &h.mass      },
+            { "mass",       LUA_TNUMBER, NULL, TRUE, &h.mass,     1 },
             END_MW_NAMED_ARG
         };
 
