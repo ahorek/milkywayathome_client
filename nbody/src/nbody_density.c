@@ -371,9 +371,9 @@ real nbExtDensity(const Potential* pot, mwvector pos, real time)
         case LogarithmicHalo:
             density += logarithmicHaloDensity(&(pot->halo), pos);
             break;
-	case SphericalNFWerkalHalo:
-	    density += SphericalNFWerkalHaloDensity(&(pot->halo), r);
-	    break;
+	    case SphericalNFWerkalHalo:
+	        density += SphericalNFWerkalHaloDensity(&(pot->halo), r);
+	        break;
         case NFWHalo:
             density += NFWHaloDensity(&(pot->halo), r);
             break;

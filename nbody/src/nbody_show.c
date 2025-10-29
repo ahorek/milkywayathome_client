@@ -103,8 +103,8 @@ const char* showHaloT(halo_t x)
     {
         case LogarithmicHalo:
             return "LogarithmicHalo";
-	case SphericalNFWerkalHalo:
-	    return "SphericalNFWerkalHalo";
+	    case SphericalNFWerkalHalo:
+	        return "SphericalNFWerkalHalo";
         case NFWHalo:
             return "NFWHalo";
         case TriaxialHalo:
@@ -541,10 +541,10 @@ char* showNBodyCtx(const NBodyCtx* ctx)
                      "  useQuad         = %s\n"
                      "  allowIncest     = %s\n"
                      "  LMC             = %s\n"
-		     "  LMCfunction     = %f\n"
+		             "  LMCfunction     = %f\n"
                      "  LMCmass         = %f\n"
                      "  LMCscale        = %f\n"
-		     "  LMCscale2       = %f\n"
+		             "  LMCscale2       = %f\n"
                      "  LMCDynaFric     = %s\n"
                      "  checkpointT     = %d\n"
                      "  nStep           = %u\n"
@@ -561,10 +561,10 @@ char* showNBodyCtx(const NBodyCtx* ctx)
                      showBool(ctx->useQuad),
                      showBool(ctx->allowIncest),
                      showBool(ctx->LMC),
-		     ctx->LMCfunction,
+		             ctx->LMCfunction,
                      ctx->LMCmass,
                      ctx->LMCscale,
-		     ctx->LMCscale2,
+		             ctx->LMCscale2,
                      showBool(ctx->LMCDynaFric),
                      (int) ctx->checkpointT,
                      ctx->nStep,

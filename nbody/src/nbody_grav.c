@@ -142,18 +142,18 @@ static inline void nbMapForceBody(const NBodyCtx* ctx, NBodyState* st)
     real barTime = st->step * ctx->timestep - st->previousForwardTime;
 
     if (ctx->LMC) {
-	lmcfunction = round(ctx->LMCfunction);
+	    lmcfunction = round(ctx->LMCfunction);
         LMCx = st->LMCpos;
         lmcmass = ctx->LMCmass;
         lmcscale = ctx->LMCscale;
-	lmcscale2 = ctx->LMCscale2;
+	    lmcscale2 = ctx->LMCscale2;
     }
     else {
         SET_VECTOR(LMCx,0.0,0.0,0.0);
-	lmcfunction = 1;
+	    lmcfunction = 1;
         lmcmass = 0.0;
         lmcscale = 1.0;
-	lmcscale2 = 1.0;
+	    lmcscale2 = 1.0;
     }
 
   #ifdef _OPENMP
@@ -251,15 +251,15 @@ static inline void nbMapForceBody_Exact(const NBodyCtx* ctx, NBodyState* st)
         LMCx = st->LMCpos;
         lmcmass = ctx->LMCmass;
         lmcscale = ctx->LMCscale;
-	lmcscale2 = ctx->LMCscale2;
+	    lmcscale2 = ctx->LMCscale2;
         lmcfunction = round(ctx->LMCfunction);
     }
     else {
         SET_VECTOR(LMCx,0.0,0.0,0.0);
-	lmcfunction = 1;
+	    lmcfunction = 1;
         lmcmass = 0.0;
         lmcscale = 1.0;
-	lmcscale2 = 1.0;
+	    lmcscale2 = 1.0;
     }
 
   #ifdef _OPENMP

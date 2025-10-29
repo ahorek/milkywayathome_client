@@ -161,7 +161,7 @@ mwbool checkHaloConstants(Halo* h)
             }
             break;
 
-	case SphericalNFWerkalHalo:
+	    case SphericalNFWerkalHalo:
             if (!isfinite(h->scaleLength) || !isfinite(h->mass))
             {
                 return invalidHaloWarning(h->type);

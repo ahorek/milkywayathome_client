@@ -341,10 +341,10 @@ static int luaReverseOrbit_LMC(lua_State* luaSt)
             vel = checkVector(luaSt, 3);
             LMCpos = checkVector(luaSt, 4);
             LMCvel = checkVector(luaSt, 5);
-	    LMCfunction = luaL_checknumber(luaSt, 6);
+	        LMCfunction = luaL_checknumber(luaSt, 6);
             LMCmass = luaL_checknumber(luaSt, 7);
             LMCscale = luaL_checknumber(luaSt, 8);
-	    LMCscale2 = luaL_checknumber(luaSt, 9);
+	        LMCscale2 = luaL_checknumber(luaSt, 9);
             coulomb_log = luaL_checknumber(luaSt, 10);
             LMCDynaFric = luaL_checknumber(luaSt, 11);
             tstop = luaL_checknumber(luaSt, 12);
