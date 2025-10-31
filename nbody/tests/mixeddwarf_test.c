@@ -133,7 +133,7 @@ static real* smooth_and_normalize_distribution(real* counts, size_t size) {
 }
 
 /* Calculate the Kullback-Leibler divergence between two probability distributions */
-static real kl_divergence(const real *p, const real *q, size_t size) {
+static real kl_divergence(const real *q, const real *p, size_t size) {
 
     real kl_div = 0.0;
 

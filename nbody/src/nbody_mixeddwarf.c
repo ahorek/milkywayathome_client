@@ -697,27 +697,25 @@ static inline void set_vars(Dwarf* comp)
     real mass = comp->mass; 
     real rscale = comp->scaleLength;
     real r200 = mw_cbrt(mass / (vol_pcrit));//vol_pcrit = 200.0 * pcrit * PI_4_3
-        real p0 = 0.0;
+    real c = r200 / rscale; //halo concentration
+    real term = mw_log(1.0 + c) - c / (1.0 + c);
+    real p0 = 200.0 * cube(c) * pcrit / (3.0 * term); //rho_0 as defined in Navarro et. al. 1997
+    real ps = 0.0;
         if(comp->type == Cored)
-        {
+        {       
+                ps = p0; //set the characteristic density for the NFW profile since p0 for the cored profile is the central density of the core 
                 real r1 = comp->r1;
                 real rc = comp->rc;
 
-                real D1 = r1 * sqr(1.0 + r1 / rscale) / (rscale + rscale * sqr(r1 / rc));
-                real D2 = cube(rscale) * (mw_log(1.0 + r200 / rscale) - mw_log(1.0 + r1 / rscale) - r200 / (rscale + r200) + r1 / (rscale + r1));
-                real D3 = sqr(rc) * (r1 - rc * mw_atan(r1 / rc));
+                real p0_ps = (rscale + rscale * sqr(r1 / rc)) / (r1 * sqr(1.0 + r1 / rscale));
 
-                p0 = mass / (4.0 * M_PI * (D1 * D2 + D3));
-                comp->ps = p0 * D1;
-        }
-        else
-        {
-                real c = r200 / rscale; //halo concentration
-                real term = mw_log(1.0 + c) - c / (1.0 + c);
-                p0 = 200.0 * cube(c) * pcrit / (3.0 * term); //rho_0 as defined in Navarro et. al. 1997
+                p0 = ps * p0_ps;
         }
     comp->r200 = r200;
     comp->p0 = p0;
+    comp->ps = ps;
+    printf("set_vars: %d: p0: %f\n", comp->type, p0);
+    printf("set_vars: %d: ps: %f\n", comp->type, ps);
 }
 
 static inline void get_extra_nfw_mass(Dwarf* comp, real bound)
@@ -727,13 +725,18 @@ static inline void get_extra_nfw_mass(Dwarf* comp, real bound)
         real m = 0.0;
         real r = bound;
         real rs = comp->scaleLength;
+        printf("rs: %f\n", rs);
 
         if(comp->type == Cored)
         {
                 const real r1 = comp->r1;
+                printf("get_extra_nfw_mass: r1: %f\n", r1);
                 const real p0 = comp->p0;
+                printf("get_extra_nfw_mass: p0: %f\n", p0);
                 const real rc = comp->rc;
+                printf("get_extra_nfw_mass: rc: %f\n", rc);
                 const real ps = comp->ps;
+                printf("get_extra_nfw_mass: ps: %f\n", ps);
                 const real C1 = 0;
                 const real C3 = C1 + 4 * M_PI * (
             ps * cube(rs) * (
@@ -792,11 +795,11 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
         switch(comp1->type)
         {
             case Plummer:
-                bound1 =  50.0 * (rscale_l + rscale_d);
+                bound1 =  8.0;
                 break;
             case NFW:
                 bound1 = 5.0 * comp1->r200;
-                        get_extra_nfw_mass(comp1, bound1);
+                get_extra_nfw_mass(comp1, bound1);
                 break;
             case General_Hernquist:
                 bound1 =  50.0 * (rscale_l + rscale_d);
@@ -818,14 +821,18 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 break;
             case NFW:
                 bound2 = 5.0 * comp2->r200;
-                        get_extra_nfw_mass(comp2, bound2);
+                printf("bound2: %f\n", bound2);
+                get_extra_nfw_mass(comp2, bound2);
+                printf("NFW comp2->mass after get_extra_nfw_mass: %f\n", comp2->mass);
                 break;
             case General_Hernquist:
                 bound2 =  50.0 * (rscale_l + rscale_d);
                 break;
             case Cored:
                 bound2 = 5.0 * comp2->r200;
+                printf("bound2: %f\n", bound2);
                 get_extra_nfw_mass(comp2, bound2);
+                printf("Cored comp2->mass after get_extra_nfw_mass: %f\n", comp2->mass);
                 break;
              default:
                 /* Set unused value to make compiler happy */
