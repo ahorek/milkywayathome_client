@@ -714,8 +714,6 @@ static inline void set_vars(Dwarf* comp)
     comp->r200 = r200;
     comp->p0 = p0;
     comp->ps = ps;
-    printf("set_vars: %d: p0: %f\n", comp->type, p0);
-    printf("set_vars: %d: ps: %f\n", comp->type, ps);
 }
 
 static inline void get_extra_nfw_mass(Dwarf* comp, real bound)
@@ -725,18 +723,13 @@ static inline void get_extra_nfw_mass(Dwarf* comp, real bound)
         real m = 0.0;
         real r = bound;
         real rs = comp->scaleLength;
-        printf("rs: %f\n", rs);
 
         if(comp->type == Cored)
         {
                 const real r1 = comp->r1;
-                printf("get_extra_nfw_mass: r1: %f\n", r1);
                 const real p0 = comp->p0;
-                printf("get_extra_nfw_mass: p0: %f\n", p0);
                 const real rc = comp->rc;
-                printf("get_extra_nfw_mass: rc: %f\n", rc);
                 const real ps = comp->ps;
-                printf("get_extra_nfw_mass: ps: %f\n", ps);
                 const real C1 = 0;
                 const real C3 = C1 + 4 * M_PI * (
             ps * cube(rs) * (
@@ -821,18 +814,14 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 break;
             case NFW:
                 bound2 = 5.0 * comp2->r200;
-                printf("bound2: %f\n", bound2);
                 get_extra_nfw_mass(comp2, bound2);
-                printf("NFW comp2->mass after get_extra_nfw_mass: %f\n", comp2->mass);
                 break;
             case General_Hernquist:
                 bound2 =  50.0 * (rscale_l + rscale_d);
                 break;
             case Cored:
                 bound2 = 5.0 * comp2->r200;
-                printf("bound2: %f\n", bound2);
                 get_extra_nfw_mass(comp2, bound2);
-                printf("Cored comp2->mass after get_extra_nfw_mass: %f\n", comp2->mass);
                 break;
              default:
                 /* Set unused value to make compiler happy */
