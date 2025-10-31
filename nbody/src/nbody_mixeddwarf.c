@@ -788,7 +788,7 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
         switch(comp1->type)
         {
             case Plummer:
-                bound1 =  8.0;
+                bound1 =  50.0 * (rscale_l + rscale_d);
                 break;
             case NFW:
                 bound1 = 5.0 * comp1->r200;
