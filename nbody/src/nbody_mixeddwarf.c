@@ -703,13 +703,13 @@ static inline void set_vars(Dwarf* comp)
     real ps = 0.0;
         if(comp->type == Cored)
         {       
-                ps = p0; //set the characteristic density for the NFW profile since p0 for the cored profile is the central density of the core 
+                ps = p0; //characteristic density of the NFW portion of the cored profile 
                 real r1 = comp->r1;
                 real rc = comp->rc;
 
-                real p0_ps = (rscale + rscale * sqr(r1 / rc)) / (r1 * sqr(1.0 + r1 / rscale));
+                real p0_ps = (rscale + rscale * sqr(r1 / rc)) / (r1 * sqr(1.0 + r1 / rscale)); //Ratio of p0 to ps
 
-                p0 = ps * p0_ps;
+                p0 = ps * p0_ps; //central density of the cored profile
         }
     comp->r200 = r200;
     comp->p0 = p0;

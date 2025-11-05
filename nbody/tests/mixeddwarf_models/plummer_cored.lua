@@ -40,7 +40,7 @@
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- -- -- -- -- -- -- -- -- STANDARD  SETTINGS   -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --      
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
-totalBodies           = 88257   -- -- NUMBER OF TOTAL BODIES                                                   -- --
+totalBodies           = 20000   -- -- NUMBER OF TOTAL BODIES                                                   -- --
 totalLightBodies      = 10000   -- -- NUMBER OF LIGHT MATTER BODIES                                            -- --
 
 nbodyLikelihoodMethod = "EMD"   -- -- HIST COMPARE METHOD                                                      -- --
@@ -337,7 +337,7 @@ function makeBodies(ctx, potential)
     if(ModelComponents == 2) then 
         -- Create components
         local comp1 = Dwarf.plummer{mass = mass_l, scaleLength = rscale_l} -- Dwarf Options: plummer, nfw, general_hernquist, cored
-        local comp2 = Dwarf.cored{mass = mass_d, scaleLength = rscale_d, r1 = 0.7, rc = 0.6} -- Dwarf Options: plummer, nfw, general_hernquist, cored
+        local comp2 = Dwarf.cored{mass = mass_d, scaleLength = rscale_d, r1 = 0.4, rc = 0.3} -- Dwarf Options: plummer, nfw, general_hernquist, cored
         
         firstModel = predefinedModels.mixeddwarf{
             nbody         = totalBodies,

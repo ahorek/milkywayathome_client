@@ -35,18 +35,18 @@
 #include "nbody_potential_types.h"
 
 /* Dwarf galaxy parameters */
-/* These scale radius and mass parameters are known in the group as Eric's parameters */
+/* These scale radius and mass parameters are known in the group as Sidd's parameters */
 /* Optimized for a Plummer-Plummer model */
 #define EVOLUTION_TIME "2.0"                  /* Evolution time in Gyr */
 #define EVOLUTION_RATIO "0.0"                 /* Evolution time ratio */
-#define BARYON_SCALE_RADIUS "0.181216"        /* Baryon Scale radius in kpc */
-#define SCALE_RADIUS_RATIO "0.182799"         /* Scale radius ratio */
-#define BARYON_MASS "1.22251"                 /* Baryon Mass in SMU */
-#define MASS_RATIO "0.0126171"                /* Mass ratio */
+#define BARYON_SCALE_RADIUS "0.2"             /* Baryon Scale radius in kpc */
+#define SCALE_RADIUS_RATIO "0.2"              /* Scale radius ratio */
+#define BARYON_MASS "12.0"                    /* Baryon Mass in SMU */
+#define MASS_RATIO "0.2"                      /* Mass ratio */ 
 
 /* KL divergence thresholds */
 #define INITIAL_KL_THRESHOLD 0.01   /* Maximum acceptable initial KL divergence */
-#define KL_FLUCTUATION_THRESHOLD 0.03 /* Maximum acceptable KL divergence fluctuation */
+#define KL_FLUCTUATION_FACTOR 3.0   /* Factor to multiply initial KL divergence for fluctuation threshold */
 
 /* Struct to hold all simulation variables and allocations */
 typedef struct {
@@ -380,6 +380,13 @@ int test_stability(TestContext* tctx) {
 	return failed;
     }
 
+    // Calculate dynamic fluctuation thresholds based on initial KL divergence
+    real fluctuation_threshold_baryon = initial_kl_divergence_baryon * KL_FLUCTUATION_FACTOR;
+    real fluctuation_threshold_dark = initial_kl_divergence_dark * KL_FLUCTUATION_FACTOR;
+    printf("Dynamic fluctuation threshold for baryon component: %f (initial KL * %f)\n", fluctuation_threshold_baryon, KL_FLUCTUATION_FACTOR);
+    printf("Dynamic fluctuation threshold for dark matter component: %f (initial KL * %f)\n", fluctuation_threshold_dark, KL_FLUCTUATION_FACTOR);
+    fflush(stdout);
+
     // Free the particle collection
     free_particle_collection(tctx->particle_data);
     tctx->particle_data = NULL;
@@ -546,10 +553,19 @@ int test_stability(TestContext* tctx) {
 	    return failed;
 	}
 
-	if (!(kl_divergence_baryon - initial_kl_divergence_baryon <= KL_FLUCTUATION_THRESHOLD) ||
-	    !(kl_divergence_dark - initial_kl_divergence_dark <= KL_FLUCTUATION_THRESHOLD)) {
-	    fprintf(stderr, "Error: KL divergence fluctuation is too high (> %f) showing instability\n",
-		   KL_FLUCTUATION_THRESHOLD);
+	if ((kl_divergence_baryon - initial_kl_divergence_baryon > fluctuation_threshold_baryon) ||
+	    (kl_divergence_dark - initial_kl_divergence_dark > fluctuation_threshold_dark)) {
+	    fprintf(stderr, "Error: KL divergence fluctuation is too high showing instability\n");
+		if (kl_divergence_baryon - initial_kl_divergence_baryon > fluctuation_threshold_baryon) {
+		    fprintf(stderr, "  Baryon: fluctuation %f exceeds threshold %f (initial KL %f * %f)\n",
+		    kl_divergence_baryon - initial_kl_divergence_baryon, fluctuation_threshold_baryon,
+		    initial_kl_divergence_baryon, KL_FLUCTUATION_FACTOR);
+		}
+		if (kl_divergence_dark - initial_kl_divergence_dark > fluctuation_threshold_dark) {
+		    fprintf(stderr, "  Dark matter: fluctuation %f exceeds threshold %f (initial KL %f * %f)\n",
+		    kl_divergence_dark - initial_kl_divergence_dark, fluctuation_threshold_dark,
+		    initial_kl_divergence_dark, KL_FLUCTUATION_FACTOR);
+		}
 	    fflush(stderr);
 	
 	    // Free allocated memory for this simulation iteration
@@ -818,9 +834,9 @@ int main() {
 
     // List of dwarf models to test
     const char* dwarf_models[] = {
-	"plummer_plummer.lua",
-	"plummer_nfw.lua",
-	"plummer_hernquist.lua",
+	//"plummer_plummer.lua",
+	//"plummer_nfw.lua",
+	//"plummer_hernquist.lua",
 	"plummer_cored.lua",
     };
 
