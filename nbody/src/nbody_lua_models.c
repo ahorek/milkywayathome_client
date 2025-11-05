@@ -162,7 +162,7 @@ static real nbCalculateEps2_NEW(const Dwarf* light_comp, unsigned int nbody) //n
 {
     // Average distance between stars
     real m = light_comp->mass / nbody;
-    real rho_0 = get_density(light_comp, 0.00001);
+    real rho_0 = get_density(light_comp, light_comp->scaleLength/10); //central density
     real d = 2* mw_pow(3*m/(4*pi*rho_0), 1.0/3.0);
 
     // Strong interaction radius
