@@ -286,11 +286,11 @@ static void readCLRequestFromTable(lua_State* luaSt, CLRequest* clr, int table)
 
     static const MWNamedArg argTable[] =
         {
-            { "preferredPlatformVendor", LUA_TSTRING,  NULL, FALSE, &prefVendor      },
-            { "platform",                LUA_TNUMBER,  NULL, FALSE, &platformf       },
-            { "device",                  LUA_TNUMBER,  NULL, FALSE, &devicef         },
-            { "nonResponsive",           LUA_TBOOLEAN, NULL, FALSE, &nonResponsive   },
-            { "enableProfiling",         LUA_TBOOLEAN, NULL, FALSE, &enableProfiling },
+            { "preferredPlatformVendor", LUA_TSTRING,  NULL, FALSE, &prefVendor,      1 },
+            { "platform",                LUA_TNUMBER,  NULL, FALSE, &platformf,       1 },
+            { "device",                  LUA_TNUMBER,  NULL, FALSE, &devicef,         1 },
+            { "nonResponsive",           LUA_TBOOLEAN, NULL, FALSE, &nonResponsive,   1 },
+            { "enableProfiling",         LUA_TBOOLEAN, NULL, FALSE, &enableProfiling, 1 },
             END_MW_NAMED_ARG
         };
 

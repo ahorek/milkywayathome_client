@@ -43,12 +43,14 @@ typedef struct
     const char* checkpointFileName;
     const char* histogramFileName;
     const char* histoutFileName;
-    const char* matchHistogram;   /* Just match this histogram to other histogram, no simulation */
-    const char* matchHistVelDisp;   /* Just match this histogram to other histogram, no simulation -- with vel dispersion calc*/
-    const char* matchHistBetaDisp;  /* Just match this histogram to other histogram, no simulation -- with beta dispersion calc*/
-    const char* matchHistBetaVelDisp; /* Just match this histogram to other histogram, no simulation -- with beta and vel dispersion calc*/
-    const char* matchHistBetaVlosDist; /* Just match this histogram to other histogram, no simulation -- with avg beta, avg vlos, dist calc*/
-    const char* matchHistAll;          /* Match this histogram to other histogram, no simulation -- with veta and vel disp, avg beta/vlos/dist */
+    const char* matchHistogram;   /* Histogram to match */
+    const char* matchVelDisp;   /* Match Velocity Dispersion */
+    const char* matchBetaDisp;  /* Match Beta Disp */
+    const char* matchBetaAvg; /* Match Beta Average */
+    const char* matchVlos; /* Match Line of Sight Velocity */
+    const char* matchDist; /* Match Distance */
+    const char* matchPM; /* Match Proper Motion */
+    const char* matchMomentum; /* Match Momentum */
     const char* graphicsBin;
     const char* visArgs;
 
@@ -82,7 +84,7 @@ typedef struct
     int verbose;
 } NBodyFlags;
 
-#define EMPTY_NBODY_FLAGS { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
+#define EMPTY_NBODY_FLAGS { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 NBodyStatus nbStepSystem(const NBodyCtx* ctx, NBodyState* st);
 NBodyStatus nbRunSystem(const NBodyCtx* ctx, NBodyState* st, const NBodyFlags* nbf);

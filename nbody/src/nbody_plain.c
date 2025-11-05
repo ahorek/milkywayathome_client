@@ -86,6 +86,7 @@ static inline int get_likelihood(const NBodyCtx* ctx, NBodyState* st, const NBod
     real likelihood_Dist = NAN;
     real likelihood_PM_dec = NAN;
     real likelihood_PM_ra = NAN;
+    real likelihood_Momentum = NAN;
 
     real *likelihoodArray;
 
@@ -131,7 +132,14 @@ static inline int get_likelihood(const NBodyCtx* ctx, NBodyState* st, const NBod
              */
             return 0;
         }
-        likelihoodArray = nbSystemLikelihood(st, data, histogram, method);
+        /* If momentum information is passed in through lua, use that instead*/
+        if (histogram->histograms[0]->params.L.x > 0.00001 || histogram->histograms[0]->params.L.y > 0.00001 || histogram->histograms[0]->params.L.z > 0.00001 ||
+            histogram->histograms[0]->params.L.x < -0.00001 || histogram->histograms[0]->params.L.y < -0.00001 || histogram->histograms[0]->params.L.z < -0.00001)
+        {
+            data->histograms[0]->params.L = histogram->histograms[0]->params.L;
+            data->histograms[0]->params.LErr = histogram->histograms[0]->params.LErr;
+        }
+        likelihoodArray = nbSystemLikelihood(st, ctx, data, histogram, method);
         likelihood         = likelihoodArray[0];
         likelihood_EMD     = likelihoodArray[1];
         likelihood_Mass    = likelihoodArray[2];
@@ -142,6 +150,7 @@ static inline int get_likelihood(const NBodyCtx* ctx, NBodyState* st, const NBod
         likelihood_Dist    = likelihoodArray[7];
         likelihood_PM_dec  = likelihoodArray[8];
         likelihood_PM_ra   = likelihoodArray[9];
+        likelihood_Momentum  = likelihoodArray[10];
 
         /*
           Used to fix Windows platform issues.  Windows' infinity is expressed as:
@@ -213,6 +222,15 @@ static inline int get_likelihood(const NBodyCtx* ctx, NBodyState* st, const NBod
             {
                 st->bestLikelihood_PM_dec = 0.0;
                 st->bestLikelihood_PM_ra  = 0.0;
+            }
+
+            if (st->useMomentum)
+            {
+                st->bestLikelihood_Momentum = likelihood_Momentum;
+            }
+            else
+            {
+                st->bestLikelihood_Momentum = 0.0;
             }
 
             /* Calculating the time that the best likelihood occurred */
@@ -408,8 +426,13 @@ NBodyStatus nbRunSystemPlain(const NBodyCtx* ctx, NBodyState* st, const NBodyFla
     real curStep = st->step;
     real Nstep = ctx->nStep;
     
-    st->bestLikelihood = DEFAULT_WORST_CASE; //initializing it.
-
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wfloat-equal"
+    if(st->bestLikelihood == 0.0)
+    {
+        st->bestLikelihood = DEFAULT_WORST_CASE; //initializing it.
+    }
+    #pragma GCC diagnostic pop
     while (st->step < ctx->nStep)
     {
         #ifdef NBODY_BLENDER_OUTPUT

@@ -172,7 +172,7 @@ int nbGenerateManualBodies(lua_State* luaSt)
         static const char* body_file = NULL;
         static const MWNamedArg argTable[] =
         {
-            { "body_file",            LUA_TSTRING,     NULL,                    TRUE,    &body_file         },
+            { "body_file",            LUA_TSTRING,     NULL,                    TRUE,    &body_file,           1 },
             END_MW_NAMED_ARG
             
         };
