@@ -42,24 +42,25 @@ preset_orbit_parameter_vz = 147.4
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- -- -- -- -- -- -- -- -- STANDARD  SETTINGS   -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --      
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
-totalBodies           = 40000   -- -- NUMBER OF TOTAL BODIES                                                   -- --
-totalLightBodies      = 20000   -- -- NUMBER OF LIGHT MATTER BODIES                                            -- --
+totalBodies           = 40000       -- -- NUMBER OF TOTAL BODIES                                               -- --
+totalLightBodies      = 20000       -- -- NUMBER OF LIGHT MATTER BODIES                                        -- --
 
-nbodyLikelihoodMethod = "EMD"   -- -- HIST COMPARE METHOD                                                      -- --
-nbodyMinVersion       = "1.93"  -- -- MINIMUM APP VERSION                                                      -- --
+nbodyLikelihoodMethod = "EMD"       -- -- HIST COMPARE METHOD                                                  -- --
+nbodyMinVersion       = "1.93"      -- -- MINIMUM APP VERSION                                                  -- --
 
-run_null_potential    = false   -- -- NULL POTENTIAL SWITCH                                                    -- --
-use_tree_code         = true    -- -- USE TREE CODE NOT EXACT                                                  -- --
-print_reverse_orbit   = false   -- -- PRINT REVERSE ORBIT SWITCH (WORKS FOR LMC_body = false)                  -- --
-print_out_parameters  = false   -- -- PRINT OUT ALL PARAMETERS                                                 -- --
+run_null_potential    = false       -- -- NULL POTENTIAL SWITCH                                                -- --
+use_tree_code         = true        -- -- USE TREE CODE NOT EXACT                                              -- --
+print_reverse_orbit   = false       -- -- PRINT REVERSE ORBIT SWITCH (WORKS FOR LMC_body = false)              -- --
+print_out_parameters  = false       -- -- PRINT OUT ALL PARAMETERS                                             -- --
 
-LMC_body              = true    -- -- PRESENCE OF LMC (TURN OFF FOR NULL POTENTIAL): When this is true, it will print of reverse orbit 
-LMC_function          = 1       -- -- 1: Plummer 2: Henrquist 3: Hernquist with cutoff
-LMC_scaleRadius       = 15      -- --  kpc
-LMC_cutoff            = 16      -- --  kpc  This is used only for Hernquist with cutoff
+LMC_body              = true        -- -- PRESENCE OF LMC (TURN OFF FOR NULL POTENTIAL)                        -- --
+LMC_function          = 1           -- -- 1: Plummer 2: Henrquist 3: Hernquist with cutoff                     -- --
+LMC_scaleRadius       = 15          -- --  kpc                                                                 -- --
+LMC_cutoff            = 16          -- --  kpc  This is used only for Hernquist with cutoff                    -- --
 preset_LMC_Mass       = 449865.888  -- -- SMU (used unless specified in arguments)                             -- --
 LMC_DynamicalFriction = true    -- -- LMC DYNAMICAL FRICTION SWITCH (IGNORED IF NO LMC)                        -- --
-CoulombLogarithm      = 15      -- -- ln(r/1.22*CoulombLogarithm) COULOMB LOGARITHM USED IN DYNAMICAL FRACTION CALCULATION   -- --
+CoulombLogarithm      = 15      -- -- ln(r/1.22*CoulombLogarithm) (Patel et al. 2020) COULOMB LOGARITHM USED   -- --
+                                -- -- IN DYNAMICAL FRACTION CALCULATION                                        -- --
 
 SunGCDist             = 8.0       -- -- Distance between Sun and Galactic Center                               -- --
 SunVelx               = 10.3      -- -- Sun's x-velocity (kpc/Gyr) (Hogg et al. (2005))                        -- --
@@ -387,8 +388,8 @@ function makeBodies(ctx, potential)
 	            potential   = potential,
 	            position    = lbrToCartesian(ctx, Vector.create(orbit_parameter_l, orbit_parameter_b, orbit_parameter_r)),
 	            velocity    = Vector.create(orbit_parameter_vx, orbit_parameter_vy, orbit_parameter_vz),
-	            LMCposition = Vector.create(-1.1, -41.1, -27.9),
-	            LMCvelocity = Vector.create(-57, -226, 221),
+	            LMCposition = Vector.create(-0.52, -40.8, -26.5),
+	            LMCvelocity = Vector.create(-58.2, -231, 226),
 		            LMCfunction = LMC_function,
                     LMCmass     = LMC_Mass,
                     LMCscale    = LMC_scaleRadius,

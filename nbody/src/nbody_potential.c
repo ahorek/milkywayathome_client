@@ -739,9 +739,6 @@ mwvector nbExtAcceleration(const Potential* pot, mwvector pos, real time)
         case LogarithmicHalo:
             acctmp = logHaloAccel(&pot->halo, pos);
             break;
-        case SphericalNFWerkalHalo:
-	    acctmp = SphericalNFWerkalHaloAccel(&pot->halo, pos, r);
-            break;
         case NFWHalo:
             acctmp = nfwHaloAccel(&pot->halo, pos, r);
             break;
@@ -768,6 +765,9 @@ mwvector nbExtAcceleration(const Potential* pot, mwvector pos, real time)
             break;
         case NinkovicHalo:
             acctmp = ninkovicHaloAccel(&pot->halo, pos, r);
+            break;
+        case SphericalNFWerkalHalo:
+	        acctmp = SphericalNFWerkalHaloAccel(&pot->halo, pos, r);
             break;
         case NoHalo:
             X(acctmp) = 0.0;
@@ -829,6 +829,7 @@ mwvector LMCAcceleration(const int LMCfunction, const mwvector pos, const mwvect
 	        break;
         default:
             mw_fail("Invalid LMC type in external acceleration\n");
+            break;
     }
     return lmcAcc;
 }

@@ -103,8 +103,6 @@ const char* showHaloT(halo_t x)
     {
         case LogarithmicHalo:
             return "LogarithmicHalo";
-	    case SphericalNFWerkalHalo:
-	        return "SphericalNFWerkalHalo";
         case NFWHalo:
             return "NFWHalo";
         case TriaxialHalo:
@@ -121,6 +119,8 @@ const char* showHaloT(halo_t x)
             return "HernquistHalo";
         case NinkovicHalo:
             return "NinkovicHalo";
+        case SphericalNFWerkalHalo:
+	        return "SphericalNFWerkalHalo";
         case NoHalo:
             return "NoHalo";
         case InvalidHalo:

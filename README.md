@@ -50,7 +50,7 @@ N-body
 - Device information is exposed to the workunit through the
   deviceInfo table if it is used.
 
-- **Bar code currently does not pass all tests**
+- **Checkpoint test does not always pass. Do not be concerned with an occasional failure**
 
 
 Instructions for Compiling Nbody

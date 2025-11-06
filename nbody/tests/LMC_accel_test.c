@@ -30,7 +30,7 @@ int test_LMC_accel()
     //tolerance value
     delta = 0.1;
 
-    if (fabs(A1.x - (-285.34)) > delta)
+    if (!(fabs(A1.x - (-285.34)) <= delta))
 	{
 	    printf("Plummer LMC test failed: accel=%f\n",A1.x);
             failed = 1;

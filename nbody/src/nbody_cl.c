@@ -1759,7 +1759,7 @@ NBodyStatus nbStepSystemCL_LMC(const NBodyCtx* ctx, NBodyState* st, const mwvect
     nbRunIntegrationKernel(ctx, st, acc_i, acc_i, ctx->LMCmass);
     
     acc_LMC = mw_addv(nbExtAcceleration(&ctx->pot, st->LMCpos, barTime), 
-                      dynamicalFriction_LMC(&ctx->pot, st->LMCpos, st->LMCvel, ctx->LMCmass, ctx->LMCscale, ctx->LMCscale2, ctx->LMCDynaFric, barTime, ctx->coulomb_log));
+                      dynamicalFriction_LMC(&ctx->pot, st->LMCpos, st->LMCvel, ctx->LMCmass, ctx->LMCDynaFric, barTime, ctx->coulomb_log));
     advancePosVel_LMC(st, dt, acc_LMC, acc_i);
     
     st->dirty = TRUE;
@@ -1790,7 +1790,7 @@ NBodyStatus nbStepSystemCL_LMC(const NBodyCtx* ctx, NBodyState* st, const mwvect
         ws->kernelTimings[i] += ws->timings[i];
     }
     
-    acc_LMC = mw_addv(nbExtAcceleration(&ctx->pot, st->LMCpos, barTime), dynamicalFriction_LMC(&ctx->pot, st->LMCpos, st->LMCvel, ctx->LMCmass, ctx->LMCscale, ctx->LMCscale2, ctx->LMCDynaFric, barTime, ctx->coulomb_log));
+    acc_LMC = mw_addv(nbExtAcceleration(&ctx->pot, st->LMCpos, barTime), dynamicalFriction_LMC(&ctx->pot, st->LMCpos, st->LMCvel, ctx->LMCmass, ctx->LMCDynaFric, barTime, ctx->coulomb_log));
     advanceVelocities_LMC(st, dt, acc_LMC, acc_i1);
 
     nbReportProgressWithTimings(ctx, st);

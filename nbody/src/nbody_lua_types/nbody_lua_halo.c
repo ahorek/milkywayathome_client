@@ -40,7 +40,6 @@ int pushHalo(lua_State* luaSt, const Halo* p)
 static const MWEnumAssociation haloOptions[] =
 {
     { "logarithmic",        LogarithmicHalo        },
-    { "sphericalnfwerkal",  SphericalNFWerkalHalo  },
     { "nfw",                NFWHalo,               },
     { "triaxial",           TriaxialHalo,          },
     { "caustic",            CausticHalo,           },
@@ -50,6 +49,7 @@ static const MWEnumAssociation haloOptions[] =
     { "plummer",            PlummerHalo,           },
     { "hernquist",          HernquistHalo,         },
     { "ninkovic",           NinkovicHalo,          },
+    { "sphericalnfwerkal",  SphericalNFWerkalHalo  },
     { "none",               NoHalo,                },
     END_MW_ENUM_ASSOCIATION
 };
@@ -277,7 +277,6 @@ static const luaL_reg metaMethodsHalo[] =
 static const luaL_reg methodsHalo[] =
 {
     { "logarithmic",        createLogarithmicHalo        },
-    { "sphericalnfwerkal",  createSphericalNFWerkalHalo  },
     { "nfw",                createNFWHalo                },
     { "triaxial",           createTriaxialHalo           },
     { "caustic",            createCausticHalo            },
@@ -287,6 +286,7 @@ static const luaL_reg methodsHalo[] =
     { "plummer",            createPlummerHalo            },
     { "hernquist",          createHernquistHalo          },
     { "ninkovic",           createNinkovicHalo           },
+    { "sphericalnfwerkal",  createSphericalNFWerkalHalo  },
     { "none",               createNoHalo                 },
     { NULL, NULL }
 };
@@ -348,7 +348,6 @@ int registerHaloKinds(lua_State* luaSt)
     table = lua_gettop(luaSt);
 
     setModelTableItem(luaSt, table, createLogarithmicHalo, "logarithmic");
-    setModelTableItem(luaSt, table, createSphericalNFWerkalHalo, "sphericalnfwerkal");
     setModelTableItem(luaSt, table, createNFWHalo, "nfw");
     setModelTableItem(luaSt, table, createTriaxialHalo, "triaxial");
     setModelTableItem(luaSt, table, createCausticHalo, "caustic");
@@ -358,6 +357,7 @@ int registerHaloKinds(lua_State* luaSt)
     setModelTableItem(luaSt, table, createPlummerHalo, "plummer");
     setModelTableItem(luaSt, table, createHernquistHalo, "hernquist");
     setModelTableItem(luaSt, table, createNinkovicHalo, "ninkovic");
+    setModelTableItem(luaSt, table, createSphericalNFWerkalHalo, "sphericalnfwerkal");
     setModelTableItem(luaSt, table, createNoHalo, "none");
 
     /* Getting the number of keys in a table is a pain */
