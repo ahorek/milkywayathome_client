@@ -96,20 +96,22 @@ typedef struct MW_ALIGN_TYPE
 #define _PLUMMER_HALO 8
 #define _HERNQUIST_HALO 9
 #define _NINKOVIC_HALO 10
+#define _SphericalNFWerkal_HALO 11
 typedef enum
 {
-    InvalidHalo        = InvalidEnum,
-    NoHalo             = _NO_HALO,
-    LogarithmicHalo    = _LOG_HALO,
-    NFWHalo            = _NFW_HALO,
-    TriaxialHalo       = _TRIAXIAL_HALO,
-    CausticHalo        = _CAUSTIC_HALO,
-    AllenSantillanHalo = _AS_HALO,
-    WilkinsonEvansHalo = _WE_HALO,
-    NFWMassHalo        = _NFWM_HALO,
-    PlummerHalo        = _PLUMMER_HALO,
-    HernquistHalo      = _HERNQUIST_HALO,
-    NinkovicHalo       = _NINKOVIC_HALO
+    InvalidHalo           = InvalidEnum,
+    NoHalo                = _NO_HALO,
+    LogarithmicHalo       = _LOG_HALO,
+    NFWHalo               = _NFW_HALO,
+    TriaxialHalo          = _TRIAXIAL_HALO,
+    CausticHalo           = _CAUSTIC_HALO,
+    AllenSantillanHalo    = _AS_HALO,
+    WilkinsonEvansHalo    = _WE_HALO,
+    NFWMassHalo           = _NFWM_HALO,
+    PlummerHalo           = _PLUMMER_HALO,
+    HernquistHalo         = _HERNQUIST_HALO,
+    NinkovicHalo          = _NINKOVIC_HALO,
+    SphericalNFWerkalHalo = _SphericalNFWerkal_HALO
 } halo_t;
 
 typedef struct MW_ALIGN_TYPE

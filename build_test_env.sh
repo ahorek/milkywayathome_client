@@ -61,6 +61,7 @@ fi
   make poisson_test
   make virial_test
   make nbody_test_driver
+  make LMC_accel_test
   make average_bins_test
   make propermotion_test
   make EMD_Range_test

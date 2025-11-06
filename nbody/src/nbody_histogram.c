@@ -489,6 +489,16 @@ static void nbPrintHistogramHeader(FILE* f,
                     p->halo.lambda);
             break;
 
+        case SphericalNFWerkalHalo:
+	        fprintf(f,
+	                "# Halo: SphericalNFWerkal\n"
+		            "#   a = %f\n"
+		            "#   mass = %f\n"
+                    "#\n",
+                    p->halo.scaleLength,
+                    p->halo.mass);
+            break;
+
         case NoHalo:
             fprintf(f,
                     "# Halo: None\n");
@@ -518,7 +528,7 @@ static void nbPrintHistogramHeader(FILE* f,
 /* Print the histogram without a header. */
 void nbPrintHistogram(FILE* f, const MainStruct* all)
 {
-    real output[16]; // for outputting the data
+    real output[16] = {0.0}; // for outputting the data
 
     unsigned int nBin;
     nBin = all->histograms[0]->lambdaBins * all->histograms[0]->betaBins;
