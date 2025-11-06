@@ -832,11 +832,17 @@ int main() {
 
     int total_failed = 0;
 
+    // Arrays to store failed models and their failed tests
+    const char* failed_models[4];
+    const char* failed_tests[4][3];
+    int num_failed_tests[4];
+    int num_failures = 0;
+
     // List of dwarf models to test
     const char* dwarf_models[] = {
-	//"plummer_plummer.lua",
-	//"plummer_nfw.lua",
-	//"plummer_hernquist.lua",
+	"plummer_plummer.lua",
+	"plummer_hernquist.lua",
+	"plummer_nfw.lua",
 	"plummer_cored.lua",
     };
 
@@ -846,6 +852,8 @@ int main() {
     // Test each model
     for (int i = 0; i < num_models; i++) {
 	int failed = 0;
+	int test_idx = 0;
+	
 	printf("\n=== Testing %s ===\n", dwarf_models[i]);
 	TestContext tctx;
 	memset(&tctx, 0, sizeof(TestContext));
@@ -857,7 +865,10 @@ int main() {
 	    cleanup_all_memory(&tctx);
 	    return failed;
 	}
-	failed += test_stability(&tctx);
+	if (test_stability(&tctx) != 0) {
+	    failed = 1;
+	    failed_tests[num_failures][test_idx++] = "Stability test";
+	}
 	// Reload particle data for subsequent tests
 	tctx.particle_data = read_particle_file("initial.out");
 	if (!tctx.particle_data) {
@@ -869,10 +880,16 @@ int main() {
 	}
 	printf("After read_particle_file, failed = %d\n", failed);
 	fflush(stdout);
-	failed += test_virial_ratio(&tctx);
+	if (test_virial_ratio(&tctx) != 0) {
+	    failed = 1;
+	    failed_tests[num_failures][test_idx++] = "Virial ratio test";
+	}
 	printf("After test_virial_ratio, failed = %d\n", failed);
 	fflush(stdout);
-	failed += test_center_of_mass(&tctx);
+	if (test_center_of_mass(&tctx) != 0) {
+	    failed = 1;
+	    failed_tests[num_failures][test_idx++] = "Center of mass test";
+	}
 	printf("After test_center_of_mass, failed = %d\n", failed);
 	fflush(stdout);
 	free_particle_collection(tctx.particle_data);
@@ -883,6 +900,9 @@ int main() {
 	    printf("%s passed all tests!\n", dwarf_models[i]);
 	} else {
 	    printf("%s failed %d tests!\n", dwarf_models[i], failed);
+	    failed_models[num_failures] = dwarf_models[i];
+	    num_failed_tests[num_failures] = test_idx;
+	    num_failures++;
 	    total_failed += failed;
 	}
 	fflush(stdout);
@@ -897,6 +917,14 @@ int main() {
     {
 	printf("\n=== SUMMARY ===\n");
 	printf("Failed %d tests across all models\n", total_failed);
+	for (int i = 0; i < num_failures; i++)
+	{
+	    printf("%s failed the following tests:\n", failed_models[i]);
+	    for (int j = 0; j < num_failed_tests[i]; j++)
+	    {
+		printf("  - %s\n", failed_tests[i][j]);
+	    }
+	}
     }
     fflush(stdout);
     return total_failed > 0 ? 1 : 0;
