@@ -93,12 +93,25 @@ light_mass_ratio = round( tonumber(arg[6]), dec )    -- Baryonic Mass / (Baryoni
 if (#arg == 7) then
     if manual_bodies then
         manual_body_file = arg[7]
+        LMC_Mass = preset_LMC_Mass
     else 
         LMC_Mass = round( tonumber(arg[7]), dec )
     end
+    orbit_parameter_l   = round( tonumber(arg[7]), dec )
+    orbit_parameter_b   = round( tonumber(arg[8]), dec )
+    orbit_parameter_r   = round( tonumber(arg[9]), dec )
+    orbit_parameter_vx  = round( tonumber(arg[10]), dec )
+    orbit_parameter_vy  = round( tonumber(arg[11]), dec )
+    orbit_parameter_vz  = round( tonumber(arg[12]), dec )
 elseif (#arg == 8) then
     LMC_Mass = round( tonumber(arg[7]), dec )
     manual_body_file = arg[8]
+    orbit_parameter_l   = round( tonumber(arg[7]), dec )
+    orbit_parameter_b   = round( tonumber(arg[8]), dec )
+    orbit_parameter_r   = round( tonumber(arg[9]), dec )
+    orbit_parameter_vx  = round( tonumber(arg[10]), dec )
+    orbit_parameter_vy  = round( tonumber(arg[11]), dec )
+    orbit_parameter_vz  = round( tonumber(arg[12]), dec )
 elseif (#arg == 12) then
     orbit_parameter_l   = round( tonumber(arg[7]), dec )
     orbit_parameter_b   = round( tonumber(arg[8]), dec )
@@ -106,6 +119,7 @@ elseif (#arg == 12) then
     orbit_parameter_vx  = round( tonumber(arg[10]), dec )
     orbit_parameter_vy  = round( tonumber(arg[11]), dec )
     orbit_parameter_vz  = round( tonumber(arg[12]), dec )
+    LMC_Mass = preset_LMC_Mass
 elseif (#arg == 13) then
     orbit_parameter_l   = round( tonumber(arg[7]), dec )
     orbit_parameter_b   = round( tonumber(arg[8]), dec )
@@ -115,6 +129,7 @@ elseif (#arg == 13) then
     orbit_parameter_vz  = round( tonumber(arg[12]), dec )
     if manual_bodies then
         manual_body_file = arg[13]
+        LMC_Mass = preset_LMC_Mass
     else
         LMC_Mass = round( tonumber(arg[13]), dec )
     end

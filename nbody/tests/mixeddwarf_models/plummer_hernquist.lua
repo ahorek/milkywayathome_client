@@ -40,7 +40,7 @@
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- -- -- -- -- -- -- -- -- STANDARD  SETTINGS   -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --      
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
-totalBodies           = 88257   -- -- NUMBER OF TOTAL BODIES                                                   -- --
+totalBodies           = 40000   -- -- NUMBER OF TOTAL BODIES                                                   -- --
 totalLightBodies      = 10000   -- -- NUMBER OF LIGHT MATTER BODIES                                            -- --
 
 nbodyLikelihoodMethod = "EMD"   -- -- HIST COMPARE METHOD                                                      -- --

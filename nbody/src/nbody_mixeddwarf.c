@@ -697,27 +697,23 @@ static inline void set_vars(Dwarf* comp)
     real mass = comp->mass; 
     real rscale = comp->scaleLength;
     real r200 = mw_cbrt(mass / (vol_pcrit));//vol_pcrit = 200.0 * pcrit * PI_4_3
-        real p0 = 0.0;
+    real c = r200 / rscale; //halo concentration
+    real term = mw_log(1.0 + c) - c / (1.0 + c);
+    real p0 = 200.0 * cube(c) * pcrit / (3.0 * term); //rho_0 as defined in Navarro et. al. 1997
+    real ps = 0.0;
         if(comp->type == Cored)
-        {
+        {       
+                ps = p0; //characteristic density of the NFW portion of the cored profile 
                 real r1 = comp->r1;
                 real rc = comp->rc;
 
-                real D1 = r1 * sqr(1.0 + r1 / rscale) / (rscale + rscale * sqr(r1 / rc));
-                real D2 = cube(rscale) * (mw_log(1.0 + r200 / rscale) - mw_log(1.0 + r1 / rscale) - r200 / (rscale + r200) + r1 / (rscale + r1));
-                real D3 = sqr(rc) * (r1 - rc * mw_atan(r1 / rc));
+                real p0_ps = (rscale + rscale * sqr(r1 / rc)) / (r1 * sqr(1.0 + r1 / rscale)); //Ratio of p0 to ps
 
-                p0 = mass / (4.0 * M_PI * (D1 * D2 + D3));
-                comp->ps = p0 * D1;
-        }
-        else
-        {
-                real c = r200 / rscale; //halo concentration
-                real term = mw_log(1.0 + c) - c / (1.0 + c);
-                p0 = 200.0 * cube(c) * pcrit / (3.0 * term); //rho_0 as defined in Navarro et. al. 1997
+                p0 = ps * p0_ps; //central density of the cored profile
         }
     comp->r200 = r200;
     comp->p0 = p0;
+    comp->ps = ps;
 }
 
 static inline void get_extra_nfw_mass(Dwarf* comp, real bound)
@@ -796,7 +792,7 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 break;
             case NFW:
                 bound1 = 5.0 * comp1->r200;
-                        get_extra_nfw_mass(comp1, bound1);
+                get_extra_nfw_mass(comp1, bound1);
                 break;
             case General_Hernquist:
                 bound1 =  50.0 * (rscale_l + rscale_d);
@@ -818,7 +814,7 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 break;
             case NFW:
                 bound2 = 5.0 * comp2->r200;
-                        get_extra_nfw_mass(comp2, bound2);
+                get_extra_nfw_mass(comp2, bound2);
                 break;
             case General_Hernquist:
                 bound2 =  50.0 * (rscale_l + rscale_d);
