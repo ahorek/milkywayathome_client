@@ -175,9 +175,10 @@ Only the plummer model is really useful since it can be calculated analytically.
 - Distance: kiloparsec (kpc) 
 - Time: Gigayear (Gyr)
 - Velocity: kpc/Gyr
+- Acceleration: kpc/Gyr<sup>2</sup>
 
 Units Choosen such that:
-- G = 1 kpc<sup>3</sup> · SMU<sup>-1</sup> · s<sup>-2</sup>
+- G = 1 kpc<sup>3</sup> · SMU<sup>-1</sup> · Gyr<sup>-2</sup>
 
 Unit Conversions:
 - 1 SMU = 222288.47 M<sub>☉</sub> 

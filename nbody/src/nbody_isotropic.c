@@ -646,7 +646,7 @@ static inline real vel_mag(dsfmt_t* dsfmtState, real r, real * args)
         }
     }
     
-    return v; //kpc/gy
+    return v; //kpc/Gyr
 }
 
 static inline mwvector get_components(dsfmt_t* dsfmtState, real rad)
