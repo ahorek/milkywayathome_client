@@ -608,8 +608,8 @@ static inline real vel_mag(real r, const Dwarf* comp1, const Dwarf* comp2, mwboo
             counter++;
         }
     }
-//     v *= 0.977813107;//changing from kpc/gy to km/s
-    return v; //km/s
+
+    return v; //kpc/Gyr
 }
 
 static inline mwvector get_components(dsfmt_t* dsfmtState, real rad)
