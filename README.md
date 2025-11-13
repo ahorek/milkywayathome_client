@@ -169,6 +169,21 @@ Only the plummer model is really useful since it can be calculated analytically.
 | `DNBODY_OPENMP`          | ON, OFF | Build the algorithm single-threaded (`OFF`) or multithreaded (`ON`). |
 | `DNBODY_OPENCL`          | ON, OFF | Build with OpenCL libraries to support running N-Body on GPUs. |
 
+## N-Body Units 
+
+- Mass: Structure Mass Units (SMU)
+- Distance: kiloparsec (kpc) 
+- Time: Gigayear (Gyr)
+- Velocity: kpc/Gyr
+- Acceleration: kpc/Gyr<sup>2</sup>
+
+Units Choosen such that:
+- G = 1 kpc<sup>3</sup> · SMU<sup>-1</sup> · Gyr<sup>-2</sup>
+
+Unit Conversions:
+- 1 SMU = 222288.47 M<sub>☉</sub> 
+- 1 kpc/Gyr = 0.97789439 km/s
+
 Tests
 ---
   Tests can be run by running:
