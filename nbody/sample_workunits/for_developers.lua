@@ -37,6 +37,16 @@ preset_orbit_parameter_vy = 54.7    -- kpc/Gyr
 preset_orbit_parameter_vz = 147.4   -- kpc/Gyr
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+-- -- -- -- -- -- -- -- -- MODEL SETTINGS -- -- -- -- -- -- -- -- -- -- -- --
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+-- --       ModelComponent Options:    -- -- -- -- -- -- -- -- -- -- -- -- -- 
+-- --       2 - TWO COMPONENT MODEL    -- -- -- -- -- -- -- -- -- -- -- -- --
+-- --       1 - SINGLE COMPONENT MODEL  -- -- -- - -- -- -- -- -- -- -- -- -- 
+-- --       0 - NO DWARF MODEL         -- -- -- -- -- -- -- -- -- -- -- -- --
+ModelComponents   = 2         -- -- TWO COMPONENTS SWITCH   -- -- -- -- -- --
+manual_bodies     = false     -- -- USE THE MANUAL BODY LIST   -- -- -- -- --
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
         
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
@@ -71,7 +81,7 @@ UseOldSofteningLength = 0         -- -- Uses old softening length formula from v
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
 arg = { ... } -- -- TAKING USER INPUT
-assert((#arg == 6 or #arg == 7 or #arg == 8 or #arg == 12 or #arg == 13 or #arg == 14), "Expects either 6, 7, 8, 12, 13, or 14 arguments")
+assert((#arg == 6 or #arg == 7 or #arg == 8 or #arg == 11 or #arg == 12 or #arg == 13), "Expects either 6, 7, 8, 12, 13, or 14 arguments")
 assert(argSeed ~= nil, "Expected seed") -- STILL EXPECTING SEED AS INPUT FOR THE FUTURE
 argSeed = 34086709 -- -- SETTING SEED TO FIXED VALUE
 --argSeed = 34086710 -- -- SETTING SEED TO FIXED VALUE
@@ -97,51 +107,51 @@ if (#arg == 7) then
     else 
         LMC_Mass = round( tonumber(arg[7]), dec )
     end
-    orbit_parameter_l   = round( tonumber(arg[7]), dec )
-    orbit_parameter_b   = round( tonumber(arg[8]), dec )
-    orbit_parameter_r   = round( tonumber(arg[9]), dec )
-    orbit_parameter_vx  = round( tonumber(arg[10]), dec )
-    orbit_parameter_vy  = round( tonumber(arg[11]), dec )
-    orbit_parameter_vz  = round( tonumber(arg[12]), dec )
+    orbit_parameter_l   = preset_orbit_parameter_l
+    orbit_parameter_b   = preset_orbit_parameter_b
+    orbit_parameter_r   = preset_orbit_parameter_r
+    orbit_parameter_vx  = preset_orbit_parameter_vx
+    orbit_parameter_vy  = preset_orbit_parameter_vy
+    orbit_parameter_vz  = preset_orbit_parameter_vz
 elseif (#arg == 8) then
     LMC_Mass = round( tonumber(arg[7]), dec )
     manual_body_file = arg[8]
-    orbit_parameter_l   = round( tonumber(arg[7]), dec )
-    orbit_parameter_b   = round( tonumber(arg[8]), dec )
-    orbit_parameter_r   = round( tonumber(arg[9]), dec )
-    orbit_parameter_vx  = round( tonumber(arg[10]), dec )
-    orbit_parameter_vy  = round( tonumber(arg[11]), dec )
-    orbit_parameter_vz  = round( tonumber(arg[12]), dec )
-elseif (#arg == 12) then
-    orbit_parameter_l   = round( tonumber(arg[7]), dec )
-    orbit_parameter_b   = round( tonumber(arg[8]), dec )
-    orbit_parameter_r   = round( tonumber(arg[9]), dec )
-    orbit_parameter_vx  = round( tonumber(arg[10]), dec )
-    orbit_parameter_vy  = round( tonumber(arg[11]), dec )
-    orbit_parameter_vz  = round( tonumber(arg[12]), dec )
+    orbit_parameter_l   = preset_orbit_parameter_l
+    orbit_parameter_b   = preset_orbit_parameter_b
+    orbit_parameter_r   = preset_orbit_parameter_r
+    orbit_parameter_vx  = preset_orbit_parameter_vx
+    orbit_parameter_vy  = preset_orbit_parameter_vy
+    orbit_parameter_vz  = preset_orbit_parameter_vz
+elseif (#arg == 11) then
+    orbit_parameter_l   = preset_orbit_parameter_l
+    orbit_parameter_b   = round( tonumber(arg[7]), dec )
+    orbit_parameter_r   = round( tonumber(arg[8]), dec )
+    orbit_parameter_vx  = round( tonumber(arg[9]), dec )
+    orbit_parameter_vy  = round( tonumber(arg[10]), dec )
+    orbit_parameter_vz  = round( tonumber(arg[11]), dec )
     LMC_Mass = preset_LMC_Mass
-elseif (#arg == 13) then
-    orbit_parameter_l   = round( tonumber(arg[7]), dec )
-    orbit_parameter_b   = round( tonumber(arg[8]), dec )
-    orbit_parameter_r   = round( tonumber(arg[9]), dec )
-    orbit_parameter_vx  = round( tonumber(arg[10]), dec )
-    orbit_parameter_vy  = round( tonumber(arg[11]), dec )
-    orbit_parameter_vz  = round( tonumber(arg[12]), dec )
+elseif (#arg == 12) then
+    orbit_parameter_l   = preset_orbit_parameter_l
+    orbit_parameter_b   = round( tonumber(arg[7]), dec )
+    orbit_parameter_r   = round( tonumber(arg[8]), dec )
+    orbit_parameter_vx  = round( tonumber(arg[9]), dec )
+    orbit_parameter_vy  = round( tonumber(arg[10]), dec )
+    orbit_parameter_vz  = round( tonumber(arg[11]), dec )
     if manual_bodies then
-        manual_body_file = arg[13]
+        manual_body_file = arg[12]
         LMC_Mass = preset_LMC_Mass
     else
-        LMC_Mass = round( tonumber(arg[13]), dec )
+        LMC_Mass = round( tonumber(arg[12]), dec )
     end
-elseif (#arg == 14) then
-    orbit_parameter_l   = round( tonumber(arg[7]), dec )
-    orbit_parameter_b   = round( tonumber(arg[8]), dec )
-    orbit_parameter_r   = round( tonumber(arg[9]), dec )
-    orbit_parameter_vx  = round( tonumber(arg[10]), dec )
-    orbit_parameter_vy  = round( tonumber(arg[11]), dec )
-    orbit_parameter_vz  = round( tonumber(arg[12]), dec )
-    LMC_Mass = round( tonumber(arg[13]), dec )
-    manual_body_file = arg[14]
+elseif (#arg == 13) then
+    orbit_parameter_l   = preset_orbit_parameter_l
+    orbit_parameter_b   = round( tonumber(arg[7]), dec )
+    orbit_parameter_r   = round( tonumber(arg[8]), dec )
+    orbit_parameter_vx  = round( tonumber(arg[9]), dec )
+    orbit_parameter_vy  = round( tonumber(arg[10]), dec )
+    orbit_parameter_vz  = round( tonumber(arg[11]), dec )
+    LMC_Mass = round( tonumber(arg[12]), dec )
+    manual_body_file = arg[13]
 else
     -- fallback to preset orbit parameters and LMC mass if not enough args
     orbit_parameter_l   = preset_orbit_parameter_l
@@ -151,19 +161,7 @@ else
     orbit_parameter_vy  = preset_orbit_parameter_vy
     orbit_parameter_vz  = preset_orbit_parameter_vz
     LMC_Mass = preset_LMC_Mass
-end
-
-
--- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
--- -- -- -- -- -- -- -- -- MODEL SETTINGS -- -- -- -- -- -- -- -- -- -- -- --
--- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
--- --       ModelComponent Options:    -- -- -- -- -- -- -- -- -- -- -- -- -- 
--- --       2 - TWO COMPONENT MODEL    -- -- -- -- -- -- -- -- -- -- -- -- --
--- --       1 - SINGLE COMPONENT MODEL  -- -- -- - -- -- -- -- -- -- -- -- -- 
--- --       0 - NO DWARF MODEL         -- -- -- -- -- -- -- -- -- -- -- -- --
-ModelComponents   = 2         -- -- TWO COMPONENTS SWITCH   -- -- -- -- -- --
-manual_bodies     = false     -- -- USE THE MANUAL BODY LIST   -- -- -- -- --
--- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+end 
 
 if(ModelComponents == 1) then
    dwarfMass = mass_l
