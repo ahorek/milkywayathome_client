@@ -81,7 +81,7 @@ UseOldSofteningLength = 0         -- -- Uses old softening length formula from v
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
 arg = { ... } -- -- TAKING USER INPUT
-assert((#arg == 6 or #arg == 7 or #arg == 8 or #arg == 11 or #arg == 12 or #arg == 13), "Expects either 6, 7, 8, 12, 13, or 14 arguments")
+assert((#arg == 6 or #arg == 7 or #arg == 8 or #arg == 11 or #arg == 12 or #arg == 13), "Expects either 6, 7, 8, 11, 12, or 13 arguments")
 assert(argSeed ~= nil, "Expected seed") -- STILL EXPECTING SEED AS INPUT FOR THE FUTURE
 argSeed = 34086709 -- -- SETTING SEED TO FIXED VALUE
 --argSeed = 34086710 -- -- SETTING SEED TO FIXED VALUE
@@ -300,6 +300,8 @@ function get_timestep()
     end
 
     if ((evolveTime/t > 150000 or t ~= t) and not timestep_control) then
+        -- We could throw an error here, but instead let it run fast and return a poor likelihood
+        -- This way users won't see errors in their workunit logs
         TooManyTimesteps = 1
         t = evolveTime/4.0
     end
@@ -386,7 +388,9 @@ function makeBodies(ctx, potential)
   local firstModel
   local finalPosition, finalVelocity, LMCfinalPosition, LMCfinalVelocity
     if TooManyTimesteps == 1 then
+        -- Setting bodies to 1 ensures worst case likelihood
         totalBodies = 1
+        totalLightBodies = 1
     end
 
     if(run_null_potential == true and manual_bodies == true) then
