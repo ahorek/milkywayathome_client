@@ -1,0 +1,39 @@
+name: x64 Linux
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    name: >-
+      ubuntu-24.04
+
+    defaults:
+      run:
+        shell: bash
+
+    strategy:
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Print gcc version
+        run: |
+          gcc -v
+
+      - name: Run make
+        run: |
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DNBODY_DEV_OPTIONS=ON -DNBODY_GL=OFF -DBOINC_APPLICATION=OFF -DSEPARATION=OFF -DDOUBLEPREC=ON -DNBODY_OPENMP=ON -DNBODY_OPENCL=OFF -DAUTODIFF=OFF -DAUTODIFF_LOG=OFF ../milkywayathome_client/
+          make -j
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.variant }}_${{ matrix.os }}
+          retention-days: 1
+          path: |
+            ./../milkywayathome_client
