@@ -821,7 +821,7 @@ int nbReadCheckpoint(NBodyCtx* ctx, NBodyState* st)
 {
     CheckpointHandle cp = EMPTY_CHECKPOINT_HANDLE;
 
-    if (1==1)//nbOpenCheckpointHandleWithAttempts(st, &cp, st->checkpointResolved, FALSE)) //If memory mapping fails, write checkpoint with standard functions
+    if (nbOpenCheckpointHandleWithAttempts(st, &cp, st->checkpointResolved, FALSE)) //If memory mapping fails, write checkpoint with standard functions
     {
         if (nbStandardCheckpointRead(ctx, st, st->checkpointResolved))
         {
@@ -858,7 +858,7 @@ int nbWriteCheckpointWithTmpFile(const NBodyCtx* ctx, const NBodyState* st, cons
 
     assert(st->checkpointResolved);
 
-    if (1==1)//nbOpenCheckpointHandleWithAttempts(st, &cp, tmpFile, TRUE)) //If memory mapping fails, write checkpoint with standard functions
+    if (nbOpenCheckpointHandleWithAttempts(st, &cp, tmpFile, TRUE)) //If memory mapping fails, write checkpoint with standard functions
     {
         if (nbStandardCheckpointWrite(ctx, st, tmpFile))
         {
