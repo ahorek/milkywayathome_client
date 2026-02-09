@@ -500,6 +500,122 @@ static int nbThawState(NBodyCtx* ctx, NBodyState* st, CheckpointHandle* cp)
     return FALSE;
 }
 
+static int nbStandardCheckpointRead(const NBodyCtx* ctx, NBodyState* st, const char* filename)
+{
+    //reads checkpoint using standard file functions. Used as a fallback for file systems that don't support memory mapping
+    size_t bodySize, likelihoodSize, traceSize, ShiftLMCSize, LMCPosVelSize, supposedCheckpointSize;
+    NBodyCheckpointHeader cpHdr;
+    FILE* f = fopen(filename, "rb");
+    if (!f)
+    {
+        mwPerror("Failed to open checkpoint file '%s' for reading", filename);
+        return TRUE;
+    }
+
+    real size = -1;
+    if (fseek(f, 0, SEEK_END) == 0) 
+    { 
+            size = ftell(f);
+            rewind(f);
+    }
+
+    fread(&cpHdr, sizeof(NBodyCheckpointHeader), 1, f);
+    nbReadCheckpointHeader(&cpHdr, ctx, st);
+
+    bodySize = st->nbody * sizeof(Body);
+    likelihoodSize = 12 * sizeof(real) + sizeof(int);
+    traceSize = cpHdr.nOrbitTrace * sizeof(mwvector);
+    ShiftLMCSize = cpHdr.nShiftLMC * sizeof(mwvector);
+    if (ShiftLMCSize != 0)
+    {
+        LMCPosVelSize = 2*sizeof(mwvector);
+    }
+    else
+    {
+        LMCPosVelSize = 0;
+    }
+
+    size_t sizeOfData;
+    fread(&sizeOfData, sizeof(size_t), 1, f);
+
+    NBodyState* extractedSt = malloc(sizeOfData);
+    fread(extractedSt, sizeOfData, 1, f);
+
+    supposedCheckpointSize = sizeof(NBodyCheckpointHeader) + 2*bodySize + likelihoodSize + traceSize + ShiftLMCSize + LMCPosVelSize + sizeOfData + sizeof(size_t)+4; //extra 4 for size of tail
+
+    if (supposedCheckpointSize != size)
+    {
+        mw_printf("Expected checkpoint file size ("ZU") is incorrect for expected number of bodies "
+                  "(%u bodies, real size "ZU")\n",
+                  supposedCheckpointSize,
+                  st->nbody,
+                  (size_t) size);
+        fclose(f);
+        return TRUE;
+    }
+
+    /* The main piece of state*/
+    st->bodytab = (Body*) mwMallocA(st->nbody * sizeof(Body));
+    fread(st->bodytab, bodySize, 1, f);
+
+    st->bestLikelihoodBodyTab = (Body*) mwMallocA(st->nbody * sizeof(Body));
+    fread(st->bestLikelihoodBodyTab, bodySize, 1, f);
+
+    /* Best Likelihood Information*/
+    /* If adding more here, be sure to change sizes for cp->cpFileSize and likelihoodSize*/
+
+    fread(&st->bestLikelihood, sizeof(real), 1, f);
+    fread(&st->bestLikelihood_EMD, sizeof(real), 1, f);
+    fread(&st->bestLikelihood_Mass, sizeof(real), 1, f);
+    fread(&st->bestLikelihood_Beta, sizeof(real), 1, f);
+    fread(&st->bestLikelihood_Vel, sizeof(real), 1, f);
+    fread(&st->bestLikelihood_BetaAvg, sizeof(real), 1, f);
+    fread(&st->bestLikelihood_VelAvg, sizeof(real), 1, f);
+    fread(&st->bestLikelihood_Dist, sizeof(real), 1, f);
+    fread(&st->bestLikelihood_PM_dec, sizeof(real), 1, f);
+    fread(&st->bestLikelihood_PM_ra , sizeof(real), 1, f);
+    fread(&st->bestLikelihood_Momentum , sizeof(real), 1, f);
+    fread(&st->bestLikelihood_time , sizeof(real), 1, f);
+    fread(&st->bestLikelihood_count , sizeof(int), 1, f);
+
+    if (cpHdr.nOrbitTrace)
+    {
+        st->orbitTrace = (mwvector*) mwMallocA(traceSize);
+        fread(st->orbitTrace, traceSize, 1, f);
+    }
+    if (cpHdr.nShiftLMC)
+    {
+        st->shiftByLMC = (mwvector*)mwMallocA(ShiftLMCSize); 
+        fread(st->shiftByLMC, ShiftLMCSize, 1, f);
+        fread(&st->LMCpos, sizeof(mwvector), 1, f);
+        fread(&st->LMCvel, sizeof(mwvector), 1, f);
+    }
+
+    char tailBuf[sizeof(tail)];
+    fread(tailBuf, sizeof(tail), 1, f);
+    if (strncmp(tailBuf, tail, sizeof(tail)) != 0)
+    {
+        mwFreeA(st->bodytab);
+        st->bodytab = NULL;
+        
+        mwFreeA(st->bestLikelihoodBodyTab);
+        st->bestLikelihoodBodyTab = NULL;
+
+        mwFreeA(st->orbitTrace);
+        st->orbitTrace = NULL;
+
+        mwFreeA(st->shiftByLMC);
+        st->shiftByLMC = NULL;
+
+        mw_printf("Failed to find end marker in checkpoint file.\n");
+        fclose(f);
+        return TRUE;
+    }
+
+    fclose(f);
+    return FALSE;
+}
+
 static void nbFreezeState(const NBodyCtx* ctx, const NBodyState* st, CheckpointHandle* cp)
 {
     const size_t bodySize = st->nbody * sizeof(Body);
@@ -578,6 +694,69 @@ static void nbFreezeState(const NBodyCtx* ctx, const NBodyState* st, CheckpointH
     strcpy(p, tail);
 }
 
+static int nbStandardCheckpointWrite(const NBodyCtx* ctx, const NBodyState* st, const char* filename)
+{
+    //writes checkpoint using standard file functions. Used as a fallback for file systems that don't support memory mapping
+    const size_t bodySize = st->nbody * sizeof(Body);
+    const size_t traceSize = st->nOrbitTrace * sizeof(mwvector);
+    const size_t ShiftLMCSize = st->nShiftLMC * sizeof(mwvector);
+
+    FILE* f = fopen(filename, "wb");
+    if (!f)
+    {
+        mwPerror("Failed to open checkpoint file '%s' for writing", filename);
+        return TRUE;
+    }
+
+    NBodyCheckpointHeader cpHdr;
+    nbPrepareWriteCheckpointHeader(&cpHdr, ctx, st);
+
+    fwrite(&cpHdr, sizeof(NBodyCheckpointHeader), 1, f);
+
+    size_t st_size = sizeof(*st);
+    fwrite(&st_size, sizeof(size_t), 1, f);
+    fwrite(st, st_size, 1, f);
+
+    /* The main piece of state*/
+    fwrite(st->bodytab, bodySize, 1, f);
+
+    fwrite(st->bestLikelihoodBodyTab, bodySize, 1, f);
+
+    /* Best Likelihood Information*/
+    /* If adding more here, be sure to change sizes for cp->cpFileSize and likelihoodSize*/
+
+    fwrite(&st->bestLikelihood, sizeof(real), 1, f);
+    fwrite(&st->bestLikelihood_EMD, sizeof(real), 1, f);
+    fwrite(&st->bestLikelihood_Mass, sizeof(real), 1, f);
+    fwrite(&st->bestLikelihood_Beta, sizeof(real), 1, f);
+    fwrite(&st->bestLikelihood_Vel, sizeof(real), 1, f);
+    fwrite(&st->bestLikelihood_BetaAvg, sizeof(real), 1, f);
+    fwrite(&st->bestLikelihood_VelAvg, sizeof(real), 1, f);
+    fwrite(&st->bestLikelihood_Dist, sizeof(real), 1, f);
+    fwrite(&st->bestLikelihood_PM_dec, sizeof(real), 1, f);
+    fwrite(&st->bestLikelihood_PM_ra, sizeof(real), 1, f);
+    fwrite(&st->bestLikelihood_Momentum, sizeof(real), 1, f);
+    fwrite(&st->bestLikelihood_time, sizeof(real), 1, f);
+    fwrite(&st->bestLikelihood_count, sizeof(int), 1, f);
+
+    if (st->orbitTrace)
+    {
+        fwrite(st->orbitTrace, traceSize, 1, f);
+    }
+    if (st->shiftByLMC)
+    {
+        fwrite(st->shiftByLMC, ShiftLMCSize, 1, f);
+        fwrite(&st->LMCpos, sizeof(mwvector), 1, f);
+        fwrite(&st->LMCvel, sizeof(mwvector), 1, f);
+    }
+
+    fwrite(tail, sizeof(tail), 1, f);
+
+    fclose(f);
+
+    return FALSE;
+}
+
 /* Open the temporary checkpoint file for writing */
 int nbResolveCheckpoint(NBodyState* st, const char* checkpointFileName)
 {
@@ -642,24 +821,28 @@ int nbReadCheckpoint(NBodyCtx* ctx, NBodyState* st)
 {
     CheckpointHandle cp = EMPTY_CHECKPOINT_HANDLE;
 
-    if (nbOpenCheckpointHandleWithAttempts(st, &cp, st->checkpointResolved, FALSE))
+    if (1==1)//nbOpenCheckpointHandleWithAttempts(st, &cp, st->checkpointResolved, FALSE)) //If memory mapping fails, write checkpoint with standard functions
     {
-        mw_printf("Opening checkpoint '%s' for resuming failed\n", st->checkpointResolved);
-        nbCloseCheckpointHandle(&cp);
-        return TRUE;
+        if (nbStandardCheckpointRead(ctx, st, st->checkpointResolved))
+        {
+            mw_printf("Opening checkpoint '%s' for resuming failed\n", st->checkpointResolved);
+            nbCloseCheckpointHandle(&cp);
+            return TRUE;
+        }
     }
-
-    if (nbThawState(ctx, st, &cp))
+    else //continue with memory mapping
     {
-        nbCloseCheckpointHandle(&cp);
-        return TRUE;
-    }
+        if (nbThawState(ctx, st, &cp))
+        {
+            nbCloseCheckpointHandle(&cp);
+            return TRUE;
+        }
 
-    if (nbCloseCheckpointHandle(&cp))
-    {
-        return TRUE;
+        if (nbCloseCheckpointHandle(&cp))
+        {
+            return TRUE;
+        }
     }
-
     /* Make sure state is ready to use */
     st->acctab = (mwvector*) mwCallocA(st->nbody, sizeof(mwvector));
 
@@ -675,17 +858,22 @@ int nbWriteCheckpointWithTmpFile(const NBodyCtx* ctx, const NBodyState* st, cons
 
     assert(st->checkpointResolved);
 
-    if (nbOpenCheckpointHandleWithAttempts(st, &cp, tmpFile, TRUE))
+    if (1==1)//nbOpenCheckpointHandleWithAttempts(st, &cp, tmpFile, TRUE)) //If memory mapping fails, write checkpoint with standard functions
     {
-        return TRUE;
+        if (nbStandardCheckpointWrite(ctx, st, tmpFile))
+        {
+            failed = TRUE;
+        }
     }
-
-    nbFreezeState(ctx, st, &cp);
-
-    if (nbCloseCheckpointHandle(&cp))
+    else //continue with memory mapping
     {
-        mw_printf("Failed to properly close temporary checkpoint file\n");
-        failed = TRUE;
+        nbFreezeState(ctx, st, &cp);
+
+        if (nbCloseCheckpointHandle(&cp))
+        {
+            mw_printf("Failed to properly close temporary checkpoint file\n");
+            failed = TRUE;
+        }
     }
 
     /* Swap the real checkpoint with the temporary atomically. This
