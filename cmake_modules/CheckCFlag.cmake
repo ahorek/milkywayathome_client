@@ -37,7 +37,7 @@ endfunction()
 
 check_c_compiler_flag("-fp-model fast" HAVE_FP_MODEL_FAST)
 if(HAVE_FP_MODEL_FAST)
-  set(FAST_MATH_FLAGS "-fp-model fast")
+  #set(FAST_MATH_FLAGS "-fp-model fast")
 endif()
 
 if(MSVC)
@@ -47,7 +47,7 @@ endif()
 
 check_c_compiler_flag("-ffast-math" HAVE_F_FAST_MATH)
 if(HAVE_F_FAST_MATH)
-  set(FAST_MATH_FLAGS "-ffast-math")
+  #set(FAST_MATH_FLAGS "-ffast-math")
 endif()
 
 

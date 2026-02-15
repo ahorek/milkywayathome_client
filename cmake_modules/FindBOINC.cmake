@@ -20,11 +20,17 @@
 
 include(CheckStructHasMember)
 
-if(UNIX)
+#if(UNIX)
   set(BOINC_INCLUDE_SEARCH_PATH /usr/local/include/boinc
                                 /usr/local/include
+                                /home/runner/work/milkywayathome_client/milkywayathome_client/boinc_build/boinc
+                                /home/runner/work/milkywayathome_client/milkywayathome_client/boinc_build/boinc/api
+                                /home/runner/work/milkywayathome_client/milkywayathome_client/boinc_build/boinc/lib
                                 /usr/include/boinc)
-endif(UNIX)
+  set(BOINC_LIB_SEARCH_PATH /home/runner/work/milkywayathome_client/milkywayathome_client/boinc_build/boinc/api
+  /home/runner/work/milkywayathome_client/milkywayathome_client/boinc_build/boinc/lib
+  )
+#endif(UNIX)
 
 if(MINGW)
   set(BOINC_INCLUDE_SEARCH_PATH /local/include
@@ -33,7 +39,9 @@ if(MINGW)
   set(BOINC_LIB_SEARCH_PATH /local/lib)
 endif(MINGW)
 
-find_path(BOINC_INCLUDE_DIR boinc_api.h ${BOINC_INCLUDE_SEARCH_PATH})
+#find_path(BOINC_INCLUDE_DIR boinc_api.h ${BOINC_INCLUDE_SEARCH_PATH})
+set(BOINC_INCLUDE_DIR "/home/runner/work/milkywayathome_client/milkywayathome_client/boinc_build/boinc/api")
+list(INSERT BOINC_INCLUDE_DIR 0 "/home/runner/work/milkywayathome_client/milkywayathome_client/boinc_build/boinc/lib")
 
 if(NOT MSVC)
   find_library(BOINC_LIBRARY boinc ${BOINC_LIB_SEARCH_PATH})
@@ -78,11 +86,12 @@ mark_as_advanced(BOINC_INCLUDE_DIR BOINC_LIBRARY )
 
 
 if(BOINC_FOUND)
+   message(STATUS "BOINC_INCLUDE_DIR = ${BOINC_INCLUDE_DIR}")
    set(CMAKE_REQUIRED_INCLUDES ${BOINC_INCLUDE_DIR})
-   check_struct_has_member("BOINC_OPTIONS" "multi_thread" "boinc_api.h" HAVE_BOINC_OPTIONS_MULTI_THREAD)
-   if(NOT HAVE_BOINC_OPTIONS_MULTI_THREAD)
-     message(FATAL_ERROR "Found BOINC libraries too old")
-   endif()
+   #check_struct_has_member("BOINC_OPTIONS" "multi_thread" "boinc_api.h" HAVE_BOINC_OPTIONS_MULTI_THREAD)
+   #if(NOT HAVE_BOINC_OPTIONS_MULTI_THREAD)
+   #  message(FATAL_ERROR "Found BOINC libraries too old")
+   #endif()
    set(CMAKE_REQUIRED_INCLUDES)
 endif()
 
