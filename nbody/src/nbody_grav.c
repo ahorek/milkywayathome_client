@@ -128,7 +128,7 @@ static inline void nbMapForceBody(const NBodyCtx* ctx, NBodyState* st)
     int i;
     const int nbody = st->nbody;  /* Prevent reload on each loop */
     mwvector LMCx = ZERO_VECTOR;
-    mwvector a = ZERO_VECTOR, externAcc = ZERO_VECTOR;
+    mwvector a = ZERO_VECTOR, externAcc = ZERO_VECTOR, acc = ZERO_VECTOR;
     const Body* b;
     real lmcmass, lmcscale, lmcscale2;
     int lmcfunction;
@@ -170,7 +170,8 @@ static inline void nbMapForceBody(const NBodyCtx* ctx, NBodyState* st)
                 //mw_printf("DEFAULT POTENTIAL - TREE\n");
                 b = &bodies[i];
                 a = nbGravity(ctx, st, b);
-                externAcc = mw_addv(nbExtAcceleration(&ctx->pot, Pos(b), barTime), LMCAcceleration(lmcfunction, Pos(b), LMCx, lmcmass, lmcscale, lmcscale2));
+                acc = LMCAcceleration(lmcfunction, Pos(b), LMCx, lmcmass, lmcscale, lmcscale2);
+                externAcc = mw_addv(nbExtAcceleration(&ctx->pot, Pos(b), barTime), acc);
                 /** WARNING!: Adding any code to this section may cause the checkpointing to randomly bug out. I'm not
                     sure what causes this, but if you ever plan to add another gravity calculation outside of a new potential,
                     take the time to manually test the checkpointing. It drove me nuts when I was trying to add the LMC as a
@@ -236,7 +237,7 @@ static inline void nbMapForceBody_Exact(const NBodyCtx* ctx, NBodyState* st)
     int i;
     const int nbody = st->nbody;  /* Prevent reload on each loop */
     mwvector LMCx = ZERO_VECTOR;
-    mwvector a = ZERO_VECTOR, externAcc = ZERO_VECTOR;
+    mwvector a = ZERO_VECTOR, externAcc = ZERO_VECTOR, acc = ZERO_VECTOR;
     const Body* b;
     real lmcmass, lmcscale, lmcscale2;
     int lmcfunction;
@@ -274,8 +275,9 @@ static inline void nbMapForceBody_Exact(const NBodyCtx* ctx, NBodyState* st)
                 //mw_printf("DEFAULT POTENTIAL - EXACT\n");
                 b = &bodies[i];
                 a = nbGravity_Exact(ctx, st, b);
+                acc = LMCAcceleration(lmcfunction, Pos(b), LMCx, lmcmass, lmcscale, lmcscale2);
                 //mw_incaddv(a, nbExtAcceleration(&ctx->pot, Pos(b), curTime - ctx->timeBack));
-                externAcc = mw_addv(nbExtAcceleration(&ctx->pot, Pos(b), barTime), LMCAcceleration(lmcfunction, Pos(b), LMCx, lmcmass, lmcscale, lmcscale2));
+                externAcc = mw_addv(nbExtAcceleration(&ctx->pot, Pos(b), barTime), acc);
                 mw_incaddv(a, externAcc);
                 
                 accels[i] = a;
