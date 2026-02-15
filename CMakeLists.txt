@@ -259,6 +259,12 @@ set(gcc_extra_flags "-fno-common -funswitch-loops ")
 set(gcc_only_extra_flags "-freg-struct-return ")
 
 
+check_library_exists(dl dladdr "" HAVE_LIBDL)
+if (HAVE_LIBDL)
+  list(APPEND gcc_extra_flags "-ldl")
+endif()
+
+list(APPEND gcc_extra_flags "-ffp-contract=off -fno-associative-math -fno-finite-math-only")
 
 add_flag_if_supported("-maccumulate-outgoing-args")
 
