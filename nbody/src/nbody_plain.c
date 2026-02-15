@@ -369,7 +369,7 @@ NBodyStatus nbStepSystemPlain(const NBodyCtx* ctx, NBodyState* st, const mwvecto
     //       Z(st->LMCpos), ctx->LMCmass, ctx->LMCscale);
     rc = nbGravMap(ctx, st);
     advanceVelocities(st, st->nbody, dt, acc_i1);
-    if(ctx->LMC){
+    if(ctx->LMC) {
         friction = dynamicalFriction_LMC(&ctx->pot, st->LMCpos, st->LMCvel, ctx->LMCmass, ctx->LMCDynaFric, barTime, ctx->coulomb_log);
         acc_LMC = mw_addv(nbExtAcceleration(&ctx->pot, st->LMCpos, barTime), friction);
         advanceVelocities_LMC(st, dt, acc_LMC, acc_i1);
