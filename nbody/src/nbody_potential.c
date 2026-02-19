@@ -452,7 +452,7 @@ static inline mwvector orbitingBarAccel(const Disk* disk, mwvector pos, real r, 
     real curAngle = (disk->patternSpeed * time * -1)+disk->startAngle;
     //first rotate pos curAngle * -1 radians to emulate the current angle of the bar
     real Radi = mw_sqrt(pos.x*pos.x+pos.y*pos.y);
-    real Phi = mw_atan(pos.y/pos.x);
+    real Phi = mw_atan2(pos.y/pos.x);
     Phi -= curAngle;
     if(pos.x < 0){
         Radi = Radi * -1;
@@ -677,7 +677,8 @@ mwvector nbExtAcceleration(const Potential* pot, mwvector pos, real time)
     real limit = mw_pow(2.0,-8.0);
 
     /* Change r if less than limit. Done this way to pipeline this step*/
-    real r = (mw_absv(pos) <= limit)*limit + (mw_absv(pos) > limit)*mw_absv(pos);
+    //real r = (mw_absv(pos) <= limit)*limit + (mw_absv(pos) > limit)*mw_absv(pos);
+    real r = mw_max(mw_absv(pos), limit);
 
     /*Calculate the Disk Accelerations*/
     switch (pot->disk.type)
