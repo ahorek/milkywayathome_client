@@ -677,8 +677,7 @@ mwvector nbExtAcceleration(const Potential* pot, mwvector pos, real time)
     real limit = mw_pow(2.0,-8.0);
 
     /* Change r if less than limit. Done this way to pipeline this step*/
-    //real r = (mw_absv(pos) <= limit)*limit + (mw_absv(pos) > limit)*mw_absv(pos);
-    real r = mw_max(mw_absv(pos), limit);
+    real r = (mw_absv(pos) <= limit)*limit + (mw_absv(pos) > limit)*mw_absv(pos);
 
     /*Calculate the Disk Accelerations*/
     switch (pot->disk.type)
