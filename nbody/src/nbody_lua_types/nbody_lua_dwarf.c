@@ -75,10 +75,13 @@ static int createNFWDwarf(lua_State* luaSt)
         {
             { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
             { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength, 1 },
+            { "rcut",        LUA_TNUMBER, NULL, FALSE, &h.rcut,       1 },
             END_MW_NAMED_ARG
         };
-
+    
+    /* Defaults: rcut = 0.0 (no cutoff) */
     h.type = NFW;
+    h.rcut = 0.0;
     return createDwarf(luaSt, argTable, &h);
 }
 
@@ -120,11 +123,13 @@ static int createCoredDwarf(lua_State* luaSt)
             { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength, 1 },
 			{ "r1", 		 LUA_TNUMBER, NULL, TRUE, &h.r1,          1 },
 			{ "rc", 		 LUA_TNUMBER, NULL, TRUE, &h.rc,          1 },
+			{ "rcut", 	     LUA_TNUMBER, NULL, FALSE, &h.rcut,       1 },
             END_MW_NAMED_ARG
         };
 
     h.type = Cored;
 	h.r1 = h.scaleLength;
+	h.rcut = 0.0;
     return createDwarf(luaSt, argTable, &h);
 }
 
