@@ -149,6 +149,17 @@ static real rice_rule(const real nbodies) {
     return (int)(2.0 * mw_pow(nbodies, 1.0/3.0));
 }
 
+static real get_sampling_bound_for_component(const Dwarf* comp, const Dwarf* other_comp) {
+    
+    if (comp->type == NFW || comp->type == Cored) {
+		if (comp->rcut != 0.0) {
+			return comp->rcut + 15.0 * comp->rdecay;
+		}
+		return 5.0 * comp->r200;
+	}
+	return 5.0 * comp->scaleLength;
+}
+
 /* Function for the stability test for a given dwarf potential type */
 int test_stability(TestContext* tctx) {
     int failed = 0;
@@ -160,11 +171,11 @@ int test_stability(TestContext* tctx) {
     // Calculate the mass per particle for each component
     tctx->mass_per_particle_baryon = tctx->comp1->mass / tctx->nbody_baryon;
     tctx->mass_per_particle_dark = tctx->comp2->mass / tctx->nbody_dark;
-    // Max radius range for calculation is either 4 times the scale length for plummer and general hernquist or 4 times the r200 for cored and nfw which is the radius bound
-    real baryon_range_limit = (tctx->comp1->type == NFW || tctx->comp1->type == Cored) ? 4.0 * tctx->comp1->r200 : 4.0 * tctx->comp1->scaleLength;
+    // Set bounds for calulating KL divergence
+    real baryon_range_limit = 0.8 * get_sampling_bound_for_component(tctx->comp1, tctx->comp2);
     printf("Baryon range limit: %f\n", baryon_range_limit);
     fflush(stdout);
-    real dark_range_limit = (tctx->comp2->type == NFW || tctx->comp2->type == Cored) ? 4.0 * tctx->comp2->r200 : 4.0 * tctx->comp2->scaleLength;
+    real dark_range_limit = 0.8 * get_sampling_bound_for_component(tctx->comp2, tctx->comp1);
     printf("Dark matter range limit: %f\n", dark_range_limit);
     fflush(stdout);
     // Calculate the bin width for each component
