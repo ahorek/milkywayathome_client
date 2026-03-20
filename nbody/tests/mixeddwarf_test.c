@@ -153,7 +153,7 @@ static real get_sampling_bound_for_component(const Dwarf* comp, const Dwarf* oth
     
     if (comp->type == NFW || comp->type == Cored) {
 		if (comp->rcut != 0.0) {
-			return comp->rcut + 15.0 * comp->rdecay;
+			return comp->rcut + 10.0 * comp->rdecay;
 		}
 		return 5.0 * comp->r200;
 	}
@@ -855,6 +855,8 @@ int main() {
 	"plummer_hernquist.lua",
 	"plummer_nfw.lua",
 	"plummer_cored.lua",
+	"plummer_cutoff_cored.lua",
+	"plummer_cutoff_nfw.lua",
     };
 
     // Number of models to test
