@@ -806,10 +806,10 @@ static inline void recalculate_comp_mass(Dwarf* comp, real bound)
             const real p0 = comp->p0;
             const real rcut = comp->rcut;
             if (rcut != 0.0) {
-                const real rdecay = comp->rdecay;
-                const real delta = comp->delta;
                 if (r > rcut)
                 {
+                    const real rdecay = comp->rdecay;
+                    const real delta = comp->delta;
                     const real pcut = comp->pcut;
                     const real gamma1 = comp->gamma1;
                     const real m_nfw_cut = comp->m_nfw_cut;

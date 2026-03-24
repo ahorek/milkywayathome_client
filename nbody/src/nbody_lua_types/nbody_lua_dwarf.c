@@ -65,6 +65,11 @@ static int createPlummerDwarf(lua_State* luaSt)
         };
 
     h.type = Plummer;
+    oneTableArgument(luaSt, argTable);
+    if (h.mass <= 0.0)
+        luaL_error(luaSt, "Plummer dwarf mass must be positive");
+    if (h.scaleLength <= 0.0)
+        luaL_error(luaSt, "Plummer dwarf scaleLength must be positive");
     return createDwarf(luaSt, argTable, &h);
 }
 
@@ -82,6 +87,13 @@ static int createNFWDwarf(lua_State* luaSt)
     /* Defaults: rcut = 0.0 (no cutoff) */
     h.type = NFW;
     h.rcut = 0.0;
+    oneTableArgument(luaSt, argTable);
+    if (h.mass <= 0.0)
+        luaL_error(luaSt, "NFW dwarf mass must be positive");
+    if (h.scaleLength <= 0.0)
+        luaL_error(luaSt, "NFW dwarf scaleLength must be positive");
+    if (h.rcut < 0.0)
+        luaL_error(luaSt, "NFW dwarf rcut must be non-negative");
     return createDwarf(luaSt, argTable, &h);
 }
 
@@ -96,6 +108,11 @@ static int createGen_HernDwarf(lua_State* luaSt)
         };
 
     h.type = General_Hernquist;
+    oneTableArgument(luaSt, argTable);
+    if (h.mass <= 0.0)
+        luaL_error(luaSt, "General Hernquist dwarf mass must be positive");
+    if (h.scaleLength <= 0.0)
+        luaL_error(luaSt, "General Hernquist dwarf scaleLength must be positive");
     return createDwarf(luaSt, argTable, &h);
 }
 
@@ -111,6 +128,13 @@ static int createEinastoDwarf(lua_State* luaSt)
         };
 
     h.type = Einasto;
+    oneTableArgument(luaSt, argTable);
+    if (h.mass <= 0.0)
+        luaL_error(luaSt, "Einasto dwarf mass must be positive");
+    if (h.scaleLength <= 0.0)
+        luaL_error(luaSt, "Einasto dwarf scaleLength must be positive");
+    if (h.n <= 0.0)
+        luaL_error(luaSt, "Einasto dwarf n must be positive");
     return createDwarf(luaSt, argTable, &h);
 }
 
@@ -130,6 +154,19 @@ static int createCoredDwarf(lua_State* luaSt)
     h.type = Cored;
 	h.r1 = h.scaleLength;
 	h.rcut = 0.0;
+    oneTableArgument(luaSt, argTable);
+    if (h.mass <= 0.0)
+        luaL_error(luaSt, "Cored dwarf mass must be positive");
+    if (h.scaleLength <= 0.0)
+        luaL_error(luaSt, "Cored dwarf scaleLength must be positive");
+    if (h.r1 <= 0.0)
+        luaL_error(luaSt, "Cored dwarf r1 must be positive");
+    if (h.rc <= 0.0)
+        luaL_error(luaSt, "Cored dwarf rc must be positive");
+    if (h.rcut < 0.0)
+        luaL_error(luaSt, "Cored dwarf rcut must be non-negative");
+    if (h.rcut != 0.0 && h.rcut < h.r1)
+        luaL_error(luaSt, "Cored dwarf rcut must be no less than r1");
     return createDwarf(luaSt, argTable, &h);
 }
 
