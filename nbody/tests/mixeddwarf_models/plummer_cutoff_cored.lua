@@ -2,7 +2,7 @@
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 -- Test Environment Lua File 
--- Plummer-Plummer Dwarf model 
+-- Plummer-Cored Dwarf model 
 -- Set to null potential to test stability of dwarf (no Milky Way potential or LMC)
 -- Set multiple outputs to true 
 -- Set generate initial output to true 
@@ -187,7 +187,7 @@ end
 --component 1 and 2 for 2 component model. comp 1 should always be updated even for 1 component, as it is used to 
 --calculate dwarf-based softening length
 comp1 = Dwarf.plummer{mass = mass_l, scaleLength = rscale_l} -- Dwarf Options: plummer, nfw, general_hernquist, cored
-comp2 = Dwarf.plummer{mass = mass_d, scaleLength = rscale_d} -- Dwarf Options: plummer, nfw, general_hernquist, cored
+comp2 = Dwarf.cored{mass = mass_d, scaleLength = rscale_d, r1 = 0.7, rc = 0.6, rcut = 4.5} -- Dwarf Options: plummer, nfw, general_hernquist, cored
 
 
 
@@ -341,7 +341,7 @@ function makeContext()
       timeEvolve  = evolveTime,
       timeBack    = revOrbTime,
       timestep    = get_timestep(),
-      eps2        = get_soft_par(), 
+      eps2        = 1e-4, 
       b           = orbit_parameter_b,
       r           = orbit_parameter_r,
       vx          = orbit_parameter_vx,
