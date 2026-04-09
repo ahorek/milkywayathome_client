@@ -138,9 +138,9 @@ The type of run is set by setting one of the following flags to `true`:
 ### Double Component Model
 
 - **Plummer:** `{mass, scaleLength}`
-- **NFW:** `{mass, scaleLength}`
+- **NFW:** `{mass, scaleLength[, rcut]}`  # rcut is an optional cutoff radius; ignored if not set
 - **General Hernquist:** `{mass, scaleLength}`
-- **Cored:** `{mass, scaleLength, r1, rc}`
+- **Cored:** `{mass, scaleLength, r1, rc[, rcut]}` # rcut is an optional cutoff radius; ignored if not set
 
 The double component mixed dwarf code can be used as a single component dwarf generator. 
 Set the number of baryons equal to the total number of particles and set the mass ratio to 1.0.
