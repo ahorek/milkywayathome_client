@@ -249,10 +249,6 @@ endif()
 
 
 
-//if(ENABLE_SSE2)
-  //set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SSE2_FLAGS}")
-//endif()
-
 
 option(BUILD_INTERVAL_FUNCTIONS "Something" OFF)
 
