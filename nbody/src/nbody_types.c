@@ -219,25 +219,27 @@ void setInitialNBodyState(NBodyState* st, const NBodyCtx* ctx, Body* bodies, int
 
 }
 
-void setRandomLMCNBodyState(NBodyState* st, int nShift, dsfmt_t* dsfmtState)
-{
-    int j;
-
-    st->shiftByLMC = (mwvector*)mwCallocA(nShift, sizeof(mwvector));
-    for(j = 0; j < nShift; j++) {
-        real random = mwXrandom(dsfmtState,0.0,1.0);
-        st->shiftByLMC[j] = mwRandomVector(dsfmtState, random);
-        //SET_VECTOR(st->shiftByLMC[j],0.0,0.0,0.0);
-    }
-
-    real random2 = mwXrandom(dsfmtState,0.01,200.0);
-    st->LMCpos = mwRandomVector(dsfmtState, random2);
-    real random3 = mwXrandom(dsfmtState,0.01,200.0);
-    st->LMCvel = mwRandomVector(dsfmtState, random3);
-    //SET_VECTOR(*(st->LMCpos),0.0,0.0,0.0);
-    //SET_VECTOR(*(st->LMCvel),0.0,0.0,0.0);
-    st->nShiftLMC = nShift;
-}
+  void setRandomLMCNBodyState(NBodyState* st, int nShift, dsfmt_t* dsfmtState)                        
+  {                                                                                                   
+      int j;
+      real r;                                                                                         
+                                                                                                      
+      st->shiftByLMC = (mwvector*)mwCallocA(nShift, sizeof(mwvector));                                
+      for (j = 0; j < nShift; j++) {                                                                  
+          r = mwXrandom(dsfmtState, 0.0, 1.0);                                                        
+          st->shiftByLMC[j] = mwRandomVector(dsfmtState, r);
+      }                                                                                               
+                  
+      r = mwXrandom(dsfmtState, 0.01, 200.0);                                                         
+      st->LMCpos = mwRandomVector(dsfmtState, r);
+      r = mwXrandom(dsfmtState, 0.01, 200.0);                                                         
+      st->LMCvel = mwRandomVector(dsfmtState, r);
+                       
+      printf("LMC Position: [%.3f, %.3f, %.3f]\n", X(st->LMCpos), Y(st->LMCpos), Z(st->LMCpos));
+      printf("LMC Velocity: [%.3f, %.3f, %.3f]\n", X(st->LMCvel), Y(st->LMCvel), Z(st->LMCvel));
+      printf("shift: %d\n", nShift);
+      st->nShiftLMC = nShift;
+  }     
 
 void setLMCShiftArray(NBodyState* st, mwvector* shiftArray, size_t shiftSize) {
     //Set the state variable for the LMC shift array
