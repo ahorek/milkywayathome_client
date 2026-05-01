@@ -1,0 +1,59 @@
+name: aarch64 Windows ARM
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    name: >-
+      ubuntu-24.04
+
+    defaults:
+      run:
+        shell: bash
+
+    strategy:
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare winarm toolchain
+        run: |
+          wget -q https://github.com/mstorsjo/llvm-mingw/releases/download/20260421/llvm-mingw-20260421-msvcrt-ubuntu-22.04-x86_64.tar.xz
+          tar -xf llvm-mingw-20260421-msvcrt-ubuntu-22.04-x86_64.tar.xz
+          echo "$GITHUB_WORKSPACE/llvm-mingw-20260421-msvcrt-ubuntu-22.04-x86_64/bin" >> $GITHUB_PATH
+
+      - name: Print clang version
+        run: |
+          aarch64-w64-mingw32-g++ -v
+
+      - name: Prepare boinc libraries
+        run: |
+          export CC=aarch64-aarch64-w64-mingw32-gcc
+          export CXX=aarch64-aarch64-w64-mingw32-g++
+          mkdir boinc_build
+          cd ./boinc_build
+          git clone --depth 1 https://github.com/BOINC/boinc.git
+          cd ./boinc
+          ./_autosetup
+          ./configure --host=aarch64-w64-mingw32 --with-boinc-platform="windows_arm64" --disable-server --disable-manager --disable-client --enable-static CXXFLAGS="-O3 "
+          make -j
+
+      - name: Run make
+        run: |
+          export CC=aarch64-aarch64-w64-mingw32-gcc
+          export CXX=aarch64-aarch64-w64-mingw32-g++
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DNBODY_DEV_OPTIONS=ON -DNBODY_GL=OFF -DNBODY_STATIC=ON -DENABLE_CURSES=OFF -DSEPARATION_OPENCL=OFF -DBOINC_APPLICATION=ON -DNBODY_CRLIBM=ON -DSEPARATION=OFF -DDOUBLEPREC=ON -DNBODY_OPENMP=ON -DNBODY_OPENCL=OFF -DAUTODIFF=OFF -DAUTODIFF_LOG=OFF ..
+          make -j
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nbody
+          retention-days: 1
+          path: |
+            ./build/bin/milkyway_nbody

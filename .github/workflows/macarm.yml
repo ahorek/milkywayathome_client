@@ -1,0 +1,63 @@
+name: Mac
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    name: >-
+      macos-15
+
+    defaults:
+      run:
+        shell: bash
+
+    strategy:
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Print gcc version
+        run: |
+          brew update
+          brew install autoconf automake libtool gnu-sed llvm
+          clang -v
+
+      - name: Prepare boinc libraries
+        run: |
+          export PATH="${{ matrix.cc }}:/opt/homebrew/opt/libtool/libexec/gnubin:/usr/local/opt/libtool/libexec/gnubin:$PATH"
+          export CC=clang
+          export CXX=clang++
+          mkdir boinc_build
+          cd ./boinc_build
+          git clone --depth 1 https://github.com/BOINC/boinc.git
+          cd ./boinc
+          ./_autosetup
+          ./configure --disable-server --disable-manager --disable-client --enable-static CXXFLAGS="-O3 "
+          make -j
+
+      - name: Run make
+        run: |
+          export CC=clang
+          export CXX=clang++
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DNBODY_DEV_OPTIONS=ON -DNBODY_GL=OFF -DNBODY_STATIC=ON -DENABLE_CURSES=OFF -DSEPARATION_OPENCL=OFF -DBOINC_APPLICATION=ON -DNBODY_CRLIBM=ON -DSEPARATION=OFF -DDOUBLEPREC=ON -DNBODY_OPENMP=ON -DNBODY_OPENCL=OFF -DAUTODIFF=OFF -DAUTODIFF_LOG=OFF ..
+          make -j
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nbody
+          retention-days: 1
+          path: |
+            ./build/bin/milkyway_nbody
+
+      - name: Test
+        run: |
+          cp ./build/bin/milkyway_nbody ./test
+          cd ./test
+          ./milkyway_nbody -f nbody_parameters.lua -h histogram.txt --seed 55705526 -np 12 -p 2.4456 1 0.255837 0.406315 11.4395 0.544363 47.4843 20.4482 -199.889 91.3767 141.285 178809 --nthreads 8
+          cat stderr.txt
