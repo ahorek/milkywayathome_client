@@ -235,9 +235,6 @@ void setInitialNBodyState(NBodyState* st, const NBodyCtx* ctx, Body* bodies, int
       r = mwXrandom(dsfmtState, 0.01, 200.0);                                                         
       st->LMCvel = mwRandomVector(dsfmtState, r);
                        
-      printf("LMC Position: [%.3f, %.3f, %.3f]\n", X(st->LMCpos), Y(st->LMCpos), Z(st->LMCpos));
-      printf("LMC Velocity: [%.3f, %.3f, %.3f]\n", X(st->LMCvel), Y(st->LMCvel), Z(st->LMCvel));
-      printf("shift: %d\n", nShift);
       st->nShiftLMC = nShift;
   }     
 
