@@ -188,7 +188,7 @@ endif()
 
 
 
-option(ENABLE_SSE2 "Disable SSE2" OFF)
+option(ENABLE_SSE2 "Enable SSE2" ON)
 
 option(ENABLE_DOUBLE_EXTENDED "Enable double-extended optimised versions of functions if hardware supports it" ON)
 
@@ -248,6 +248,10 @@ if(crlibm_is_big_endian)
 endif()
 
 
+
+if(ENABLE_SSE2)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SSE2_FLAGS}")
+endif()
 
 
 option(BUILD_INTERVAL_FUNCTIONS "Something" OFF)
