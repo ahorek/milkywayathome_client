@@ -109,7 +109,7 @@ void nbReverseOrbit_LMC(mwvector* finalPos,
     unsigned int steps = mw_ceil((tstop)/(dt)) + 1;
     unsigned int exSteps = mw_abs(mw_ceil((ftime-tstop)/(dt)) + 1);
     unsigned int i = 0, j = 0, k = 0;
-    mwvector acc = ZERO_VECTOR, v = ZERO_VECTOR, x = ZERO_VECTOR, mw_acc = ZERO_VECTOR, LMC_acc = ZERO_VECTOR, DF_acc = ZERO_VECTOR, LMCv = ZERO_VECTOR, LMCx = ZERO_VECTOR, tmp = ZERO_VECTOR, friction = ZERO_VECTOR;
+    mwvector acc = ZERO_VECTOR, v = ZERO_VECTOR, x = ZERO_VECTOR, mw_acc = ZERO_VECTOR, LMC_acc = ZERO_VECTOR, DF_acc = ZERO_VECTOR, LMCv = ZERO_VECTOR, LMCx = ZERO_VECTOR, tmp = ZERO_VECTOR;
     mwvector mw_x = mw_vec(0, 0, 0);
     mwvector* bacArray = NULL;
     mwvector* forArray = NULL;
@@ -135,9 +135,7 @@ void nbReverseOrbit_LMC(mwvector* finalPos,
 
         // Get the initial acceleration
         mw_acc = LMCAcceleration(lmcfunction, mw_x, LMCx, LMCmass, LMCscale, LMCscale2);
-        friction = dynamicalFriction_LMC(pot, LMCx, LMCv, LMCmass, LMCDynaFric, 0, coulomb_log);
-        LMC_acc = mw_addv(nbExtAcceleration(pot, LMCx, 0), friction);
-
+        LMC_acc = mw_addv(nbExtAcceleration(pot, LMCx, 0), dynamicalFriction_LMC(pot, LMCx, LMCv, LMCmass, LMCDynaFric, 0, coulomb_log));
         acc = nbExtAcceleration(pot, x, 0);
         tmp = LMCAcceleration(lmcfunction, x, LMCx, LMCmass, LMCscale, LMCscale2);
         mw_incaddv(acc, tmp);
@@ -165,8 +163,7 @@ void nbReverseOrbit_LMC(mwvector* finalPos,
         
             // Compute the new acceleration
             mw_acc = LMCAcceleration(lmcfunction, mw_x, LMCx, LMCmass, LMCscale, LMCscale2);
-            friction = dynamicalFriction_LMC(pot, LMCx, LMCv, LMCmass, LMCDynaFric, t, coulomb_log);
-            LMC_acc = mw_addv(nbExtAcceleration(pot, LMCx, t), friction);
+            LMC_acc = mw_addv(nbExtAcceleration(pot, LMCx, t), dynamicalFriction_LMC(pot, LMCx, LMCv, LMCmass, LMCDynaFric, t, coulomb_log));
             acc = nbExtAcceleration(pot, x, t);
             tmp = LMCAcceleration(lmcfunction, x, LMCx, LMCmass, LMCscale, LMCscale2);
     	    mw_incaddv(acc, tmp);
@@ -199,7 +196,7 @@ void nbReverseOrbit_LMC(mwvector* finalPos,
     if (LMCDynaFric) {
         DF_acc = dynamicalFriction_LMC(pot, LMCx, LMCv, LMCmass, TRUE, 0, coulomb_log);
         mw_incnegv(DF_acc); /* Inverting drag force for reverse orbit */
-        mw_incaddv(LMC_acc, DF_acc);
+        mw_incaddv(LMC_acc, DF_acc)
      }
     acc = nbExtAcceleration(pot, x, 0);
     tmp = LMCAcceleration(lmcfunction, x, LMCx, LMCmass, LMCscale, LMCscale2);
@@ -235,7 +232,7 @@ void nbReverseOrbit_LMC(mwvector* finalPos,
             DF_acc = dynamicalFriction_LMC(pot, LMCx, LMCv, LMCmass, TRUE, negT, coulomb_log);
             //mw_printf("DF: [%.15f,%.15f,%.15f]\n",X(DF_acc),Y(DF_acc),Z(DF_acc));
             mw_incnegv(DF_acc); /* Inverting drag force for reverse orbit */
-            mw_incaddv(LMC_acc, DF_acc);
+            mw_incaddv(LMC_acc, DF_acc)
         }
         acc = nbExtAcceleration(pot, x, negT);
         tmp = LMCAcceleration(lmcfunction, x, LMCx, LMCmass, LMCscale, LMCscale2);
