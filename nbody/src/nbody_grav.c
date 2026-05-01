@@ -157,8 +157,7 @@ static inline void nbMapForceBody(const NBodyCtx* ctx, NBodyState* st)
     }
 
   #ifdef _OPENMP
-    //#pragma omp parallel for private(i, b, a, externAcc) shared(bodies, accels) schedule(dynamic, 4096 / sizeof(accels[0]))
-    #pragma omp parallel for private(i, b, a, acc, externAcc) shared(bodies, accels) schedule(dynamic, 4096 / sizeof(accels[0]))    
+    #pragma omp parallel for private(i, b, a, externAcc) shared(bodies, accels) schedule(dynamic, 4096 / sizeof(accels[0]))
   #endif
     for (i = 0; i < nbody; ++i)      /* get force on each body */
     {
@@ -265,8 +264,7 @@ static inline void nbMapForceBody_Exact(const NBodyCtx* ctx, NBodyState* st)
     }
 
   #ifdef _OPENMP
-    //#pragma omp parallel for private(i, b, a, externAcc) shared(bodies, accels) schedule(dynamic, 4096 / sizeof(accels[0]))
-    #pragma omp parallel for private(i, b, a, acc, externAcc) shared(bodies, accels) schedule(dynamic, 4096 / sizeof(accels[0]))     
+    #pragma omp parallel for private(i, b, a, externAcc) shared(bodies, accels) schedule(dynamic, 4096 / sizeof(accels[0]))
   #endif
 
     for (i = 0; i < nbody; ++i)      /* get force on each body */
