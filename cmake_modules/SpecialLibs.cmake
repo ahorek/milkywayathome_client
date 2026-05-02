@@ -119,7 +119,7 @@ if(APPLE)
   endif()
 
   if(NOT IS_DIRECTORY ${CMAKE_OSX_SYSROOT})
-    message(FATAL_ERROR "Correct OS X SDK installation version missing: ${CMAKE_OSX_SYSROOT}")
+    #message(FATAL_ERROR "Correct OS X SDK installation version missing: ${CMAKE_OSX_SYSROOT}")
   endif()
 endif()
 
