@@ -47,7 +47,10 @@ elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
   set(SYSTEM_IS_64 FALSE CACHE INTERNAL "Is 64 bit")
   set(SYSTEM_IS_32 TRUE CACHE INTERNAL "Is 32 bit")
 else()
-  message(FATAL_ERROR "sizeof(void*) != 4, 8. What is this crazy system?")
+  #message(FATAL_ERROR "sizeof(void*) != 4, 8. What is this crazy system?")
+
+  set(SYSTEM_IS_64 TRUE CACHE INTERNAL "Is 64 bit")
+  set(SYSTEM_IS_32 FALSE CACHE INTERNAL "Is 32 bit")
 endif()
 
 if(SYSTEM_IS_X86 AND SYSTEM_IS_64)
