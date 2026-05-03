@@ -263,6 +263,7 @@ check_library_exists(dl dladdr "" HAVE_LIBDL)
 if (HAVE_LIBDL)
   list(APPEND gcc_extra_flags "-ldl")
 endif()
+list(APPEND gcc_extra_flags "-ffp-contract=off")
 
 add_flag_if_supported("-maccumulate-outgoing-args")
 
