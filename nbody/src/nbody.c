@@ -550,15 +550,6 @@ int nbMain(const NBodyFlags* nbf)
 
         rc = nbRunSystem(ctx, st, nbf);
 
-        /* Diagnostic: which step did the run pick as bestLikelihood? */
-        {
-            real bestStep = 0.0;
-            if (ctx->timeEvolve > 0.0)
-                bestStep = (st->bestLikelihood_time / ctx->timeEvolve) * (real) ctx->nStep;
-            mw_printf("[nbody] bestLike: time=%.9f step=%.1f/%d likelihood=%.15f\n",
-                      st->bestLikelihood_time, bestStep, ctx->nStep, st->bestLikelihood);
-        }
-
         //debug output for calibration runs
         /*real expectedForwardTime = st->timeEvolve;
         if(i == 0){
