@@ -162,6 +162,24 @@ static int createNBodyCtx(lua_State* luaSt)
         ctx.criterion = readCriterion(luaSt, criterionName);
     }
 
+    /* DIAG: env-var override to force criterion=Exact at runtime, used
+     * for cross-arch comparisons. Set NBODY_FORCE_EXACT=1 to enable. */
+    if (getenv("NBODY_FORCE_EXACT") != NULL)
+    {
+        ctx.criterion = Exact;
+        ctx.theta = 0.0;
+        ctx.useQuad = FALSE;
+        mw_printf("[nbody] NBODY_FORCE_EXACT=1 -> criterion=Exact\n");
+    }
+
+    /* DIAG: disable quadrupole moments at runtime (keeps tree code,
+     * just monopole). NBODY_FORCE_NOQUAD=1. */
+    if (getenv("NBODY_FORCE_NOQUAD") != NULL)
+    {
+        ctx.useQuad = FALSE;
+        mw_printf("[nbody] NBODY_FORCE_NOQUAD=1 -> useQuad=false\n");
+    }
+
     if ((ctx.criterion != Exact) && (ctx.theta < 0.0))
     {
         return luaL_argerror(luaSt, 1, "Theta argument required for criterion != 'Exact'");

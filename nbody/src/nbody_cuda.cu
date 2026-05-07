@@ -1347,11 +1347,16 @@ __global__ void nbCUDABuildTreeKernel(double* __restrict__ d_posX,
                 depth = 1;
                 r = radius;
 
-                /* Pick child octant of the root. */
+                /* Pick child octant of the root.
+                 * Encoding matches CPU's nbSubIndex: bit 0 = Z, bit 1 = Y, bit 2 = X.
+                 * Mismatched encoding produces a different per-cell child
+                 * iteration order during summarization/force-walk, which
+                 * gives 1-ULP-different CoM and per-body force from CPU
+                 * due to FP non-associativity in the 8-child sum. */
                 j = 0;
-                if (rootX <= px) j = 1;
+                if (rootZ <= pz) j |= 1;
                 if (rootY <= py) j |= 2;
-                if (rootZ <= pz) j |= 4;
+                if (rootX <= px) j |= 4;
             }
 
             int ch = *(volatile int*) &d_child[NBODY_CUDA_NSUB * n + j];
@@ -1375,10 +1380,11 @@ __global__ void nbCUDABuildTreeKernel(double* __restrict__ d_posX,
                  * by the thread that created it; back off and retry. */
                 posNotReady = isnan(pnx) || isnan(pny) || isnan(pnz);
 
+                /* Octant encoding matches CPU's nbSubIndex (Z=bit0, Y=bit1, X=bit2). */
                 j = 0;
-                if (pnx <= px) j = 1;
+                if (pnz <= pz) j |= 1;
                 if (pny <= py) j |= 2;
-                if (pnz <= pz) j |= 4;
+                if (pnx <= px) j |= 4;
                 ch = *(volatile int*) &d_child[NBODY_CUDA_NSUB * n + j];
             }
 
@@ -1484,20 +1490,22 @@ __global__ void nbCUDABuildTreeKernel(double* __restrict__ d_posX,
                             double pchy = d_posY[ch];
                             double pchz = d_posZ[ch];
 
+                            /* Octant encoding matches CPU's nbSubIndex (Z=bit0, Y=bit1, X=bit2). */
                             j = 0;
-                            if (x <= pchx) j = 1;
+                            if (z <= pchz) j |= 1;
                             if (y <= pchy) j |= 2;
-                            if (z <= pchz) j |= 4;
+                            if (x <= pchx) j |= 4;
 
                             d_child[NBODY_CUDA_NSUB * cell + j] = ch;
 
                             __threadfence();
 
                             n = cell;
+                            /* Octant encoding matches CPU's nbSubIndex (Z=bit0, Y=bit1, X=bit2). */
                             j = 0;
-                            if (x <= px) j = 1;
+                            if (z <= pz) j |= 1;
                             if (y <= py) j |= 2;
-                            if (z <= pz) j |= 4;
+                            if (x <= px) j |= 4;
 
                             ch = d_child[NBODY_CUDA_NSUB * n + j];
                             /* Loop until the two bodies separate or

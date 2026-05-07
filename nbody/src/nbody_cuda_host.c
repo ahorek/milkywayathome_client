@@ -175,6 +175,7 @@ void nbCUDAReleaseBodyBuffers(NBodyState* st)
 #include "nbody_orbit_integrator.h"  /* getLMCArray, getLMCPosVel */
 #include "nbody.h"                  /* NBodyFlags */
 #include "nbody_plain.h"            /* nbGetLikelihoodForBest */
+#include "nbody_util.h"             /* nbCenterOfMass */
 
 /* Map ctx->pot (and whatever sub-type fields are set) onto the
  * POD CUDAExternalPotential param pack. Unsupported or "None"
@@ -790,6 +791,7 @@ NBodyStatus_int nbRunSystemCUDA(const NBodyCtx* ctx, NBodyState* st, const void*
                 (void) nbGetLikelihoodForBest(ctx, st, nbf);
             }
         }
+
 
         /* Report progress to BOINC every step (cheap; mw_fraction_done
          * itself rate-limits internal updates). */
