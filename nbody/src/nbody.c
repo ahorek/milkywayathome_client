@@ -506,9 +506,11 @@ int nbMain(const NBodyFlags* nbf)
         }
         #endif
 
-        /* Log the WU's potential model regardless of compute path
-         * (--use-cuda or pure CPU). Helps the operator identify
-         * which WU type is being processed from stderr.txt. */
+        /* Log the WU's potential model + derived numeric parameters
+         * regardless of compute path (--use-cuda or pure CPU). Helps
+         * the operator identify which WU type is being processed and
+         * triage anomalous runs from stderr.txt alone. */
+        nbPrintRunParams(ctx, st->nbody);
         nbPrintPotentialModel(ctx);
 
         if (nbCreateSharedScene(st, ctx))

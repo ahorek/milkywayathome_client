@@ -32,6 +32,7 @@
 #include "nbody.h"
 #include "nbody_likelihood.h"
 #include "nbody_defaults.h"
+#include "nbody_potential.h"
 #include "milkyway_git_version.h"
 
 #ifdef _OPENMP
@@ -632,6 +633,11 @@ int main(int argc, const char* argv[])
     {
         nbPrintVersion(TRUE, FALSE);
     }
+
+    /* Echo the full argv to stderr so the WU is exactly replayable from
+     * stderr.txt alone (the -p / --seed args define the dwarf instance,
+     * the -f / -h args identify the lua + histogram files). */
+    nbPrintArgv(argc, argv);
 
     nbSetDefaultFlags(&nbf);
     if (nbSetNumThreads(nbf.numThreads))

@@ -44,6 +44,15 @@ const char* nbCUDAHaloName(halo_t t);
  * during simulation startup, regardless of CUDA / CPU / fallback path. */
 void nbPrintPotentialModel(const NBodyCtx* ctx);
 
+/* Print the program's argv as a single [nbody] argv: line so a WU is
+ * exactly replayable from stderr.txt. Called once at main() entry. */
+void nbPrintArgv(int argc, const char* const* argv);
+
+/* Print the derived numeric simulation parameters (nStep, timestep,
+ * eps2, theta, etc.) — useful for triaging anomalous runs at a glance
+ * even without re-deriving them from argv + lua. */
+void nbPrintRunParams(const NBodyCtx* ctx, int nbody);
+
 #ifdef __cplusplus
 }
 #endif

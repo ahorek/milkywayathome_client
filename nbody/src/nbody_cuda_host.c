@@ -262,14 +262,10 @@ static void nbCUDAPackPotential(const NBodyCtx* ctx, NBodyCUDAExternalPotential*
 /* Returns TRUE if the configured potential models are all supported
  * by the CUDA backend. Anything unsupported pushes the runtime to
  * the CPU fallback path (with a warning printed at init time). */
-/* The string-name helpers and nbPrintPotentialModel live in
- * nbody_potential.c so they can be called from the always-linked CPU
- * path (so the operator sees the WU's potential model in stderr.txt
- * regardless of whether CUDA was enabled or fell back to CPU).
- * Re-declared here for the rejection messages below. */
-extern const char* nbCUDASphericalName(spherical_t t);
-extern const char* nbCUDADiskName(disk_t t);
-extern const char* nbCUDAHaloName(halo_t t);
+/* The string-name helpers (nbCUDASphericalName / nbCUDADiskName /
+ * nbCUDAHaloName) and nbPrintPotentialModel live in nbody_potential.c
+ * so they can be called from the always-linked CPU path. Declared in
+ * nbody_potential.h, transitively included via nbody.h. */
 
 static int nbCUDACanHandlePotential(const NBodyCtx* ctx)
 {

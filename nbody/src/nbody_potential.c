@@ -86,18 +86,20 @@ static const char* nbCUDALMCName(int lmcfunc)
 /* Print a one-line summary of the WU's potential model. Called once at
  * setup, right after the CUDA-init decision (success or fallback), so
  * stderr.txt always shows which WU type is being processed regardless
- * of compute path. */
+ * of compute path. Includes per-component masses/scales so stderr alone
+ * fingerprints the lua content (BOINC ships generic lua filenames but
+ * the contents differ per WU class). */
 void nbPrintPotentialModel(const NBodyCtx* ctx)
 {
     if (ctx->potentialType == EXTERNAL_POTENTIAL_NONE)
     {
-        mw_printf("[nbody] potential: NONE (LMC %s)\n",
+        mw_printf("[nbody] potential: NONE LMC=%s\n",
                   ctx->LMC ? nbCUDALMCName((int)ctx->LMCfunction) : "off");
         return;
     }
     if (ctx->potentialType == EXTERNAL_POTENTIAL_CUSTOM_LUA)
     {
-        mw_printf("[nbody] potential: CUSTOM_LUA (CPU-only) (LMC %s%s)\n",
+        mw_printf("[nbody] potential: CUSTOM_LUA (CPU-only) LMC=%s%s\n",
                   ctx->LMC ? nbCUDALMCName((int)ctx->LMCfunction) : "off",
                   ctx->LMC && ctx->LMCDynaFric ? " +DynFric" : "");
         return;
@@ -109,6 +111,41 @@ void nbPrintPotentialModel(const NBodyCtx* ctx)
               nbCUDAHaloName(ctx->pot.halo.type),
               ctx->LMC ? nbCUDALMCName((int)ctx->LMCfunction) : "off",
               ctx->LMC && ctx->LMCDynaFric ? " +DynFric" : "");
+}
+
+/* Print the program's argv as a single line so the WU is exactly
+ * replayable from stderr.txt alone. Called once at startup. */
+void nbPrintArgv(int argc, const char* const* argv)
+{
+    mw_printf("[nbody] argv:");
+    for (int i = 0; i < argc; ++i)
+    {
+        mw_printf(" %s", argv[i] ? argv[i] : "(null)");
+    }
+    mw_printf("\n");
+}
+
+/* Print the derived numeric parameters that the lua/argv combination
+ * resolved to. These are reproducible from the argv line + the lua
+ * file, but having them inline in stderr.txt makes anomaly triage
+ * easier (you can spot a bad timestep / nStep / eps2 at a glance). */
+void nbPrintRunParams(const NBodyCtx* ctx, int nbody)
+{
+    mw_printf("[nbody] params: nbody=%d nStep=%u timestep=%.9g eps2=%.6g "
+              "theta=%.6g BestLikeStart=%.4g useBestLike=%d criterion=%d "
+              "useQuad=%d LMC=%d LMCmass=%.4g LMCscale=%.4g\n",
+              nbody,
+              ctx->nStep,
+              ctx->timestep,
+              ctx->eps2,
+              ctx->theta,
+              ctx->BestLikeStart,
+              ctx->useBestLike ? 1 : 0,
+              (int) ctx->criterion,
+              ctx->useQuad ? 1 : 0,
+              ctx->LMC ? 1 : 0,
+              ctx->LMCmass,
+              ctx->LMCscale);
 }
 
 #ifdef __GNUC__
