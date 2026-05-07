@@ -205,6 +205,14 @@ if(NBODY_OPENCL)
   list(APPEND nbody_lib_headers ${NBODY_INCLUDE_DIR}/nbody_cl.h)
 endif()
 
+if(NBODY_CUDA)
+  list(APPEND nbody_lib_src ${NBODY_SRC_DIR}/nbody_cuda.cu
+                            ${NBODY_SRC_DIR}/nbody_cuda_host.c)
+  list(APPEND nbody_lib_headers ${NBODY_INCLUDE_DIR}/nbody_cuda.h
+                                ${NBODY_INCLUDE_DIR}/nbody_cuda_buffers.h
+                                ${NBODY_INCLUDE_DIR}/nbody_cuda_host.h)
+endif()
+
 
 
 set(nbody_lua_src ${NBODY_SRC_DIR}/nbody_lua.c
@@ -297,6 +305,37 @@ if(NBODY_OPENCL)
   list(APPEND nbody_link_libs ${OPENCL_LIBRARIES} nbody_kernels)
 endif()
 
+if(NBODY_CUDA)
+  # Tag the .cu source so cmake routes it through nvcc.
+  set_source_files_properties(${NBODY_SRC_DIR}/nbody_cuda.cu
+                              PROPERTIES LANGUAGE CUDA)
+
+  # Headers from the active CUDA toolkit (path is computed by
+  # enable_language(CUDA) in the root CMakeLists).
+  include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+
+  # Link against the CUDA runtime. Prefer the static cudart for
+  # easier deployment alongside BOINC binaries; fall back to the
+  # shared lib if the static one isn't shipped with the toolkit.
+  if(NOT CUDART_LIBRARY)
+    find_library(CUDART_LIBRARY
+                 NAMES cudart_static cudart
+                 HINTS ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}/../lib64
+                       ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}/../lib
+                       /usr/local/cuda-12.9/lib64
+                       /usr/local/cuda/lib64)
+  endif()
+  if(CUDART_LIBRARY)
+    list(APPEND nbody_link_libs ${CUDART_LIBRARY})
+    # Static cudart pulls in dl/rt/pthread on Linux.
+    if(UNIX AND NOT APPLE AND CUDART_LIBRARY MATCHES "cudart_static")
+      list(APPEND nbody_link_libs dl rt pthread)
+    endif()
+  else()
+    message(FATAL_ERROR "NBODY_CUDA=ON but cudart library not found")
+  endif()
+endif()
+
 if(ENABLE_CURSES)
   list(APPEND nbody_link_libs ${CURSES_LIBRARIES})
 endif()
@@ -309,6 +348,15 @@ endif()
 add_library(nbody STATIC ${nbody_lib_src} ${nbody_lib_headers})
 if(SYSTEM_IS_X86)
   enable_sse2(nbody)
+endif()
+
+if(NBODY_CUDA)
+  # Multi-arch fatbin: emit SASS for every listed compute capability
+  # plus PTX for the highest one for forward compatibility.
+  set_target_properties(nbody PROPERTIES
+                        CUDA_ARCHITECTURES "${CUDA_ARCHITECTURES}"
+                        CUDA_SEPARABLE_COMPILATION ON
+                        POSITION_INDEPENDENT_CODE ON)
 endif()
 
 

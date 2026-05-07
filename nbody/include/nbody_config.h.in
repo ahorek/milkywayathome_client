@@ -28,16 +28,22 @@
 #define NBODY_VERSION       "${nbody_VERSION}"
 
 #cmakedefine01 NBODY_OPENCL
+#cmakedefine01 NBODY_CUDA
 #cmakedefine01 NBODY_CRLIBM
 #cmakedefine01 USE_GL3W
 
 #define ENABLE_CRLIBM NBODY_CRLIBM
 #define ENABLE_OPENCL NBODY_OPENCL
+#define ENABLE_CUDA NBODY_CUDA
 
 #cmakedefine01 ENABLE_CURSES
 
-#if defined(_OPENMP) && NBODY_OPENCL
-#define NBODY_EXTRAVER "OpenCL and OpenMP"
+#if NBODY_CUDA && defined(_OPENMP)
+  #define NBODY_EXTRAVER "CUDA and OpenMP"
+#elif NBODY_CUDA
+  #define NBODY_EXTRAVER "CUDA"
+#elif defined(_OPENMP) && NBODY_OPENCL
+  #define NBODY_EXTRAVER "OpenCL and OpenMP"
 #elif NBODY_OPENCL
   #define NBODY_EXTRAVER "OpenCL"
 #elif defined(_OPENMP)

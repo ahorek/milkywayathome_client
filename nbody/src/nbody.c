@@ -28,6 +28,7 @@
 #include "nbody_curses.h"
 #include "nbody_shmem.h"
 #include "nbody_defaults.h"
+#include "nbody_potential.h"
 #include "nbody_plain.h"
 #include "nbody_likelihood.h"
 #include "nbody_histogram.h"
@@ -35,6 +36,10 @@
 
 #if NBODY_OPENCL
   #include "nbody_cl.h"
+#endif
+
+#if NBODY_CUDA
+  #include "nbody_cuda.h"
 #endif
 
 /* If possible, resume from a checkpoint. Otherwise do the necessary
@@ -181,6 +186,12 @@ static int nbOutputIsUseful(const NBodyFlags* nbf)
 
 NBodyStatus nbStepSystem(const NBodyCtx* ctx, NBodyState* st)
 {
+  #if NBODY_CUDA
+    if (st->usesCUDA)
+    {
+        return (NBodyStatus) nbStepSystemCUDA(ctx, st);
+    }
+  #endif
   #if NBODY_OPENCL
     if (st->usesCL)
     {
@@ -201,6 +212,12 @@ NBodyStatus nbStepSystem(const NBodyCtx* ctx, NBodyState* st)
 
 NBodyStatus nbRunSystem(const NBodyCtx* ctx, NBodyState* st, const NBodyFlags* nbf)
 {
+  #if NBODY_CUDA
+    if (st->usesCUDA)
+    {
+        return (NBodyStatus) nbRunSystemCUDA(ctx, st, (const void*) nbf);
+    }
+  #endif
   #if NBODY_OPENCL
     if (st->usesCL)
     {
@@ -476,6 +493,23 @@ int nbMain(const NBodyFlags* nbf)
                 return rc;
             }
         }
+
+        #if NBODY_CUDA
+        if (nbf->useCUDA)
+        {
+            /* nbInitCUDA returns NBODY_SUCCESS (0) and flips
+             * st->usesCUDA on a fully-supported configuration; on any
+             * unsupported piece (custom Lua potential, EXACT criterion,
+             * exotic disk/halo) it returns non-zero and we silently
+             * fall through to the CPU path. */
+            (void) nbInitCUDA(ctx, st);
+        }
+        #endif
+
+        /* Log the WU's potential model regardless of compute path
+         * (--use-cuda or pure CPU). Helps the operator identify
+         * which WU type is being processed from stderr.txt. */
+        nbPrintPotentialModel(ctx);
 
         if (nbCreateSharedScene(st, ctx))
         {

@@ -26,6 +26,91 @@
 #include "nbody_caustic.h"
 #include "nbody_bessel.h"
 
+/* Human-readable names for the potential components — used to log the
+ * WU's potential model in stderr.txt. Helpful for distinguishing the
+ * many WU variants the project ships, especially since some halo/disk
+ * types fall back to CPU. The CUDA backend (nbody_cuda_host.c) also
+ * uses these same name helpers in its rejection messages. */
+const char* nbCUDASphericalName(spherical_t t)
+{
+    switch (t) {
+        case NoSpherical:        return "none";
+        case HernquistSpherical: return "Hernquist";
+        case PlummerSpherical:   return "Plummer";
+        default:                 return "UNSUPPORTED";
+    }
+}
+
+const char* nbCUDADiskName(disk_t t)
+{
+    switch (t) {
+        case NoDisk:                return "none";
+        case MiyamotoNagaiDisk:     return "MiyamotoNagai";
+        case FreemanDisk:           return "Freeman (CPU-only)";
+        case DoubleExponentialDisk: return "DoubleExponential (CPU-only)";
+        case Sech2ExponentialDisk:  return "Sech2Exponential (CPU-only)";
+        case OrbitingBar:           return "OrbitingBar (CPU-only)";
+        default:                    return "UNSUPPORTED";
+    }
+}
+
+const char* nbCUDAHaloName(halo_t t)
+{
+    switch (t) {
+        case NoHalo:                return "none";
+        case LogarithmicHalo:       return "Logarithmic";
+        case NFWHalo:               return "NFW";
+        case NFWMassHalo:           return "NFWMass";
+        case TriaxialHalo:          return "Triaxial (CPU-only)";
+        case CausticHalo:           return "Caustic (CPU-only)";
+        case AllenSantillanHalo:    return "AllenSantillan (CPU-only)";
+        case WilkinsonEvansHalo:    return "WilkinsonEvans (CPU-only)";
+        case PlummerHalo:           return "PlummerHalo (CPU-only)";
+        case HernquistHalo:         return "HernquistHalo (CPU-only)";
+        case NinkovicHalo:          return "Ninkovic (CPU-only)";
+        case SphericalNFWerkalHalo: return "SphericalNFWerkal (CPU-only)";
+        default:                    return "UNSUPPORTED";
+    }
+}
+
+static const char* nbCUDALMCName(int lmcfunc)
+{
+    switch (lmcfunc) {
+        case 1:  return "Plummer";
+        case 2:  return "Hernquist";
+        case 3:  return "Hernquist+cutoff";
+        default: return "unknown";
+    }
+}
+
+/* Print a one-line summary of the WU's potential model. Called once at
+ * setup, right after the CUDA-init decision (success or fallback), so
+ * stderr.txt always shows which WU type is being processed regardless
+ * of compute path. */
+void nbPrintPotentialModel(const NBodyCtx* ctx)
+{
+    if (ctx->potentialType == EXTERNAL_POTENTIAL_NONE)
+    {
+        mw_printf("[nbody] potential: NONE (LMC %s)\n",
+                  ctx->LMC ? nbCUDALMCName((int)ctx->LMCfunction) : "off");
+        return;
+    }
+    if (ctx->potentialType == EXTERNAL_POTENTIAL_CUSTOM_LUA)
+    {
+        mw_printf("[nbody] potential: CUSTOM_LUA (CPU-only) (LMC %s%s)\n",
+                  ctx->LMC ? nbCUDALMCName((int)ctx->LMCfunction) : "off",
+                  ctx->LMC && ctx->LMCDynaFric ? " +DynFric" : "");
+        return;
+    }
+    mw_printf("[nbody] potential: bulge=%s disk=%s disk2=%s halo=%s LMC=%s%s\n",
+              nbCUDASphericalName(ctx->pot.sphere[0].type),
+              nbCUDADiskName(ctx->pot.disk.type),
+              nbCUDADiskName(ctx->pot.disk2.type),
+              nbCUDAHaloName(ctx->pot.halo.type),
+              ctx->LMC ? nbCUDALMCName((int)ctx->LMCfunction) : "off",
+              ctx->LMC && ctx->LMCDynaFric ? " +DynFric" : "");
+}
+
 #ifdef __GNUC__
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #endif

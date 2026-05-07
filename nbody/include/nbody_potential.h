@@ -33,6 +33,17 @@ mwvector LMCAcceleration(const int lmcfunction, const mwvector pos, const mwvect
 //mwvector plummerLmcAccel(const mwvector pos, const mwvector pos1, const real mass, const real scale);
 //mwvector hernquistLmcAccel(const mwvector pos, const mwvector pos1, const real mass, const real scale);
 
+/* String-name helpers for the potential components, used by both
+ * nbPrintPotentialModel (CPU-side init log) and the CUDA backend's
+ * unsupported-component rejection messages. */
+const char* nbCUDASphericalName(spherical_t t);
+const char* nbCUDADiskName(disk_t t);
+const char* nbCUDAHaloName(halo_t t);
+
+/* Print one-line summary of the WU's potential model. Called once
+ * during simulation startup, regardless of CUDA / CPU / fallback path. */
+void nbPrintPotentialModel(const NBodyCtx* ctx);
+
 #ifdef __cplusplus
 }
 #endif

@@ -361,7 +361,7 @@ typedef struct
 } MainStruct;
 
 /* Mutable state used during an evaluation */
-typedef struct MW_ALIGN_TYPE
+typedef struct MW_ALIGN_TYPE NBodyState_s
 {
     NBodyTree tree;
     NBodyNode* freeCell;      /* list of free cells */
@@ -420,6 +420,7 @@ typedef struct MW_ALIGN_TYPE
     mwbool dirty;      /* Whether the view of the bodies is consistent with the view in the CL buffers */
     mwbool usesCL;
     mwbool useCLCheckpointing;
+    mwbool usesCUDA;
     mwbool reportProgress;
 
     
@@ -434,6 +435,21 @@ typedef struct MW_ALIGN_TYPE
     void* ci;
     void* nbb;
   #endif /* NBODY_OPENCL */
+
+  /* CUDA-side handles. Always present so EMPTY_NBODYSTATE has a stable
+   * shape regardless of NBODY_CUDA; typed when NBODY_CUDA is on, opaque
+   * void* otherwise. The structs themselves are defined in nbody_cuda.h
+   * (only included by the .cu translation unit and its consumers). */
+  #if NBODY_CUDA
+    struct NBodyCUDAContext* cudaCtx;
+    struct NBodyCUDAKernels* cudaKernels;
+    struct NBodyCUDABuffers* cudaBuffers;
+  #else
+    void* cudaCtx;
+    void* cudaKernels;
+    void* cudaBuffers;
+  #endif /* NBODY_CUDA */
+
     NBodyWorkSizes* workSizes;
 } NBodyState;
 
@@ -447,14 +463,15 @@ typedef struct MW_ALIGN_TYPE
                            0,                                                               \
                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, FALSE, FALSE, FALSE,      \
                            FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,   \
-                           FALSE, FALSE, FALSE, 0, NULL, NULL, NULL, NULL}
+                           FALSE, FALSE, FALSE, FALSE, 0, NULL, NULL, NULL,                 \
+                           NULL, NULL, NULL, NULL}
 
 
 /* The context tracks settings of the simulation.  It should be set
    once at the beginning of a simulation based on settings, and then
    stays constant for the actual simulation.
  */
-typedef struct MW_ALIGN_TYPE
+typedef struct MW_ALIGN_TYPE NBodyCtx_s
 {
     real eps2;                /* (potential softening parameter)^2 */
     real theta;               /* accuracy parameter: 0.0 */

@@ -20,6 +20,7 @@
 #include <lua.h>
 #include <lauxlib.h>
 
+#include "nbody_config.h"
 #include "nbody_types.h"
 #include "milkyway_util.h"
 #include "nbody_orbit_integrator.h"
@@ -184,9 +185,15 @@ int nbReadMinVersion(lua_State* luaSt, int* major, int* minor)
         return FALSE;
     }
     
-    if (!printed) {  
-        mw_printf("Running MilkyWay@home Nbody v%s\n", version);
-        printed = TRUE;  
+    if (!printed) {
+        /* Print the ACTUAL app version (NBODY_VERSION), not the
+         * workunit's minimum-required version (the lua var being parsed
+         * here). The previous wording "Running ... v<minVersion>" was
+         * misleading — the running app may be newer than the workunit
+         * minimum. */
+        mw_printf("Running MilkyWay@home Nbody v%s (workunit requires >= %s)\n",
+                  NBODY_VERSION, version);
+        printed = TRUE;
     }
     return TRUE;
 }

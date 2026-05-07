@@ -32,8 +32,15 @@
 #endif
 
 typedef MW_ALIGN_TYPE_V(8) double real;
+
+/* CUDA's <vector_types.h> already defines double2/double4 as proper
+ * structs. Avoid redefining them when compiling under nvcc; the CUDA
+ * forms are layout-compatible enough for the few places host code
+ * touches them, and CUDA device code needs the struct form. */
+#ifndef __CUDACC__
 typedef MW_ALIGN_TYPE_V(16) double double2[2];
 typedef MW_ALIGN_TYPE_V(32) double double4[4];
+#endif
 
 
 #define REAL_EPSILON DBL_EPSILON

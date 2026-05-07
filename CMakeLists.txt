@@ -259,6 +259,9 @@ set(gcc_extra_flags "-fno-common -funswitch-loops ")
 set(gcc_only_extra_flags "-freg-struct-return ")
 
 
+## Removed `-ffp-contract=off` (was added during the aarch64 port to mirror
+## x86_64 behavior — on x86_64 itself the reference build used the GCC
+## default fp-contract, so we don't need it back).
 
 add_flag_if_supported("-maccumulate-outgoing-args")
 
@@ -362,6 +365,67 @@ cmake_dependent_option(NBODY_OPENCL "Build nbody with OpenCL" OFF
 
 if(NBODY_OPENCL OR SEPARATION_OPENCL)
   set(MILKYWAY_OPENCL ON CACHE INTERNAL "Need to build milkyway_cl")
+endif()
+
+
+# ---- CUDA support ----
+# NBODY_CUDA enables the CUDA backend for the nbody application. The CUDA
+# language is enabled lazily so projects that don't want CUDA don't pay
+# the price of nvcc detection. CUDA_ARCHITECTURES is a list of compute
+# capabilities to embed; default covers V100 (sm_70), A100 (sm_80) and
+# Jetson Orin (sm_87). Override on the command line, e.g.
+#   -DCUDA_ARCHITECTURES="70;80;90"
+option(NBODY_CUDA "Build nbody with CUDA" OFF)
+
+if(NBODY_CUDA)
+  if(NOT CMAKE_CUDA_COMPILER)
+    # Prefer CUDA 12.9 if installed at the standard /usr/local path. The user
+    # can override by passing -DCMAKE_CUDA_COMPILER=/path/to/nvcc.
+    if(EXISTS "/usr/local/cuda-12.9/bin/nvcc")
+      set(CMAKE_CUDA_COMPILER "/usr/local/cuda-12.9/bin/nvcc"
+          CACHE FILEPATH "Path to nvcc")
+    endif()
+  endif()
+
+  enable_language(CUDA)
+
+  if(NOT DEFINED CUDA_ARCHITECTURES)
+    set(CUDA_ARCHITECTURES "70;80;87" CACHE STRING
+        "List of CUDA compute capabilities to build for (e.g. 70;80;87)")
+  endif()
+
+  # CMake 3.18+ supports the CUDA_ARCHITECTURES target property natively.
+  # We require CMake 3.16 (Ubuntu 20.04 default), so build the -gencode
+  # flags ourselves and append to CMAKE_CUDA_FLAGS. The last (highest)
+  # arch also gets a virtual PTX entry for forward compatibility with
+  # future GPUs.
+  set(_cuda_gencode_flags "")
+  list(LENGTH CUDA_ARCHITECTURES _cuda_arch_count)
+  set(_cuda_arch_idx 0)
+  foreach(_arch IN LISTS CUDA_ARCHITECTURES)
+    set(_cuda_gencode_flags "${_cuda_gencode_flags} -gencode=arch=compute_${_arch},code=sm_${_arch}")
+    math(EXPR _cuda_arch_idx "${_cuda_arch_idx} + 1")
+    if(_cuda_arch_idx EQUAL _cuda_arch_count)
+      set(_cuda_gencode_flags "${_cuda_gencode_flags} -gencode=arch=compute_${_arch},code=compute_${_arch}")
+    endif()
+  endforeach()
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}${_cuda_gencode_flags}")
+
+  # --fmad=false disables NVCC's fused multiply-add contraction so each
+  # mul+add executes as two separate operations with their own rounding.
+  # NVCC behavior is platform-independent; this flag controls the CUDA
+  # numerics we want regardless of CPU host arch.
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --fmad=false")
+  # -Xptxas -dlcm=cv: disable L1 caching for global loads. forceTree
+  # reads d_critRadii[n] / d_quadXX..ZZ[n] non-volatile; with L1 caching
+  # those reads can hit stale data when a different SM evicts the line
+  # mid-kernel — manifests as occasional ~30% drift in determinism tests.
+  # cv = cache-volatile (bypass L1, hit L2 directly).
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas -dlcm=cv")
+
+  message(STATUS "CUDA enabled: ${CMAKE_CUDA_COMPILER} (${CMAKE_CUDA_COMPILER_VERSION})")
+  message(STATUS "CUDA architectures: ${CUDA_ARCHITECTURES}")
+  message(STATUS "CUDA gencode flags:${_cuda_gencode_flags}")
 endif()
 
 

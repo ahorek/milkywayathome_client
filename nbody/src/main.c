@@ -399,6 +399,12 @@ static mwbool nbReadParameters(const int argc, const char* argv[], NBodyFlags* n
         },
 
         {
+            "use-cuda", '\0',
+            POPT_ARG_NONE, &nbf.useCUDA,
+            0, "Run nbody on a CUDA device. Requires the binary to be built with NBODY_CUDA=ON", NULL
+        },
+
+        {
             "non-responsive", 'r',
             POPT_ARG_NONE, &nbf.ignoreResponsive,
             0, "Do not care about display responsiveness (use with caution)", NULL

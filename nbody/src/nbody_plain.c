@@ -72,6 +72,8 @@ static NBodyStatus nbCheckpoint(const NBodyCtx* ctx, NBodyState* st)
     return NBODY_SUCCESS;
 }
 
+int nbGetLikelihoodForBest(const NBodyCtx* ctx, NBodyState* st, const NBodyFlags* nbf);
+
 static inline int get_likelihood(const NBodyCtx* ctx, NBodyState* st, const NBodyFlags* nbf)
 {
     MainStruct* data = NULL;
@@ -346,6 +348,14 @@ static inline void advanceVelocities_LMC(NBodyState* st, const real dt, const mw
 }
 
 
+/* External wrapper so the CUDA per-step loop can run the same
+ * best-likelihood eval the CPU path runs in get_likelihood().
+ * Defined here so it has access to the static-inline helper. */
+int nbGetLikelihoodForBest(const NBodyCtx* ctx, NBodyState* st, const NBodyFlags* nbf)
+{
+    return get_likelihood(ctx, st, nbf);
+}
+
 /* stepSystem: advance N-body system one time-step. */
 NBodyStatus nbStepSystemPlain(const NBodyCtx* ctx, NBodyState* st, const mwvector acc_i, const mwvector acc_i1)
 {
@@ -376,6 +386,11 @@ NBodyStatus nbStepSystemPlain(const NBodyCtx* ctx, NBodyState* st, const mwvecto
 //    mw_printf("LMC velocity: [%.15f,%.15f,%.15f]\n",X(st->LMCvel[0]),Y(st->LMCvel[0]),Z(st->LMCvel[0]));
 
     st->step++;
+
+    /* CPU-side body0 + LMC milestone diagnostic removed in production.
+     * Was a side-by-side comparison anchor against the CUDA path during
+     * the bring-up. */
+
     #ifdef NBODY_BLENDER_OUTPUT
         blenderPrintBodies(st, ctx);
         printf("Frame: %d\n", (int)(st->step));
@@ -409,6 +424,140 @@ NBodyStatus nbRunSystemPlain(const NBodyCtx* ctx, NBodyState* st, const NBodyFla
     rc |= nbGravMap(ctx, st); /* Calculate accelerations for 1st step this episode */
     if (nbStatusIsFatal(rc))
         return rc;
+
+    /* DEBUG: dump tree CoM/mass/Rcrit2/quadXX..ZZ in DFS order.
+     * Records: 11 doubles per cell (mass, cx, cy, cz, rcrit2,
+     * qxx, qxy, qxz, qyy, qyz, qzz). */
+    if (getenv("NBODY_DUMP_TREEQUAD"))
+    {
+        const char* path = getenv("NBODY_DUMP_TREEQUAD_FILE");
+        if (!path) path = "/tmp/v100_diag/cpu_treeq.bin";
+        FILE* f = fopen(path, "wb");
+        if (f)
+        {
+            const NBodyNode* q = (const NBodyNode*) st->tree.root;
+            int nrecs = 0;
+            while (q != NULL)
+            {
+                if (isCell(q))
+                {
+                    double m  = Mass(q);
+                    double cx = X(Pos(q)), cy = Y(Pos(q)), cz = Z(Pos(q));
+                    double rc = Rcrit2(q);
+                    double qxx=Quad(q).xx, qxy=Quad(q).xy, qxz=Quad(q).xz;
+                    double qyy=Quad(q).yy, qyz=Quad(q).yz, qzz=Quad(q).zz;
+                    fwrite(&m,sizeof(double),1,f); fwrite(&cx,sizeof(double),1,f);
+                    fwrite(&cy,sizeof(double),1,f); fwrite(&cz,sizeof(double),1,f);
+                    fwrite(&rc,sizeof(double),1,f);
+                    fwrite(&qxx,sizeof(double),1,f); fwrite(&qxy,sizeof(double),1,f);
+                    fwrite(&qxz,sizeof(double),1,f); fwrite(&qyy,sizeof(double),1,f);
+                    fwrite(&qyz,sizeof(double),1,f); fwrite(&qzz,sizeof(double),1,f);
+                    ++nrecs;
+                    q = More(q);
+                }
+                else q = Next(q);
+            }
+            fclose(f);
+            mw_printf("[DEBUG] dumped %d tree+quad records to %s\n", nrecs, path);
+            exit(0);
+        }
+    }
+
+    /* DEBUG: dump per-body positions (pos.x/y/z) for CPU/CUDA
+     * comparison. Format: int nb, then nb*3 doubles (px py pz). */
+    if (getenv("NBODY_DUMP_POS"))
+    {
+        const char* path = getenv("NBODY_DUMP_POS_FILE");
+        if (!path) path = "/tmp/v100_diag/cpu_pos.bin";
+        FILE* f = fopen(path, "wb");
+        if (f)
+        {
+            int nb = st->nbody;
+            fwrite(&nb, sizeof(int), 1, f);
+            for (int i = 0; i < nb; ++i)
+            {
+                double px = X(Pos(&st->bodytab[i]));
+                double py = Y(Pos(&st->bodytab[i]));
+                double pz = Z(Pos(&st->bodytab[i]));
+                fwrite(&px, sizeof(double), 1, f);
+                fwrite(&py, sizeof(double), 1, f);
+                fwrite(&pz, sizeof(double), 1, f);
+            }
+            fclose(f);
+            mw_printf("[DEBUG] dumped %d body positions to %s\n", nb, path);
+            exit(0);
+        }
+    }
+
+    /* DEBUG: dump per-body initial acc to a binary file when
+     * NBODY_DUMP_ACC=1 in env. Used to compare CPU vs CUDA per-body
+     * acc to localize precision drift (FP order vs libm vs algorithm). */
+    if (getenv("NBODY_DUMP_ACC"))
+    {
+        const char* path = getenv("NBODY_DUMP_ACC_FILE");
+        if (!path) path = "/tmp/cuda_smoketest/cpu_acc.bin";
+        FILE* f = fopen(path, "wb");
+        if (f)
+        {
+            int nb = st->nbody;
+            fwrite(&nb, sizeof(int), 1, f);
+            for (int i = 0; i < nb; ++i)
+            {
+                double ax = X(st->acctab[i]);
+                double ay = Y(st->acctab[i]);
+                double az = Z(st->acctab[i]);
+                fwrite(&ax, sizeof(double), 1, f);
+                fwrite(&ay, sizeof(double), 1, f);
+                fwrite(&az, sizeof(double), 1, f);
+            }
+            fclose(f);
+            mw_printf("[DEBUG] dumped %d body accs to %s\n", nb, path);
+            exit(0);  /* dump-only mode: exit immediately */
+        }
+    }
+
+    /* DEBUG: dump tree-cell CoM/mass/Rcrit2 after summarization, in
+     * tree-traversal order (DFS via More/Next links). Set
+     * NBODY_DUMP_TREE=1 + NBODY_DUMP_TREE_FILE=path. Each cell record:
+     *   (double mass, double cx, double cy, double cz, double rcrit2)
+     * Records are written in the same order CPU's nbGravity walks them,
+     * so a CUDA dump in the same order can be diffed cell-by-cell. */
+    if (getenv("NBODY_DUMP_TREE"))
+    {
+        const char* path = getenv("NBODY_DUMP_TREE_FILE");
+        if (!path) path = "/tmp/v100_diag/cpu_tree.bin";
+        FILE* f = fopen(path, "wb");
+        if (f)
+        {
+            const NBodyNode* q = (const NBodyNode*) st->tree.root;
+            int nrecs = 0;
+            while (q != NULL)
+            {
+                if (isCell(q))
+                {
+                    double m  = Mass(q);
+                    double cx = X(Pos(q));
+                    double cy = Y(Pos(q));
+                    double cz = Z(Pos(q));
+                    double rc = Rcrit2(q);
+                    fwrite(&m,  sizeof(double), 1, f);
+                    fwrite(&cx, sizeof(double), 1, f);
+                    fwrite(&cy, sizeof(double), 1, f);
+                    fwrite(&cz, sizeof(double), 1, f);
+                    fwrite(&rc, sizeof(double), 1, f);
+                    ++nrecs;
+                    q = More(q); /* descend */
+                }
+                else
+                {
+                    q = Next(q); /* sibling/up */
+                }
+            }
+            fclose(f);
+            mw_printf("[DEBUG] dumped %d tree-cell records to %s\n", nrecs, path);
+            exit(0);
+        }
+    }
 
     #ifdef NBODY_BLENDER_OUTPUT
         if(mkdir("./frames", S_IRWXU | S_IRWXG) < 0)
@@ -454,7 +603,7 @@ NBodyStatus nbRunSystemPlain(const NBodyCtx* ctx, NBodyState* st, const NBodyFla
         if(!ctx->LMC) {
             mwvector zero = ZERO_VECTOR;
             SET_VECTOR(zero,0,0,0);
-            rc |= nbStepSystemPlain(ctx, st, zero, zero); 
+            rc |= nbStepSystemPlain(ctx, st, zero, zero);
         } else {
             rc |= nbStepSystemPlain(ctx, st, st->shiftByLMC[st->step], st->shiftByLMC[st->step+1]);
         }
