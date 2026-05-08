@@ -2708,7 +2708,16 @@ __device__ __forceinline__ void nbCUDAAccelPlummerSphere(
     double* ax, double* ay, double* az)
 {
     const double tmp = sqrt(NBODY_CUDA_SQR(scale) + NBODY_CUDA_SQR(r));
-    const double c   = -mass / (tmp * tmp * tmp);
+    /* CPU computes mass / mw_pow(tmp, 3.0) where mw_pow is crlibm pow_rn.
+     * crlibm's y=3 special case `x*(x*x)` only fires when x's low 32
+     * mantissa bits are zero (the "yl == 0" check uses x's split, not
+     * y's). For sqrt-derived tmp values the low bits are almost never
+     * zero, so crlibm takes the general exp(3*log(x)) path producing a
+     * correctly-rounded x^3. `tmp * tmp * tmp` does TWO multiplies and
+     * is 1 ULP off the correctly-rounded result. Use vendored pow_rn
+     * to bit-match CPU. */
+    const double tmp3 = cuda_crlibm_pow_rn(tmp, 3.0);
+    const double c   = -mass / tmp3;
     *ax += c * px;
     *ay += c * py;
     *az += c * pz;
@@ -2818,18 +2827,18 @@ __device__ __forceinline__ void nbCUDAAccelPlummerLMC(
     const double dx   = lmcX - px;
     const double dy   = lmcY - py;
     const double dz   = lmcZ - pz;
-    /* mw_pow(x,2.0) is optimized to x*x by GCC -O2.
-     * mw_pow(x,3.0) goes through crlibm's pow_rn(), which has a
-     * documented special case (crlibm/pow.c:1021-1023):
-     *     if (y == 3.0) return sign * (x * (x * x));
-     * So the CPU computes the cube as x*(x*x) — bit-exact. CUDA's
-     * device pow(x,3) goes through the general exp(y*log(x)) path
-     * and drifts by ~1 ULP per call, which compounds chaotically over
-     * thousands of timesteps. Match crlibm bit-for-bit by computing
-     * tmp*(tmp*tmp) explicitly. */
+    /* CPU plummerLmcAccel uses `mass / mw_pow(tmp, 3.0)`. The earlier
+     * comment claimed crlibm's pow(x,3) takes a special-case
+     * `x * (x * x)` path. Wrong: that path is gated on x's low-32
+     * mantissa bits being zero (`yl = x_low; if (yl == 0)` in pow.c).
+     * For sqrt-derived tmp the bits are almost never zero, so crlibm
+     * uses the general exp(3*log(x)) path which is correctly-rounded
+     * to a different value than `tmp * (tmp * tmp)` (1 ULP off, since
+     * direct mul does two roundings). Use vendored pow_rn to match. */
     const double dist = sqrt(dx*dx + dy*dy + dz*dz);
     const double tmp  = sqrt(scale*scale + dist*dist);
-    const double c    = mass / (tmp * (tmp * tmp));
+    const double tmp3 = cuda_crlibm_pow_rn(tmp, 3.0);
+    const double c    = mass / tmp3;
     *ax += dx * c;
     *ay += dy * c;
     *az += dz * c;

@@ -167,7 +167,6 @@ static inline void nbMapForceBody(const NBodyCtx* ctx, NBodyState* st)
         switch (ctx->potentialType)
         {
             case EXTERNAL_POTENTIAL_DEFAULT:
-                //mw_printf("DEFAULT POTENTIAL - TREE\n");
                 b = &bodies[i];
                 a = nbGravity(ctx, st, b);
                 externAcc = mw_addv(nbExtAcceleration(&ctx->pot, Pos(b), barTime), LMCAcceleration(lmcfunction, Pos(b), LMCx, lmcmass, lmcscale, lmcscale2));
