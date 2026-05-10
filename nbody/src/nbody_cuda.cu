@@ -2771,19 +2771,27 @@ __device__ __forceinline__ void nbCUDAAccelLogHalo(
     *az += k * pz / (q * q);
 }
 
-/* NFW halo from nbody_kernels.cl:436-443.
- * Uses the canonical 1/(0.2162165954) normalization that Milkyway's
- * project conventions bake in. */
+/* NFW halo (vhalo-parametrized). Mirrors CPU's nfwHaloAccel
+ * (nbody_potential.c:675-684) operation order EXACTLY:
+ *
+ *   M = vhalo² * a / 0.2162165954
+ *   ar = a + r
+ *   c = (-M/r²) * (log(ar/a)/r - 1/ar)
+ *
+ * Earlier form `c = a*v²*(r - ar*log(...))/(0.2162... * r³ * ar)` is
+ * algebraically equivalent but uses a different FP operation order.
+ * That difference produces ~1 ULP per cell visit which compounds
+ * chaotically in long-WU dwarf-disruption integrations, the same
+ * pattern that affects NFWMass long-WU bin-flip divergence. */
 __device__ __forceinline__ void nbCUDAAccelNFWHalo(
     double px, double py, double pz, double r,
     double vhalo, double scaleLength,
     double* ax, double* ay, double* az)
 {
     const double a  = scaleLength;
+    const double M  = NBODY_CUDA_SQR(vhalo) * a / 0.2162165954;
     const double ar = a + r;
-    const double c  = a * NBODY_CUDA_SQR(vhalo) *
-                      (r - ar * cuda_crlibm_log_rn((a + r) / a)) /
-                      (0.2162165954 * (r * r * r) * ar);
+    const double c  = (-M / (r * r)) * (cuda_crlibm_log_rn(ar / a) / r - 1.0 / ar);
     *ax += c * px;
     *ay += c * py;
     *az += c * pz;
@@ -2810,6 +2818,33 @@ __device__ __forceinline__ void nbCUDAAccelNFWMassHalo(
     const double M  = mass;
     const double ar = a + r;
     const double c  = (-M / (r * r)) * (cuda_crlibm_log_rn(ar / a) / r - 1.0 / ar);
+    *ax += c * px;
+    *ay += c * py;
+    *az += c * pz;
+}
+
+/* Spherical NFW (Erkal variant). Mirrors CPU's
+ * SphericalNFWerkalHaloAccel (nbody_potential.c:665-672) operation
+ * order EXACTLY:
+ *
+ *   ar  = a + r
+ *   tmp = M / (log(1 + 15.3) - 15.3/(1 + 15.3))   // c = 15.3 hard-coded
+ *   c   = tmp * (r - ar*log(1 + r/a)) / (r³ * ar)
+ *
+ * The normalization constant `log(16.3) - 15.3/16.3` is computed
+ * per call (rather than precomputed on host) so the FP rounding
+ * matches CPU bit-for-bit — both call crlibm log_rn once, both
+ * subtract the same way. */
+__device__ __forceinline__ void nbCUDAAccelSphericalNFWerkalHalo(
+    double px, double py, double pz, double r,
+    double mass, double scaleLength,
+    double* ax, double* ay, double* az)
+{
+    const double a   = scaleLength;
+    const double M   = mass;
+    const double ar  = a + r;
+    const double tmp = M / (cuda_crlibm_log_rn(1.0 + 15.3) - (15.3 / (1.0 + 15.3)));
+    const double c   = tmp * (r - (ar * cuda_crlibm_log_rn(1.0 + (r / a)))) / (r * r * r * ar);
     *ax += c * px;
     *ay += c * py;
     *az += c * pz;
@@ -2924,6 +2959,10 @@ __global__ void nbCUDAExternalPotentialKernel(
             case 4: /* NFWMass — see NBodyCUDAHaloType / nbCUDAAccelNFWMassHalo */
                 nbCUDAAccelNFWMassHalo(px, py, pz, r, haloMass, haloScaleLength,
                                         &ax, &ay, &az);
+                break;
+            case 5: /* SphericalNFWerkal — Erkal-variant spherical NFW */
+                nbCUDAAccelSphericalNFWerkalHalo(px, py, pz, r, haloMass, haloScaleLength,
+                                                  &ax, &ay, &az);
                 break;
             default: break;       /* triaxial, AS, WE etc. — TODO */
         }

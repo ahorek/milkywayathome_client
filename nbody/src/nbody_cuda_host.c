@@ -252,6 +252,11 @@ static void nbCUDAPackPotential(const NBodyCtx* ctx, NBodyCUDAExternalPotential*
             out->haloMass        = ctx->pot.halo.mass;
             out->haloScaleLength = ctx->pot.halo.scaleLength;
             break;
+        case SphericalNFWerkalHalo:
+            out->haloType        = NBODY_CUDA_HALO_SPHERICAL_NFW_ERKAL;
+            out->haloMass        = ctx->pot.halo.mass;
+            out->haloScaleLength = ctx->pot.halo.scaleLength;
+            break;
         default:
             /* Triaxial / AS / WE / Plummer / Hernquist / Ninkovic halos:
              * not yet ported. CPU fallback applies. */
@@ -306,11 +311,12 @@ static int nbCUDACanHandlePotential(const NBodyCtx* ctx)
                   nbCUDADiskName(ctx->pot.disk2.type));
         return 0;
     }
-    /* Halo: Log, NFW, or NFWMass. */
+    /* Halo: Log, NFW, NFWMass, or SphericalNFWerkal. */
     if (ctx->pot.halo.type != NoHalo
      && ctx->pot.halo.type != LogarithmicHalo
      && ctx->pot.halo.type != NFWHalo
-     && ctx->pot.halo.type != NFWMassHalo)
+     && ctx->pot.halo.type != NFWMassHalo
+     && ctx->pot.halo.type != SphericalNFWerkalHalo)
     {
         mw_printf("[nbody_cuda] reject: halo type %s not supported on GPU\n",
                   nbCUDAHaloName(ctx->pot.halo.type));

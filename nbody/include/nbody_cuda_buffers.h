@@ -224,13 +224,16 @@ typedef enum {
     NBODY_CUDA_SPHERE_PLUMMER   = 2
 } NBodyCUDASphericalType;
 
-/* Halo selector. Wire values match halo_t. */
+/* Halo selector. Compact internal IDs (NOT the halo_t enum values);
+ * the CPU halo_t value is mapped to one of these in
+ * nbCUDAPackPotential before being passed into the kernel. */
 typedef enum {
-    NBODY_CUDA_HALO_NONE        = 0,
-    NBODY_CUDA_HALO_LOG         = 1,
-    NBODY_CUDA_HALO_NFW         = 2,
-    NBODY_CUDA_HALO_TRIAXIAL    = 3,
-    NBODY_CUDA_HALO_NFWMASS     = 4   /* mass-parametrized NFW (Halo.nfwmass{...}) */
+    NBODY_CUDA_HALO_NONE                = 0,
+    NBODY_CUDA_HALO_LOG                 = 1,
+    NBODY_CUDA_HALO_NFW                 = 2,
+    NBODY_CUDA_HALO_TRIAXIAL            = 3,
+    NBODY_CUDA_HALO_NFWMASS             = 4,  /* mass-parametrized NFW (Halo.nfwmass{...}) */
+    NBODY_CUDA_HALO_SPHERICAL_NFW_ERKAL = 5   /* Erkal-variant spherical NFW (Halo.sphericalnfwerkal{...}) */
     /* Other halo types fall back to CPU path until ported. */
 } NBodyCUDAHaloType;
 

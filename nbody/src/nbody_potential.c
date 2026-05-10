@@ -68,7 +68,7 @@ const char* nbCUDAHaloName(halo_t t)
         case PlummerHalo:           return "PlummerHalo (CPU-only)";
         case HernquistHalo:         return "HernquistHalo (CPU-only)";
         case NinkovicHalo:          return "Ninkovic (CPU-only)";
-        case SphericalNFWerkalHalo: return "SphericalNFWerkal (CPU-only)";
+        case SphericalNFWerkalHalo: return "SphericalNFWerkal";
         default:                    return "UNSUPPORTED";
     }
 }
