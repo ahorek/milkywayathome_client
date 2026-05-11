@@ -23,6 +23,16 @@ jobs:
         run: |
           gcc -v
 
+      - name: Prepare boinc libraries
+        run: |
+          mkdir boinc_build
+          cd ./boinc_build
+          git clone --depth 1 https://github.com/BOINC/boinc.git
+          cd ./boinc
+          ./_autosetup
+          ./configure --disable-server --disable-manager --disable-client --enable-static CXXFLAGS="-O3 "
+          make -j
+
       - name: Install cuda
         run: |
           wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
