@@ -1,0 +1,46 @@
+name: x64 Linux Cuda
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    name: >-
+      ubuntu-24.04
+
+    defaults:
+      run:
+        shell: bash
+
+    strategy:
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Print gcc version
+        run: |
+          gcc -v
+
+      - name: Install cuda
+        run: |
+          wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+          sudo dpkg -i cuda-keyring_1.1-1_all.deb
+          sudo apt-get update
+          sudo apt-get -y install cuda-toolkit-12-9
+
+      - name: Run make
+        run: |
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DNBODY_DEV_OPTIONS=ON -DNBODY_GL=OFF -DNBODY_STATIC=ON -DENABLE_CURSES=OFF -DSEPARATION_OPENCL=OFF -DBOINC_APPLICATION=ON -DNBODY_CRLIBM=ON -DSEPARATION=OFF -DDOUBLEPREC=ON -DNBODY_OPENMP=ON -DNBODY_OPENCL=OFF -DAUTODIFF=OFF -DAUTODIFF_LOG=OFF -DNBODY_CUDA=ON -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc -DCMAKE_CUDA_ARCHITECTURES=all ..
+          make -j
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nbody
+          retention-days: 1
+          path: |
+            ./build/bin/milkyway_nbody
