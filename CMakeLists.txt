@@ -391,7 +391,7 @@ if(NBODY_CUDA)
 
   if(NOT DEFINED CUDA_ARCHITECTURES)
     set(CUDA_ARCHITECTURES "70;80;87" CACHE STRING
-        "List of CUDA compute capabilities to build for (e.g. 70;80;87)")
+        "List of CUDA compute capabilities to build for (e.g. 70;75;80;87)")
   endif()
 
   # CMake 3.18+ supports the CUDA_ARCHITECTURES target property natively.
