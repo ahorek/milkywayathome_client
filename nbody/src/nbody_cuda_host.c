@@ -807,11 +807,16 @@ NBodyStatus_int nbRunSystemCUDA(const NBodyCtx* ctx, NBodyState* st, const void*
         /* Checkpoint when BOINC asks OR every NBODY_CUDA_CKPT_EVERY
          * steps (whichever fires first). The step-count fallback gives
          * users live progress visibility even in standalone mode where
-         * boinc_time_to_checkpoint cadence is sparse. Cost is one D2H
-         * marshal + one fwrite of the body array per checkpoint —
-         * negligible relative to the per-step kernel cost. */
+         * boinc_time_to_checkpoint cadence is sparse. Each checkpoint
+         * is a synchronous D2H marshal (stalls the GPU pipeline) plus
+         * an fwrite of the body array. Cadence raised from 50 to 500
+         * — at 50 a typical 50K-step WU paid ~1000 GPU pipeline stalls;
+         * 500 cuts that to ~100 while still bounding crash-recovery
+         * cost to ~5 sec of work (500 × ~10 ms/step). BOINC's
+         * time-based checkpoint still fires for longer-interval crash
+         * recovery. */
         #ifndef NBODY_CUDA_CKPT_EVERY
-          #define NBODY_CUDA_CKPT_EVERY 50
+          #define NBODY_CUDA_CKPT_EVERY 500
         #endif
         const int forceCheckpoint = (st->step % NBODY_CUDA_CKPT_EVERY == 0);
         if (forceCheckpoint || nbTimeToCheckpoint(ctx, st))
