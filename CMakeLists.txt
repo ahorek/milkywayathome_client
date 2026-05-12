@@ -423,6 +423,17 @@ if(NBODY_CUDA)
   # cv = cache-volatile (bypass L1, hit L2 directly).
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas -dlcm=cv")
 
+  # PTXAS diagnostics — warn on register spills to local memory so we
+  # can spot regressions when adding __launch_bounds__ or restructuring
+  # heavy kernels. No runtime effect.
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-warn-spills,-warn-lmem-usage")
+
+  # --restrict: enable global pointer-aliasing assumptions for kernel
+  # args. We already annotate __restrict__ on pointers explicitly; this
+  # flag lets NVCC apply the same assumption to anything it might not
+  # have caught.
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --restrict")
+
   message(STATUS "CUDA enabled: ${CMAKE_CUDA_COMPILER} (${CMAKE_CUDA_COMPILER_VERSION})")
   message(STATUS "CUDA architectures: ${CUDA_ARCHITECTURES}")
   message(STATUS "CUDA gencode flags:${_cuda_gencode_flags}")
