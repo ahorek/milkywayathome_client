@@ -18,7 +18,7 @@ set -euo pipefail
 # ------------------------- defaults (override via flags) ---------------------
 BOINC_ROOT="${BOINC_ROOT:-/home/ian/builds/boinc}"
 CUDA_TOOLKIT="${CUDA_TOOLKIT:-/usr/local/cuda-12.9}"
-SM_ARCHS="${SM_ARCHS:-70;80;87}"
+SM_ARCHS="${SM_ARCHS:-60;61;70;75;80;86;89;90;100f;120f}"
 BUILD_DIR="${BUILD_DIR:-build}"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 # -----------------------------------------------------------------------------
