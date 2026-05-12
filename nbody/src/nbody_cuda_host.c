@@ -26,6 +26,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "nbody_types.h"
 #include "milkyway_math.h"
@@ -769,11 +770,37 @@ NBodyStatus_int nbRunSystemCUDA(const NBodyCtx* ctx, NBodyState* st, const void*
 
     const real Nstep = (real) ctx->nStep;
 
+    /* Optional steps-per-second heartbeat. Enabled via env
+     * NBODY_CUDA_STEP_HEARTBEAT=N (print every N steps). Useful for
+     * comparing forward-sim throughput across builds. */
+    int hb_every = 0;
+    {
+        const char* hbe = getenv("NBODY_CUDA_STEP_HEARTBEAT");
+        if (hbe && hbe[0] && hbe[0] != '0') hb_every = atoi(hbe);
+    }
+    struct timespec hb_t0, hb_t_prev;
+    if (hb_every > 0) {
+        clock_gettime(CLOCK_MONOTONIC, &hb_t0);
+        hb_t_prev = hb_t0;
+    }
+
     while (st->step < ctx->nStep)
     {
         if (nbStepSystemCUDA(ctx, st) != NBODY_SUCCESS)
         {
             return NBODY_ERROR;
+        }
+
+        if (hb_every > 0 && (st->step % hb_every == 0)) {
+            struct timespec t1;
+            clock_gettime(CLOCK_MONOTONIC, &t1);
+            double dt_total = (t1.tv_sec - hb_t0.tv_sec) + (t1.tv_nsec - hb_t0.tv_nsec) / 1e9;
+            double dt_recent = (t1.tv_sec - hb_t_prev.tv_sec) + (t1.tv_nsec - hb_t_prev.tv_nsec) / 1e9;
+            fprintf(stderr, "[step-hb] step=%d/%d  recent=%.2fms/step (last %d)  total=%.1fs  rate=%.1fsteps/s\n",
+                    (int) st->step, (int) ctx->nStep,
+                    dt_recent * 1000.0 / hb_every, hb_every,
+                    dt_total, st->step / dt_total);
+            hb_t_prev = t1;
         }
 
         /* Mirror the CPU loop: when we're in the BestLikeStart window
