@@ -74,6 +74,8 @@ int nbCUDAGetDeviceSMCount(int* outSMs);
  * inspect the struct fields directly. */
 int nbCUDABuffersGetNbody(const struct NBodyCUDABuffers* buffers);
 int nbCUDABuffersGetNNode(const struct NBodyCUDABuffers* buffers);
+/* Returns the cumulative max tree depth recorded in d_treeStatus, or -1 on error. */
+int nbCUDABuffersGetMaxDepth(const struct NBodyCUDABuffers* buffers);
 
 /* DEBUG: dump tree-cell CoMs/Rcrit2 in DFS order. */
 int nbCUDABuffersDumpTree(const struct NBodyCUDABuffers* buffers,

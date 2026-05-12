@@ -93,6 +93,10 @@ struct NBodyCUDATreeStatus
     int    _pad;          /* keep alignment stable across host & device */
 };
 
+/* 128-bit Morton key, used by NBODY_BUILDTREE_MORTON path. Full
+ * definition appears later (alongside the kernels that use it). */
+struct Morton128;
+
 /* Phase 1: real device-side body storage in struct-of-arrays layout.
  * Phase 4: extended with Barnes-Hut tree storage.
  * Mirrors the OpenCL NBodyBuffers (nbody_types.h:197-248). All
@@ -153,7 +157,7 @@ struct NBodyCUDABuffers
      * Allocated alongside other tree buffers in nbCUDATreeBuffersAlloc
      * when NBODY_BUILDTREE_MORTON is enabled at compile time, or always
      * (small footprint) so a runtime flag can choose at launch time. */
-    unsigned long long* d_morton;     /* per-body Morton key, size nbody */
+    Morton128* d_morton;              /* per-body 128-bit Morton key, size nbody */
     int*    d_sortedIdx;              /* sort permutation, size nbody */
 
     /* Per-level work queues, double-buffered. Max cells per level is
@@ -192,6 +196,19 @@ struct NBodyCUDABuffers
 extern "C" int nbCUDABuffersGetNbody(const struct NBodyCUDABuffers* buffers)
 {
     return buffers ? buffers->nbody : 0;
+}
+
+/* Read d_treeStatus->maxDepth back to host. Used for diagnostics
+ * (e.g. to check whether the Morton path's rank-partition fallback
+ * at depth >20 ever fires for a given WU). Returns -1 on error. */
+extern "C" int nbCUDABuffersGetMaxDepth(const struct NBodyCUDABuffers* buffers)
+{
+    if (!buffers || !buffers->d_treeStatus) return -1;
+    int maxDepth = -1;
+    cudaError_t e = cudaMemcpy(&maxDepth, &buffers->d_treeStatus->maxDepth,
+                               sizeof(int), cudaMemcpyDeviceToHost);
+    if (e != cudaSuccess) return -1;
+    return maxDepth;
 }
 
 extern "C" int nbCUDABuffersGetNNode(const struct NBodyCUDABuffers* buffers)
@@ -565,12 +582,16 @@ extern "C" NBodyStatus_int nbCUDATreeBuffersAlloc(struct NBodyCUDABuffers* buffe
 
     /* ----- Morton-path scratch ----- */
     {
-        const size_t nbodyU64 = (size_t) buffers->nbody * sizeof(unsigned long long);
+        /* d_morton holds Morton128 (16 bytes each); other queues are
+         * int (4 bytes). The buffer struct's d_morton field is typed
+         * as `Morton128*` but Morton128's definition is later in this
+         * TU — cudaMalloc just needs the byte count and a void**. */
+        const size_t nbodyU128 = (size_t) buffers->nbody * 16;
         const size_t lvlI     = (size_t) buffers->nbody * sizeof(int);
         const size_t obI      = (size_t) 9 * buffers->nbody * sizeof(int);
         const size_t pI       = (size_t) 8 * buffers->nbody * sizeof(int);
 
-        if (nbCUDAMallocRecorded((void**) &buffers->d_morton,           nbodyU64, allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_morton,           nbodyU128, allocList, &nAlloc, 48)) goto fail;
         if (nbCUDAMallocRecorded((void**) &buffers->d_sortedIdx,        lvlI,     allocList, &nAlloc, 48)) goto fail;
         if (nbCUDAMallocRecorded((void**) &buffers->d_lvlInCells,       lvlI,     allocList, &nAlloc, 48)) goto fail;
         if (nbCUDAMallocRecorded((void**) &buffers->d_lvlInStart,       lvlI,     allocList, &nAlloc, 48)) goto fail;
@@ -1187,34 +1208,101 @@ extern "C" NBodyStatus_int nbCUDALaunchBuildTreeClear(struct NBodyCUDABuffers* b
  *   d_treeStatus->radius = root size (unchanged from bounding box pass)
  */
 
-/* Expand a 21-bit integer to 63 bits with 2 zeros between each bit.
- * Used for interleaving X/Y/Z into a single Morton code. */
-__device__ __forceinline__ unsigned long long mortonExpandBits21(unsigned int v)
+/* 128-bit Morton key as a host/device POD pair. The (hi, lo) layout
+ * gives lex ordering: a < b  iff  (a.hi, a.lo) < (b.hi, b.lo). */
+struct __align__(16) Morton128
 {
-    unsigned long long x = (unsigned long long) (v & 0x1fffffu);
-    x = (x | (x << 32)) & 0x1f00000000ffffULL;
-    x = (x | (x << 16)) & 0x1f0000ff0000ffULL;
-    x = (x | (x <<  8)) & 0x100f00f00f00f00fULL;
-    x = (x | (x <<  4)) & 0x10c30c30c30c30c3ULL;
-    x = (x | (x <<  2)) & 0x1249249249249249ULL;
-    return x;
+    unsigned long long lo;
+    unsigned long long hi;
+};
+
+/* Strict less-than for Morton128 — used as the thrust::sort_by_key
+ * comparator. Host+device so thrust can specialise on either side. */
+struct Morton128Less
+{
+    __host__ __device__ __forceinline__
+    bool operator()(const Morton128& a, const Morton128& b) const
+    {
+        return (a.hi < b.hi) || (a.hi == b.hi && a.lo < b.lo);
+    }
+};
+
+/* Expand 42-bit input to 126 output bits (3*i positions). Returns
+ * the result as a (lo, hi) pair packed into 128 bits. Linear loop
+ * is fine — called once per body per step, parallel across 40K
+ * threads, so per-build cost is in the µs range. */
+__device__ __forceinline__ void mortonExpandBits42(unsigned long long v,
+                                                    unsigned long long* out_lo,
+                                                    unsigned long long* out_hi)
+{
+    unsigned long long lo = 0, hi = 0;
+    #pragma unroll
+    for (int i = 0; i < 42; ++i)
+    {
+        unsigned long long bit = (v >> i) & 1ULL;
+        int pos = 3 * i;
+        if (pos < 64) lo |= bit << pos;
+        else          hi |= bit << (pos - 64);
+    }
+    *out_lo = lo;
+    *out_hi = hi;
 }
 
-/* Compute Morton code for each body. The code packs interleaved bits
- * of normalised (px, py, pz) ∈ [0,1] so that bodies in the same root
- * octant share a 3-bit prefix, same depth-2 octant share 6-bit prefix,
- * etc. Bit order: top 3 bits = root octant = (X<<2)|(Y<<1)|Z, matching
- * the per-cell octant index used elsewhere in the codebase.
+/* Extract the 3-bit octant code at tree depth d from a 128-bit
+ * Morton key. Octant bits live at positions (125 - 3d, 124 - 3d,
+ * 123 - 3d) of the 126-bit Morton; we read the 3-bit slice starting
+ * at p = 123 - 3d.
  *
- * Normalisation: pos ∈ [-radius, +radius] → t = (pos + radius) /
- * (2*radius) ∈ [0,1]. Multiply by 2^21 - 1 = 2097151 and truncate.
- * 21 bits / axis × 3 axes = 63 bits — fits in unsigned long long with
- * the top bit reserved as a stable sort tie-breaker. */
+ * For 42-bit-per-axis Morton, depth ranges over [0, 41] before the
+ * Morton bits run out. The fused tree builder caps the level loop
+ * at NBODY_CUDA_MAXDEPTH = 26, well within this range. */
+__device__ __forceinline__ unsigned int morton128_octant(const Morton128& m, int depth)
+{
+    const int p = 123 - 3 * depth;
+    if (p >= 64)
+    {
+        return (unsigned int) ((m.hi >> (p - 64)) & 7ULL);
+    }
+    if (p <= 61)
+    {
+        return (unsigned int) ((m.lo >> p) & 7ULL);
+    }
+    /* Straddle: bits at p=62 or p=63 straddle the 64-bit boundary. */
+    if (p == 63)
+    {
+        /* bits 63 (lo), 64 (hi[0]), 65 (hi[1]) */
+        unsigned long long low_part = (m.lo >> 63) & 1ULL;            /* bit 0 of result */
+        unsigned long long hi_part  = (m.hi & 3ULL) << 1;             /* bits 1..2 of result */
+        return (unsigned int) (low_part | hi_part);
+    }
+    /* p == 62: bits 62 (lo), 63 (lo), 64 (hi[0]) */
+    unsigned long long low_part = (m.lo >> 62) & 3ULL;                /* bits 0..1 of result */
+    unsigned long long hi_part  = (m.hi & 1ULL) << 2;                 /* bit 2 of result */
+    return (unsigned int) (low_part | hi_part);
+}
+
+/* Compute 128-bit Morton code for each body. 42 bits per axis × 3
+ * axes = 126 output bits. The code packs interleaved bits of
+ * normalised (px, py, pz) ∈ [0,1] so that bodies in the same root
+ * octant share a 3-bit prefix, same depth-2 octant share 6-bit prefix,
+ * etc. Octant code at depth d = (X<<2)|(Y<<1)|Z, matching the
+ * per-cell octant index used by the BH walk and summarization.
+ *
+ * Normalisation: pos ∈ [-rsize/2, +rsize/2] → t = (pos+half)/rsize
+ * ∈ [0,1]. Multiply by 2^42 and truncate. 42 bits / axis is enough
+ * to resolve any cell down to legacy's MAXDEPTH=26 (which only
+ * resolves bodies separated by 2^-26 of bbox). Beyond depth 26
+ * Morton still has 16 bits of headroom.
+ *
+ * Bit interpretation: at depth d (0 = root), the octant index is
+ * bits (125-3d, 124-3d, 123-3d) of the 126-bit Morton. The
+ * morton128_octant() helper extracts this 3-bit slice from a
+ * (lo, hi) pair. */
 __global__ void nbCUDAComputeMortonKernel(
     const double* __restrict__ d_posX,
     const double* __restrict__ d_posY,
     const double* __restrict__ d_posZ,
-    unsigned long long* __restrict__ d_morton,
+    Morton128* __restrict__ d_morton,
     int* __restrict__ d_idx,
     const struct NBodyCUDATreeStatus* __restrict__ d_treeStatus,
     int nbody)
@@ -1231,13 +1319,13 @@ __global__ void nbCUDAComputeMortonKernel(
     const double py = d_posY[i];
     const double pz = d_posZ[i];
 
-    /* Map pos in [-rsize/2, +rsize/2] -> [0, 1] -> [0, 1<<21). Use
-     * scale = 2^21 so that t = 0.5 (body at centre) lands on q = 2^20,
-     * with bit-20 set. This matches the atomicCAS kernel's "<=" octant
-     * encoding: a body at exactly cell-centre goes into the HIGH octant
-     * (bit set). For t = 1.0 (body at +rsize/2), q = 2^21 — clamped to
-     * 2^21 - 1, still in high octant. */
-    const double scale = (double) (1u << 21);  /* 2^21 = 2097152 */
+    /* Map pos in [-rsize/2, +rsize/2] -> [0, 1] -> [0, 1<<42). Use
+     * scale = 2^42 so that t = 0.5 (body at centre) lands on q = 2^41,
+     * with bit-41 set — matches the atomicCAS kernel's "<=" octant
+     * encoding (centre body goes to high octant). For t = 1.0 (body
+     * at +rsize/2), q = 2^42, clamped to 2^42 - 1, still in high
+     * octant. */
+    const double scale = (double) (1ULL << 42);
     const double half = 0.5 * rsize;
     double tx = (px + half) / rsize;
     double ty = (py + half) / rsize;
@@ -1245,72 +1333,40 @@ __global__ void nbCUDAComputeMortonKernel(
     if (tx < 0.0) tx = 0.0; else if (tx > 1.0) tx = 1.0;
     if (ty < 0.0) ty = 0.0; else if (ty > 1.0) ty = 1.0;
     if (tz < 0.0) tz = 0.0; else if (tz > 1.0) tz = 1.0;
-    unsigned int qx = (unsigned int) (tx * scale);
-    unsigned int qy = (unsigned int) (ty * scale);
-    unsigned int qz = (unsigned int) (tz * scale);
-    if (qx > 0x1fffffu) qx = 0x1fffffu;
-    if (qy > 0x1fffffu) qy = 0x1fffffu;
-    if (qz > 0x1fffffu) qz = 0x1fffffu;
+    unsigned long long qx = (unsigned long long) (tx * scale);
+    unsigned long long qy = (unsigned long long) (ty * scale);
+    unsigned long long qz = (unsigned long long) (tz * scale);
+    const unsigned long long MAX_Q = (1ULL << 42) - 1ULL;
+    if (qx > MAX_Q) qx = MAX_Q;
+    if (qy > MAX_Q) qy = MAX_Q;
+    if (qz > MAX_Q) qz = MAX_Q;
 
-    /* Interleave so that octant code = (X<<2)|(Y<<1)|Z. Expand each to
-     * have 2 zeros between bits, then shift X two positions, Y one
-     * position, Z zero, and OR. The 21-bit input becomes 63 bits.
-     *
-     * Bit interpretation: at depth d (0 = root), the octant index is
-     * bits (60-3*d, 59-3*d, 58-3*d) of the Morton code. */
-    unsigned long long mx = mortonExpandBits21(qx);
-    unsigned long long my = mortonExpandBits21(qy);
-    unsigned long long mz = mortonExpandBits21(qz);
-    d_morton[i] = (mx << 2) | (my << 1) | mz;
+    /* Expand each axis to a 126-bit (lo, hi) pair, then combine via
+     * (mx<<2) | (my<<1) | mz across the 128-bit pair. */
+    unsigned long long mx_lo, mx_hi, my_lo, my_hi, mz_lo, mz_hi;
+    mortonExpandBits42(qx, &mx_lo, &mx_hi);
+    mortonExpandBits42(qy, &my_lo, &my_hi);
+    mortonExpandBits42(qz, &mz_lo, &mz_hi);
+
+    /* 128-bit left shift by 2: lo<<2, hi = (hi<<2) | (lo>>62). */
+    const unsigned long long mxs_lo = mx_lo << 2;
+    const unsigned long long mxs_hi = (mx_hi << 2) | (mx_lo >> 62);
+    /* 128-bit left shift by 1: lo<<1, hi = (hi<<1) | (lo>>63). */
+    const unsigned long long mys_lo = my_lo << 1;
+    const unsigned long long mys_hi = (my_hi << 1) | (my_lo >> 63);
+    /* mz already at shift 0. */
+
+    Morton128 m;
+    m.lo = mxs_lo | mys_lo | mz_lo;
+    m.hi = mxs_hi | mys_hi | mz_hi;
+    d_morton[i] = m;
     d_idx[i] = i;
 }
 
-extern "C" NBodyStatus_int nbCUDALaunchComputeMorton(struct NBodyCUDABuffers* buffers,
-                                                     int nbody,
-                                                     unsigned long long* d_morton,
-                                                     int* d_idx)
-{
-    if (!buffers || nbody <= 0 || !d_morton || !d_idx) return NBODY_CUDA_ERROR;
-    const int block = NBODY_CUDA_BLOCK;
-    const int grid  = (nbody + block - 1) / block;
-    nbCUDAComputeMortonKernel<<<grid, block>>>(buffers->d_posX,
-                                                buffers->d_posY,
-                                                buffers->d_posZ,
-                                                d_morton, d_idx,
-                                                buffers->d_treeStatus,
-                                                nbody);
-    cudaError_t e = cudaGetLastError();
-    if (e != cudaSuccess) {
-        fprintf(stderr, "[nbody_cuda] morton launch: %s\n", cudaGetErrorString(e));
-        return NBODY_CUDA_ERROR;
-    }
-    return NBODY_CUDA_SUCCESS;
-}
-
-/* Sort body indices by Morton code (with body-index as stable
- * tiebreaker). Uses thrust::sort_by_key on device pointers. Thrust's
- * radix sort is deterministic, so the output ordering is reproducible
- * across runs regardless of GPU scheduling. */
-extern "C" NBodyStatus_int nbCUDALaunchSortByMorton(unsigned long long* d_morton,
-                                                    int* d_idx,
-                                                    int nbody)
-{
-    if (!d_morton || !d_idx || nbody <= 0) return NBODY_CUDA_ERROR;
-    try {
-        thrust::sort_by_key(thrust::device,
-                            d_morton, d_morton + nbody,
-                            d_idx);
-    } catch (...) {
-        fprintf(stderr, "[nbody_cuda] thrust::sort_by_key failed\n");
-        return NBODY_CUDA_ERROR;
-    }
-    cudaError_t e = cudaGetLastError();
-    if (e != cudaSuccess) {
-        fprintf(stderr, "[nbody_cuda] sort_by_key: %s\n", cudaGetErrorString(e));
-        return NBODY_CUDA_ERROR;
-    }
-    return NBODY_CUDA_SUCCESS;
-}
+/* The previous launch-wrapper entry points
+ * (nbCUDALaunchComputeMorton, nbCUDALaunchSortByMorton) have been
+ * removed; the Morton orchestrator below calls
+ * nbCUDAComputeMortonKernel and thrust::sort_by_key directly. */
 
 /* Fused per-level kernel: count octants AND emit children in one
  * pass. Cell indices are allocated via atomicSub on d_treeStatus->bottom
@@ -1332,7 +1388,7 @@ extern "C" NBodyStatus_int nbCUDALaunchSortByMorton(unsigned long long* d_morton
  * d_outCount. d_inCount/d_outCount are pure device-side counters: no
  * host syncs needed between levels. */
 __global__ void nbCUDAMortonFusedKernel(
-    const unsigned long long* __restrict__ d_morton,
+    const Morton128* __restrict__ d_morton,
     const int* __restrict__ d_sortedIdx,
     const int* __restrict__ d_lvlInCells,
     const int* __restrict__ d_lvlInStart,
@@ -1361,13 +1417,23 @@ __global__ void nbCUDAMortonFusedKernel(
     const int end     = d_lvlInEnd[c];
     const int depth   = d_lvlInDepth[c];
 
+    /* Per-cell depth tracking: bubble up to d_treeStatus->maxDepth so
+     * downstream kernels (quadMoments) see a consistent max-depth
+     * value. Each cell's `depth + 1` is the deepest LEVEL its
+     * children populate at; threads racing on atomicMax is fine. */
+    atomicMax(&d_treeStatus->maxDepth, depth + 1);
+
+    /* 128-bit Morton boundary search: 7 binary searches in the
+     * sorted d_morton range, using morton128_octant() to extract the
+     * 3-bit octant code at this depth. 42 bits/axis covers depth
+     * 0..41 — well past the legacy MAXDEPTH=26 cap, so the
+     * rank-partition fallback below should never fire on a realistic
+     * WU. */
     int boundaries[9];
-    if (depth <= 20)
+    boundaries[0] = start;
+    boundaries[8] = end;
+    if (depth <= 41)
     {
-        /* Morton-bit partition: 7 binary searches in sorted d_morton. */
-        const int shiftBits = 60 - 3 * depth;
-        boundaries[0] = start;
-        boundaries[8] = end;
         #pragma unroll
         for (int o = 1; o < 8; ++o)
         {
@@ -1375,7 +1441,7 @@ __global__ void nbCUDAMortonFusedKernel(
             while (lo < hi)
             {
                 int mid = (lo + hi) >> 1;
-                unsigned int oct = (unsigned int) ((d_morton[mid] >> shiftBits) & 7ULL);
+                unsigned int oct = morton128_octant(d_morton[mid], depth);
                 if (oct < (unsigned int) o) lo = mid + 1;
                 else hi = mid;
             }
@@ -1384,25 +1450,20 @@ __global__ void nbCUDAMortonFusedKernel(
     }
     else
     {
-        /* Beyond 21-bit Morton resolution — bodies in this cell are
-         * spatially coincident within 1/2^21 of bbox. Partition the
-         * sorted body range into 8 equal sub-ranges by RANK so that
-         * each body eventually lands in its own leaf cell.
-         *
-         * Geometric centres for these sub-cells are computed as if
-         * the partition were spatial (parent ± offset), so the
-         * resulting tree may trigger summarization's tree-structure
-         * sanity check (errorCode = 2) when CoM lands outside the
-         * cell's geometric extent. That code is informational only;
-         * the host doesn't abort on it. Walk correctness holds at
-         * the leaf level (CoM = body position; force from CoM is
-         * the body's actual contribution). */
+        /* Defensive only: depth >41 should never happen for realistic
+         * WUs given NBODY_CUDA_MAXDEPTH=26. If hit, partition the
+         * sorted body range evenly by rank so the tree-build still
+         * terminates without orphan cells (which would NaN-hang quad
+         * moments). errorCode is set so the host knows precision
+         * was exceeded. */
         const int rangeLen = end - start;
         #pragma unroll
         for (int o = 0; o <= 8; ++o)
         {
             boundaries[o] = start + (o * rangeLen) / 8;
         }
+        if (threadIdx.x == 0 && blockIdx.x == 0)
+            d_treeStatus->errorCode = 3;
     }
 
     /* Read parent cell geometry (set by boundingBox or by a previous
@@ -1430,6 +1491,27 @@ __global__ void nbCUDAMortonFusedKernel(
         else if (cnt == 1)
         {
             d_child[slot] = d_sortedIdx[s];
+        }
+        else if (depth + 1 > NBODY_CUDA_MAXDEPTH)
+        {
+            /* MAXDEPTH overflow — matches legacy atomicCAS's behavior:
+             * legacy's split loop exits via `depth > NBODY_CUDA_MAXDEPTH`,
+             * after which `d_child[NSUB*n+j] = i` places the body
+             * currently being inserted, OVERWRITING the previously-placed
+             * body in that slot. Net effect: one body retained per slot,
+             * others lost; errorCode is set.
+             *
+             * The "i" body in legacy's race is determined by thread
+             * scheduling (not deterministic across runs with pinned, but
+             * deterministic without). To approximate legacy's choice, we
+             * keep the body with the HIGHEST body_idx in the range — the
+             * intuition is that legacy's stride-based body assignment
+             * (thread tid handles bodies tid, tid+inc, tid+2*inc, ...)
+             * tends to make higher-idx bodies "win" the deepest split
+             * because they're processed in later iterations of each
+             * thread's loop. This is an approximation, not bit-exact. */
+            d_child[slot] = d_sortedIdx[e - 1];
+            d_treeStatus->errorCode = 1;
         }
         else
         {
@@ -1743,11 +1825,15 @@ extern "C" NBodyStatus_int nbCUDABuildTreeMorton(struct NBodyCUDABuffers* buffer
     }
     if (doProfile) { syncNow(); clock_gettime(CLOCK_MONOTONIC, &t2); }
 
-    /* Phase 2: sort. */
+    /* Phase 2: sort by 128-bit Morton key (lex on (hi, lo)). thrust's
+     * default falls back to merge sort for custom key types — slower
+     * than uint64 radix but deterministic. opt #23 (CUB DeviceRadixSort
+     * with two-pass on (hi, lo)) would recover the perf. */
     try {
         thrust::sort_by_key(thrust::device,
                             buffers->d_morton, buffers->d_morton + nbody,
-                            buffers->d_sortedIdx);
+                            buffers->d_sortedIdx,
+                            Morton128Less());
     } catch (...) {
         fprintf(stderr, "[nbody_cuda] morton sort failed\n");
         return NBODY_CUDA_ERROR;
@@ -1788,11 +1874,12 @@ extern "C" NBodyStatus_int nbCUDABuildTreeMorton(struct NBodyCUDABuffers* buffer
     const int block = NBODY_CUDA_BLOCK;
     const int grid  = (nbody + block - 1) / block;
 
-    /* Iterate up to NBODY_CUDA_MAXDEPTH levels to match the legacy
-     * atomicCAS path's depth cap. Beyond Morton's 21-bit resolution,
-     * the fused kernel falls back to rank-based partitioning of each
-     * cell's body range. */
-    for (int level = 0; level < NBODY_CUDA_MAXDEPTH; ++level)
+    /* Process levels 0 .. NBODY_CUDA_MAXDEPTH (inclusive) to match
+     * legacy atomicCAS's depth budget. At level NBODY_CUDA_MAXDEPTH
+     * (= depth 26, my 0-indexed) the fused kernel will apply the
+     * MAXDEPTH-overflow branch instead of allocating new cells, so
+     * no orphan cells get queued. */
+    for (int level = 0; level <= NBODY_CUDA_MAXDEPTH; ++level)
     {
         nbCUDAMortonFusedKernel<<<grid, block>>>(buffers->d_morton,
                                                   buffers->d_sortedIdx,
@@ -1831,6 +1918,7 @@ extern "C" NBodyStatus_int nbCUDABuildTreeMorton(struct NBodyCUDABuffers* buffer
                 profileStepCount, us_morton, us_sort, us_levels, us_total);
         profileStepCount++;
     }
+
     return NBODY_CUDA_SUCCESS;
 }
 

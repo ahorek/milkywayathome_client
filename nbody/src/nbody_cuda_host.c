@@ -866,6 +866,17 @@ NBodyStatus_int nbRunSystemCUDA(const NBodyCtx* ctx, NBodyState* st, const void*
     {
         return NBODY_ERROR;
     }
+
+    /* Diagnostic: print the cumulative max tree depth reached across
+     * the run. For the Morton-buildTree path, this tells us whether
+     * the rank-partition fallback at depth >20 fired (which would
+     * indicate Morton precision wasn't sufficient and explains any
+     * topology divergence from legacy). */
+    {
+        int maxDepth = nbCUDABuffersGetMaxDepth(st->cudaBuffers);
+        fprintf(stderr, "[nbody_cuda] cumulative maxDepth=%d (Morton rank-partition fires at >20)\n", maxDepth);
+    }
+
     return NBODY_SUCCESS;
 }
 
