@@ -790,7 +790,6 @@ extern "C" NBodyStatus_int nbCUDALaunchForceExact(struct NBodyCUDABuffers* buffe
                 cudaGetErrorString(launchErr));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -990,7 +989,6 @@ extern "C" NBodyStatus_int nbCUDALaunchBoundingBox(struct NBodyCUDABuffers* buff
         fprintf(stderr, "[nbody_cuda] boundingBox launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -1035,7 +1033,6 @@ extern "C" NBodyStatus_int nbCUDALaunchBuildTreeClear(struct NBodyCUDABuffers* b
         fprintf(stderr, "[nbody_cuda] buildTreeClear launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -1102,7 +1099,6 @@ extern "C" NBodyStatus_int nbCUDALaunchSummarizationClear(struct NBodyCUDABuffer
         fprintf(stderr, "[nbody_cuda] summarizationClear launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -1260,7 +1256,6 @@ extern "C" NBodyStatus_int nbCUDALaunchSort(struct NBodyCUDABuffers* buffers,
         fprintf(stderr, "[nbody_cuda] sortIdentity launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -1568,7 +1563,6 @@ extern "C" NBodyStatus_int nbCUDALaunchBuildTree(struct NBodyCUDABuffers* buffer
         fprintf(stderr, "[nbody_cuda] buildTree launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -1837,7 +1831,6 @@ extern "C" NBodyStatus_int nbCUDALaunchSummarization(struct NBodyCUDABuffers* bu
         fprintf(stderr, "[nbody_cuda] summarization launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -2118,7 +2111,6 @@ extern "C" NBodyStatus_int nbCUDALaunchQuadMoments(struct NBodyCUDABuffers* buff
         fprintf(stderr, "[nbody_cuda] quadMoments launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -2667,7 +2659,6 @@ extern "C" NBodyStatus_int nbCUDALaunchForceTree(struct NBodyCUDABuffers* buffer
         fprintf(stderr, "[nbody_cuda] forceTree launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -3049,7 +3040,6 @@ extern "C" NBodyStatus_int nbCUDALaunchExternalPotential(
         fprintf(stderr, "[nbody_cuda] externalPotential launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -3189,7 +3179,6 @@ extern "C" NBodyStatus_int nbCUDALaunchIntegration(struct NBodyCUDABuffers* buff
     /* Synchronous semantics: callers expect the device pos/vel to be
      * coherent on return. Asynchronous launch + later sync is a Phase 6
      * optimization. */
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
