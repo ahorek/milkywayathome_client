@@ -224,6 +224,12 @@ NBodyStatus_int nbCUDALaunchQuadMoments(struct NBodyCUDABuffers* buffers,
 NBodyStatus_int nbCUDALaunchQuadPack(struct NBodyCUDABuffers* buffers,
                                      int nNode);
 
+/* Pack (posX, posY, posZ, mass) per index into d_posMassPacked. Run
+ * after Summarization; ForceTree leader reads 1 cache line per
+ * cell visit instead of 4 separate loads from d_pos and d_masses. */
+NBodyStatus_int nbCUDALaunchPosMassPack(struct NBodyCUDABuffers* buffers,
+                                        int nNode);
+
 /* ----- Phase 5b: external Milky Way + LMC potential ----- */
 
 /* Disk model selector. Wire values match the disk_t enum in

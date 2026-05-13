@@ -437,6 +437,7 @@ NBodyStatus_int nbInitCUDA(const NBodyCtx* ctx, NBodyState* st)
             || (nbCUDALaunchBuildTree(st->cudaBuffers, st->nbody, nNode) != 0)
             || (nbCUDALaunchSummarizationClear(st->cudaBuffers, st->nbody, nNode) != 0)
             || (nbCUDALaunchSummarization(st->cudaBuffers, st->nbody, nNode) != 0)
+            || (nbCUDALaunchPosMassPack(st->cudaBuffers, nNode) != 0)
             || (nbCUDALaunchSort(st->cudaBuffers, st->nbody, nNode) != 0)
             || (useQuad && nbCUDALaunchQuadMoments(st->cudaBuffers, nNode) != 0)
             || (useQuad && nbCUDALaunchQuadPack(st->cudaBuffers, nNode) != 0)
@@ -689,6 +690,9 @@ NBodyStatus_int nbStepSystemCUDA(const NBodyCtx* ctx, NBodyState* st)
         KSTART("summarization");
         if (nbCUDALaunchSummarization(st->cudaBuffers, nbody, nNode) != 0)      return NBODY_ERROR;
         KEND("summarization");
+        KSTART("posMassPack");
+        if (nbCUDALaunchPosMassPack(st->cudaBuffers, nNode) != 0)               return NBODY_ERROR;
+        KEND("posMassPack");
         KSTART("sort");
         if (nbCUDALaunchSort(st->cudaBuffers, nbody, nNode) != 0)               return NBODY_ERROR;
         KEND("sort");
