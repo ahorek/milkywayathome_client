@@ -23,6 +23,26 @@
 #include <cstdlib>
 #include <cstdio>
 #include <climits>
+#include <time.h>
+
+/* Thrust + CUB for deterministic sorting in the Morton-code buildTree
+ * path. CUB's DeviceRadixSort::SortPairs (with a Morton128 decomposer)
+ * gives us radix-sort speed on a 128-bit composite key, with a
+ * pre-allocated workspace so we don't pay a cudaMalloc per sort.
+ *
+ * milkyway_config.h (pulled in transitively via nbody_cuda.h) defines
+ * `PACKED` as `__attribute__((packed))`. CUB's block_radix_rank.cuh
+ * uses `PACKED` as a loop variable name, so the macro mangles its
+ * declaration. We don't use PACKED in this TU; undef it before
+ * including thrust/CUB. */
+#ifdef PACKED
+#  undef PACKED
+#endif
+#include <thrust/sort.h>
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <cub/device/device_radix_sort.cuh>
+#include <cuda/std/tuple>
 
 /* Vendored crlibm log_rn for __device__ use. Matches CPU's mw_log()
  * bit-for-bit so per-step rounding errors don't compound chaotically.
@@ -76,6 +96,41 @@ struct NBodyCUDATreeStatus
     int    errorCode;     /* non-zero on assertion failure */
     int    assertionLine; /* source line of failing assertion */
     int    _pad;          /* keep alignment stable across host & device */
+};
+
+/* 128-bit Morton key, used by NBODY_BUILDTREE_MORTON path. Defined
+ * here (rather than next to the kernels that use it) because
+ * nbCUDATreeBuffersAlloc needs the full type for the CUB
+ * DeviceRadixSort temp-storage query. */
+struct __align__(16) Morton128
+{
+    unsigned long long lo;
+    unsigned long long hi;
+};
+
+/* Strict less-than for Morton128 — used as the thrust::sort_by_key
+ * comparator (legacy fallback path). Host+device so thrust can
+ * specialise on either side. */
+struct Morton128Less
+{
+    __host__ __device__ __forceinline__
+    bool operator()(const Morton128& a, const Morton128& b) const
+    {
+        return (a.hi < b.hi) || (a.hi == b.hi && a.lo < b.lo);
+    }
+};
+
+/* Decomposer for cub::DeviceRadixSort::SortPairs. Tuple order is
+ * (hi, lo) — most-significant first. CUB's radix-sort treats the
+ * tuple as a packed key with hi as MSDs, lo as LSDs. */
+struct Morton128Decomposer
+{
+    __host__ __device__ __forceinline__
+    ::cuda::std::tuple<unsigned long long&, unsigned long long&>
+    operator()(Morton128& key) const
+    {
+        return {key.hi, key.lo};
+    }
 };
 
 /* Phase 1: real device-side body storage in struct-of-arrays layout.
@@ -132,7 +187,86 @@ struct NBodyCUDABuffers
     double* d_quadYZ;
     double* d_quadZZ;
 
+    /* Mega-pack: 16 doubles = 128 bytes per index, exactly one V100
+     * L2 cache line. Layout:
+     *   [0..2]  posX, posY, posZ
+     *   [3]     mass
+     *   [4]     critRadii  (rc^2 for cells, 0 for bodies)
+     *   [5..10] quad XX, XY, XZ, YY, YZ, ZZ  (0 for bodies)
+     *   [11..15] padding
+     * Populated by nbCUDACellPackKernel after QuadMoments (so all
+     * components are settled). ForceTree reads pos+mass, critRadii,
+     * AND quad for cell n from the SAME cache line — eliminates the
+     * 3 separate cache-line loads (pmPacked + critRadii + qPacked)
+     * the prior two-pack scheme had. Sized (nNode+1) * 16 doubles
+     * (~10 MB for 80K cells). */
+    double* d_cellPacked;
+
     struct NBodyCUDATreeStatus* d_treeStatus;  /* size 1 */
+
+    /* ----- Morton-based deterministic buildTree scratch -----
+     * Allocated alongside other tree buffers in nbCUDATreeBuffersAlloc.
+     * Always allocated (small footprint) so the path is available at
+     * runtime; Morton is now the default tree builder. */
+    Morton128* d_morton;              /* per-body 128-bit Morton key, size nbody */
+    int*    d_sortedIdx;              /* sort permutation, size nbody */
+
+    /* Per-level work queues, double-buffered. Max cells per level is
+     * bounded by nbody (a level can't have more cells than bodies) and
+     * by nNode - nbody (total cell budget). Size at nbody for safety. */
+    int*    d_lvlInCells;
+    int*    d_lvlInStart;
+    int*    d_lvlInEnd;
+    int*    d_lvlInDepth;
+    int*    d_lvlOutCells;
+    int*    d_lvlOutStart;
+    int*    d_lvlOutEnd;
+    int*    d_lvlOutDepth;
+
+    /* Fused-Morton path: device-side level counters (in_count, out_count).
+     * No host sync needed between levels — the swap kernel handles it. */
+    int*    d_lvlInCount;             /* 1 int */
+    int*    d_lvlOutCount;            /* 1 int */
+
+    /* CUB DeviceRadixSort scratch (opt #23). ComputeMorton writes to
+     * the *Scratch arrays; CUB sorts those into d_morton/d_sortedIdx
+     * with d_sortTempStorage as workspace. Pre-allocated (sized at
+     * tree-buffers init time), so no per-step cudaMalloc. */
+    Morton128* d_mortonScratch;       /* sized as d_morton */
+    int*       d_sortedIdxScratch;    /* sized as d_sortedIdx */
+    void*      d_sortTempStorage;     /* size queried via CUB */
+    size_t     sortTempBytes;
+
+    /* CUDA-graph capture for the Morton tree-build pipeline (opt #24).
+     * Captured ONCE on the first nbCUDABuildTreeMorton call and
+     * replayed every subsequent step, eliminating the ~50 launches'
+     * worth of host-side launch overhead per build. mortonStream is
+     * dedicated to the captured ops; we cudaStreamSynchronize after
+     * each cudaGraphLaunch so the rest of the per-step pipeline
+     * (still on the default stream) sees the new tree. */
+    cudaStream_t   mortonStream;
+    cudaGraph_t    mortonGraph;
+    cudaGraphExec_t mortonGraphExec;
+    int            mortonGraphCaptured; /* 0 until first capture done */
+
+    /* opt #8 elaborate — pinned host buffer + async D2H stream for
+     * bestLikelihood eval. The bestLike window evaluates the per-step
+     * likelihood, which requires the CPU to see the latest body
+     * positions/velocities. Sync nbCUDAMarshalBodiesFromDevice stalls
+     * the GPU pipeline; async D2H lets the next step's GPU kernels
+     * overlap the previous step's D2H + EMD compute on the host.
+     *
+     * Layout of h_pinnedBodies (6*nbody doubles, pinned, contiguous):
+     *   posX[0..nbody)  posY[0..nbody)  posZ[0..nbody)
+     *   velX[0..nbody)  velY[0..nbody)  velZ[0..nbody)
+     *
+     * The previous-step's likelihood eval reads from this buffer;
+     * the current-step's async D2H writes into it (no overlap of
+     * the two — bestLikePending tracks ownership). */
+    double*        h_pinnedBodies;     /* 6 * nbody doubles, pinned */
+    cudaStream_t   bestLikeStream;
+    cudaEvent_t    bestLikeEvent;
+    int            bestLikePending;    /* 1 if an async D2H is in flight */
 };
 
 /* ----- Phase 5c: device introspection helper for the host wrapper ----- */
@@ -140,6 +274,19 @@ struct NBodyCUDABuffers
 extern "C" int nbCUDABuffersGetNbody(const struct NBodyCUDABuffers* buffers)
 {
     return buffers ? buffers->nbody : 0;
+}
+
+/* Read d_treeStatus->maxDepth back to host. Used for diagnostics
+ * (e.g. to check whether the Morton path's rank-partition fallback
+ * at depth >20 ever fires for a given WU). Returns -1 on error. */
+extern "C" int nbCUDABuffersGetMaxDepth(const struct NBodyCUDABuffers* buffers)
+{
+    if (!buffers || !buffers->d_treeStatus) return -1;
+    int maxDepth = -1;
+    cudaError_t e = cudaMemcpy(&maxDepth, &buffers->d_treeStatus->maxDepth,
+                               sizeof(int), cudaMemcpyDeviceToHost);
+    if (e != cudaSuccess) return -1;
+    return maxDepth;
 }
 
 extern "C" int nbCUDABuffersGetNNode(const struct NBodyCUDABuffers* buffers)
@@ -466,42 +613,49 @@ extern "C" NBodyStatus_int nbCUDATreeBuffersAlloc(struct NBodyCUDABuffers* buffe
     const size_t bodyI  = (size_t) buffers->nbody * sizeof(int);
 
     /* Track allocations for rollback on failure. Max we'll allocate
-     * is 6 BB + 4 tree-int + 1 critRadii + 6 quad + 1 status = 18. */
-    void* allocList[24];
+     * is 6 BB + 4 tree-int + 1 critRadii + 6 quad + 1 status + 14
+     * Morton-path = 32. Use 48 for headroom. */
+    void* allocList[48];
     int   nAlloc = 0;
 
     /* Bounding-box per-SM scratch. */
-    if (nbCUDAMallocRecorded((void**) &buffers->d_minX, bbR, allocList, &nAlloc, 24)) goto fail;
-    if (nbCUDAMallocRecorded((void**) &buffers->d_minY, bbR, allocList, &nAlloc, 24)) goto fail;
-    if (nbCUDAMallocRecorded((void**) &buffers->d_minZ, bbR, allocList, &nAlloc, 24)) goto fail;
-    if (nbCUDAMallocRecorded((void**) &buffers->d_maxX, bbR, allocList, &nAlloc, 24)) goto fail;
-    if (nbCUDAMallocRecorded((void**) &buffers->d_maxY, bbR, allocList, &nAlloc, 24)) goto fail;
-    if (nbCUDAMallocRecorded((void**) &buffers->d_maxZ, bbR, allocList, &nAlloc, 24)) goto fail;
+    if (nbCUDAMallocRecorded((void**) &buffers->d_minX, bbR, allocList, &nAlloc, 48)) goto fail;
+    if (nbCUDAMallocRecorded((void**) &buffers->d_minY, bbR, allocList, &nAlloc, 48)) goto fail;
+    if (nbCUDAMallocRecorded((void**) &buffers->d_minZ, bbR, allocList, &nAlloc, 48)) goto fail;
+    if (nbCUDAMallocRecorded((void**) &buffers->d_maxX, bbR, allocList, &nAlloc, 48)) goto fail;
+    if (nbCUDAMallocRecorded((void**) &buffers->d_maxY, bbR, allocList, &nAlloc, 48)) goto fail;
+    if (nbCUDAMallocRecorded((void**) &buffers->d_maxZ, bbR, allocList, &nAlloc, 48)) goto fail;
 
     /* Per-cell ints. */
-    if (nbCUDAMallocRecorded((void**) &buffers->d_start, nodeI,  allocList, &nAlloc, 24)) goto fail;
-    if (nbCUDAMallocRecorded((void**) &buffers->d_count, nodeI,  allocList, &nAlloc, 24)) goto fail;
-    if (nbCUDAMallocRecorded((void**) &buffers->d_sort,  bodyI,  allocList, &nAlloc, 24)) goto fail;
-    if (nbCUDAMallocRecorded((void**) &buffers->d_child, childR, allocList, &nAlloc, 24)) goto fail;
+    if (nbCUDAMallocRecorded((void**) &buffers->d_start, nodeI,  allocList, &nAlloc, 48)) goto fail;
+    if (nbCUDAMallocRecorded((void**) &buffers->d_count, nodeI,  allocList, &nAlloc, 48)) goto fail;
+    if (nbCUDAMallocRecorded((void**) &buffers->d_sort,  bodyI,  allocList, &nAlloc, 48)) goto fail;
+    if (nbCUDAMallocRecorded((void**) &buffers->d_child, childR, allocList, &nAlloc, 48)) goto fail;
 
     /* Per-cell opening criterion radius. */
-    if (nbCUDAMallocRecorded((void**) &buffers->d_critRadii, nodeR, allocList, &nAlloc, 24)) goto fail;
+    if (nbCUDAMallocRecorded((void**) &buffers->d_critRadii, nodeR, allocList, &nAlloc, 48)) goto fail;
 
     /* Quadrupole moments (optional). */
     if (useQuad)
     {
-        if (nbCUDAMallocRecorded((void**) &buffers->d_quadXX, nodeR, allocList, &nAlloc, 24)) goto fail;
-        if (nbCUDAMallocRecorded((void**) &buffers->d_quadXY, nodeR, allocList, &nAlloc, 24)) goto fail;
-        if (nbCUDAMallocRecorded((void**) &buffers->d_quadXZ, nodeR, allocList, &nAlloc, 24)) goto fail;
-        if (nbCUDAMallocRecorded((void**) &buffers->d_quadYY, nodeR, allocList, &nAlloc, 24)) goto fail;
-        if (nbCUDAMallocRecorded((void**) &buffers->d_quadYZ, nodeR, allocList, &nAlloc, 24)) goto fail;
-        if (nbCUDAMallocRecorded((void**) &buffers->d_quadZZ, nodeR, allocList, &nAlloc, 24)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_quadXX, nodeR, allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_quadXY, nodeR, allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_quadXZ, nodeR, allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_quadYY, nodeR, allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_quadYZ, nodeR, allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_quadZZ, nodeR, allocList, &nAlloc, 48)) goto fail;
+    }
+
+    /* Mega-pack: (nNode+1) * 16 doubles. ~10 MB for 80K cells. */
+    {
+        const size_t cellBytes = (size_t) (nNode + 1) * 16 * sizeof(double);
+        if (nbCUDAMallocRecorded((void**) &buffers->d_cellPacked, cellBytes, allocList, &nAlloc, 48)) goto fail;
     }
 
     /* Tree status struct. */
     if (nbCUDAMallocRecorded((void**) &buffers->d_treeStatus,
                              sizeof(struct NBodyCUDATreeStatus),
-                             allocList, &nAlloc, 24)) goto fail;
+                             allocList, &nAlloc, 48)) goto fail;
 
     /* Zero-init the status struct. */
     if (cudaMemset(buffers->d_treeStatus, 0,
@@ -509,6 +663,85 @@ extern "C" NBodyStatus_int nbCUDATreeBuffersAlloc(struct NBodyCUDABuffers* buffe
     {
         goto fail;
     }
+
+    /* ----- Morton-path scratch ----- */
+    {
+        /* d_morton holds Morton128 (16 bytes each); other queues are
+         * int (4 bytes). The buffer struct's d_morton field is typed
+         * as `Morton128*` but Morton128's definition is later in this
+         * TU — cudaMalloc just needs the byte count and a void**. */
+        const size_t nbodyU128 = (size_t) buffers->nbody * 16;
+        const size_t lvlI     = (size_t) buffers->nbody * sizeof(int);
+        if (nbCUDAMallocRecorded((void**) &buffers->d_morton,           nbodyU128, allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_sortedIdx,        lvlI,     allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_mortonScratch,    nbodyU128, allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_sortedIdxScratch, lvlI,     allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_lvlInCells,       lvlI,     allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_lvlInStart,       lvlI,     allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_lvlInEnd,         lvlI,     allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_lvlInDepth,       lvlI,     allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_lvlOutCells,      lvlI,     allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_lvlOutStart,      lvlI,     allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_lvlOutEnd,        lvlI,     allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_lvlOutDepth,      lvlI,     allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_lvlInCount,       sizeof(int), allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_lvlOutCount,      sizeof(int), allocList, &nAlloc, 48)) goto fail;
+
+        /* CUB DeviceRadixSort temp-storage size depends on N and the
+         * key type. Query once (passing nullptr for d_temp_storage)
+         * and pre-allocate. */
+        buffers->sortTempBytes = 0;
+        cudaError_t cubQueryErr = cub::DeviceRadixSort::SortPairs(
+            (void*) nullptr, buffers->sortTempBytes,
+            (const Morton128*) buffers->d_mortonScratch,
+            (Morton128*)       buffers->d_morton,
+            (const int*)       buffers->d_sortedIdxScratch,
+            (int*)             buffers->d_sortedIdx,
+            buffers->nbody,
+            Morton128Decomposer{},
+            0, 128);
+        if (cubQueryErr != cudaSuccess || buffers->sortTempBytes == 0)
+        {
+            fprintf(stderr, "[nbody_cuda] cub::DeviceRadixSort::SortPairs query failed (%s, %zu bytes)\n",
+                    cudaGetErrorString(cubQueryErr), buffers->sortTempBytes);
+            goto fail;
+        }
+        if (nbCUDAMallocRecorded((void**) &buffers->d_sortTempStorage,
+                                 buffers->sortTempBytes,
+                                 allocList, &nAlloc, 48)) goto fail;
+
+        /* opt #24: dedicated stream for CUDA-graph capture of the
+         * Morton tree-build pipeline. Created here, captured on the
+         * first nbCUDABuildTreeMorton call, replayed each step. */
+        if (cudaStreamCreate(&buffers->mortonStream) != cudaSuccess)
+        {
+            buffers->mortonStream = NULL;
+            goto fail;
+        }
+
+        /* opt #8 elaborate: pinned host buffer (sized 6*nbody doubles)
+         * + dedicated stream + completion event for async body D2H.
+         * Failure here is fatal but cleanup is shared with the
+         * outer fail label. */
+        const size_t pinnedBytes = (size_t) 6 * buffers->nbody * sizeof(double);
+        if (cudaMallocHost((void**) &buffers->h_pinnedBodies, pinnedBytes) != cudaSuccess)
+        {
+            buffers->h_pinnedBodies = NULL;
+            goto fail;
+        }
+        if (cudaStreamCreate(&buffers->bestLikeStream) != cudaSuccess)
+        {
+            buffers->bestLikeStream = NULL;
+            goto fail;
+        }
+        if (cudaEventCreateWithFlags(&buffers->bestLikeEvent,
+                                     cudaEventDisableTiming) != cudaSuccess)
+        {
+            buffers->bestLikeEvent = NULL;
+            goto fail;
+        }
+    }
+
     return NBODY_CUDA_SUCCESS;
 
 fail:
@@ -520,7 +753,25 @@ fail:
     buffers->d_critRadii = NULL;
     buffers->d_quadXX = buffers->d_quadXY = buffers->d_quadXZ = NULL;
     buffers->d_quadYY = buffers->d_quadYZ = buffers->d_quadZZ = NULL;
+    buffers->d_cellPacked = NULL;
     buffers->d_treeStatus = NULL;
+    buffers->d_morton = NULL;
+    buffers->d_sortedIdx = NULL;
+    buffers->d_lvlInCells = buffers->d_lvlInStart = buffers->d_lvlInEnd = buffers->d_lvlInDepth = NULL;
+    buffers->d_lvlOutCells = buffers->d_lvlOutStart = buffers->d_lvlOutEnd = buffers->d_lvlOutDepth = NULL;
+    buffers->d_lvlInCount = buffers->d_lvlOutCount = NULL;
+    buffers->d_mortonScratch = NULL;
+    buffers->d_sortedIdxScratch = NULL;
+    buffers->d_sortTempStorage = NULL;
+    buffers->sortTempBytes = 0;
+    buffers->mortonStream = NULL;
+    buffers->mortonGraph = NULL;
+    buffers->mortonGraphExec = NULL;
+    buffers->mortonGraphCaptured = 0;
+    buffers->h_pinnedBodies = NULL;
+    buffers->bestLikeStream = NULL;
+    buffers->bestLikeEvent = NULL;
+    buffers->bestLikePending = 0;
     buffers->nNode = 0;
     return NBODY_CUDA_ERROR;
 }
@@ -557,7 +808,30 @@ extern "C" void nbCUDABuffersFree(struct NBodyCUDABuffers* buffers)
     if (buffers->d_quadYY) cudaFree(buffers->d_quadYY);
     if (buffers->d_quadYZ) cudaFree(buffers->d_quadYZ);
     if (buffers->d_quadZZ) cudaFree(buffers->d_quadZZ);
+    if (buffers->d_cellPacked) cudaFree(buffers->d_cellPacked);
     if (buffers->d_treeStatus) cudaFree(buffers->d_treeStatus);
+    /* Morton-path scratch (NULL-safe). */
+    if (buffers->d_morton)             cudaFree(buffers->d_morton);
+    if (buffers->d_sortedIdx)          cudaFree(buffers->d_sortedIdx);
+    if (buffers->d_lvlInCells)         cudaFree(buffers->d_lvlInCells);
+    if (buffers->d_lvlInStart)         cudaFree(buffers->d_lvlInStart);
+    if (buffers->d_lvlInEnd)           cudaFree(buffers->d_lvlInEnd);
+    if (buffers->d_lvlInDepth)         cudaFree(buffers->d_lvlInDepth);
+    if (buffers->d_lvlOutCells)        cudaFree(buffers->d_lvlOutCells);
+    if (buffers->d_lvlOutStart)        cudaFree(buffers->d_lvlOutStart);
+    if (buffers->d_lvlOutEnd)          cudaFree(buffers->d_lvlOutEnd);
+    if (buffers->d_lvlOutDepth)        cudaFree(buffers->d_lvlOutDepth);
+    if (buffers->d_lvlInCount)         cudaFree(buffers->d_lvlInCount);
+    if (buffers->d_lvlOutCount)        cudaFree(buffers->d_lvlOutCount);
+    if (buffers->d_mortonScratch)      cudaFree(buffers->d_mortonScratch);
+    if (buffers->d_sortedIdxScratch)   cudaFree(buffers->d_sortedIdxScratch);
+    if (buffers->d_sortTempStorage)    cudaFree(buffers->d_sortTempStorage);
+    if (buffers->mortonGraphExec)      cudaGraphExecDestroy(buffers->mortonGraphExec);
+    if (buffers->mortonGraph)          cudaGraphDestroy(buffers->mortonGraph);
+    if (buffers->mortonStream)         cudaStreamDestroy(buffers->mortonStream);
+    if (buffers->h_pinnedBodies)       cudaFreeHost(buffers->h_pinnedBodies);
+    if (buffers->bestLikeStream)       cudaStreamDestroy(buffers->bestLikeStream);
+    if (buffers->bestLikeEvent)        cudaEventDestroy(buffers->bestLikeEvent);
     free(buffers);
 }
 
@@ -603,6 +877,85 @@ extern "C" NBodyStatus_int nbCUDABuffersDownloadBodies(const struct NBodyCUDABuf
     CUDA_CHECK(cudaMemcpy(hVelY, buffers->d_velY, bytes, cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(hVelZ, buffers->d_velZ, bytes, cudaMemcpyDeviceToHost));
     return NBODY_CUDA_SUCCESS;
+}
+
+/* opt #8 elaborate: kick off async D2H of bodies into the buffers'
+ * pinned host buffer (h_pinnedBodies) on bestLikeStream. Records
+ * bestLikeEvent on completion. Caller must NOT touch h_pinnedBodies
+ * until either nbCUDABuffersWaitAsyncBodies has returned or the
+ * caller has cudaEventSynchronize'd bestLikeEvent itself.
+ *
+ * The bestLikeStream first waits on the default stream (via a
+ * temporary event) so the D2H sees the just-completed step's
+ * outputs, then queues 6 cudaMemcpyAsync calls — one per SoA axis. */
+extern "C" NBodyStatus_int nbCUDABuffersStartAsyncBodyMarshal(struct NBodyCUDABuffers* buffers)
+{
+    if (!buffers || !buffers->h_pinnedBodies || !buffers->bestLikeStream) return NBODY_CUDA_ERROR;
+    if (buffers->bestLikePending) return NBODY_CUDA_ERROR;
+
+    /* Make bestLikeStream wait for the default stream so we capture
+     * the most-recent step's body data, not last step's. */
+    cudaEvent_t deps;
+    if (cudaEventCreateWithFlags(&deps, cudaEventDisableTiming) != cudaSuccess) return NBODY_CUDA_ERROR;
+    if (cudaEventRecord(deps, 0) != cudaSuccess) { cudaEventDestroy(deps); return NBODY_CUDA_ERROR; }
+    if (cudaStreamWaitEvent(buffers->bestLikeStream, deps, 0) != cudaSuccess) {
+        cudaEventDestroy(deps); return NBODY_CUDA_ERROR;
+    }
+    cudaEventDestroy(deps);
+
+    const size_t bytes = (size_t) buffers->nbody * sizeof(double);
+    double* p = buffers->h_pinnedBodies;
+    cudaStream_t s = buffers->bestLikeStream;
+
+    if (cudaMemcpyAsync(p + 0 * buffers->nbody, buffers->d_posX, bytes, cudaMemcpyDeviceToHost, s) != cudaSuccess) return NBODY_CUDA_ERROR;
+    if (cudaMemcpyAsync(p + 1 * buffers->nbody, buffers->d_posY, bytes, cudaMemcpyDeviceToHost, s) != cudaSuccess) return NBODY_CUDA_ERROR;
+    if (cudaMemcpyAsync(p + 2 * buffers->nbody, buffers->d_posZ, bytes, cudaMemcpyDeviceToHost, s) != cudaSuccess) return NBODY_CUDA_ERROR;
+    if (cudaMemcpyAsync(p + 3 * buffers->nbody, buffers->d_velX, bytes, cudaMemcpyDeviceToHost, s) != cudaSuccess) return NBODY_CUDA_ERROR;
+    if (cudaMemcpyAsync(p + 4 * buffers->nbody, buffers->d_velY, bytes, cudaMemcpyDeviceToHost, s) != cudaSuccess) return NBODY_CUDA_ERROR;
+    if (cudaMemcpyAsync(p + 5 * buffers->nbody, buffers->d_velZ, bytes, cudaMemcpyDeviceToHost, s) != cudaSuccess) return NBODY_CUDA_ERROR;
+    if (cudaEventRecord(buffers->bestLikeEvent, s) != cudaSuccess) return NBODY_CUDA_ERROR;
+
+    /* Make the default stream wait on bestLikeEvent so the NEXT
+     * step's integration kernel (which writes d_posX/Y/Z and
+     * d_velX/Y/Z) can't run until the async D2H finishes reading
+     * them. Without this, step N+1's integration races with step
+     * N's async D2H. The host can still proceed in parallel —
+     * we're only enforcing GPU-stream ordering. */
+    if (cudaStreamWaitEvent(0, buffers->bestLikeEvent, 0) != cudaSuccess) return NBODY_CUDA_ERROR;
+
+    buffers->bestLikePending = 1;
+    return NBODY_CUDA_SUCCESS;
+}
+
+/* opt #8 elaborate: block until the in-flight async D2H has finished,
+ * then copy the pinned SoA into the caller's per-axis pointers.
+ * Pointers may alias the buffer's pinned region — we use plain
+ * memcpy. Resets bestLikePending. */
+extern "C" NBodyStatus_int nbCUDABuffersWaitAsyncBodies(struct NBodyCUDABuffers* buffers,
+                                                        double* hPosX, double* hPosY, double* hPosZ,
+                                                        double* hVelX, double* hVelY, double* hVelZ)
+{
+    if (!buffers || !buffers->bestLikeEvent) return NBODY_CUDA_ERROR;
+    if (!buffers->bestLikePending) return NBODY_CUDA_ERROR;
+
+    if (cudaEventSynchronize(buffers->bestLikeEvent) != cudaSuccess) return NBODY_CUDA_ERROR;
+
+    const size_t bytes = (size_t) buffers->nbody * sizeof(double);
+    const double* p = buffers->h_pinnedBodies;
+    if (hPosX) memcpy(hPosX, p + 0 * buffers->nbody, bytes);
+    if (hPosY) memcpy(hPosY, p + 1 * buffers->nbody, bytes);
+    if (hPosZ) memcpy(hPosZ, p + 2 * buffers->nbody, bytes);
+    if (hVelX) memcpy(hVelX, p + 3 * buffers->nbody, bytes);
+    if (hVelY) memcpy(hVelY, p + 4 * buffers->nbody, bytes);
+    if (hVelZ) memcpy(hVelZ, p + 5 * buffers->nbody, bytes);
+
+    buffers->bestLikePending = 0;
+    return NBODY_CUDA_SUCCESS;
+}
+
+extern "C" int nbCUDABuffersIsAsyncMarshalPending(const struct NBodyCUDABuffers* buffers)
+{
+    return (buffers && buffers->bestLikePending) ? 1 : 0;
 }
 
 extern "C" NBodyStatus_int nbCUDABuffersUploadAccels(struct NBodyCUDABuffers* buffers,
@@ -790,7 +1143,6 @@ extern "C" NBodyStatus_int nbCUDALaunchForceExact(struct NBodyCUDABuffers* buffe
                 cudaGetErrorString(launchErr));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -990,7 +1342,6 @@ extern "C" NBodyStatus_int nbCUDALaunchBoundingBox(struct NBodyCUDABuffers* buff
         fprintf(stderr, "[nbody_cuda] boundingBox launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -1035,7 +1386,583 @@ extern "C" NBodyStatus_int nbCUDALaunchBuildTreeClear(struct NBodyCUDABuffers* b
         fprintf(stderr, "[nbody_cuda] buildTreeClear launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
+    return NBODY_CUDA_SUCCESS;
+}
+
+/* ===========================================================
+ * Morton-code based deterministic parallel buildTree.
+ * ===========================================================
+ *
+ * The default atomicCAS-based parallel buildTree above produces a
+ * GEOMETRICALLY-CORRECT tree across runs but its cell INDEX assignment
+ * is timing-dependent (atomicSub on d_treeStatus->bottom returns
+ * indices in CAS-winner order). With pinned host memory in play (opt #8
+ * elaborate), the CUDA runtime's scheduling perturbation can flip
+ * resolution of multi-way races, producing different INTERMEDIATE
+ * cell-allocation orders. While the geometric tree is unchanged, the
+ * scheduling perturbation also alters warp execution timing in
+ * downstream kernels (forceTree warp-vote, summarization poll order),
+ * which combined with FP non-associativity yields bit-different
+ * per-step results.
+ *
+ * The Morton-code path eliminates atomicCAS entirely: it computes a
+ * 63-bit Morton (z-order) code per body, deterministically sorts
+ * bodies by (Morton, body_index), and constructs the tree top-down by
+ * partitioning the sorted body list at each octree level. No atomic
+ * contention, fully deterministic cell index assignment regardless of
+ * GPU scheduling.
+ *
+ * Output is in the SAME format as the atomicCAS kernel:
+ *   d_child[NSUB*cell + octant] = body_idx (0..nbody-1)
+ *                                OR cell_idx (nbody..nNode)
+ *                                OR -1 (empty)
+ *   d_posX/Y/Z[cell] = cell geometric centre
+ *   d_critRadii[cell] = cell size (passes through summarization
+ *                       which overwrites with the actual opening
+ *                       criterion radius)
+ *   d_treeStatus->bottom = lowest cell index used
+ *   d_treeStatus->radius = root size (unchanged from bounding box pass)
+ */
+
+/* Morton128 + Morton128Less + Morton128Decomposer are defined near
+ * the top of this TU (above NBodyCUDABuffers) because the CUB
+ * temp-storage query in nbCUDATreeBuffersAlloc needs the complete
+ * type. The kernels below just use those declarations. */
+
+/* Expand 42-bit input to 126 output bits (3*i positions). Returns
+ * the result as a (lo, hi) pair packed into 128 bits. Linear loop
+ * is fine — called once per body per step, parallel across 40K
+ * threads, so per-build cost is in the µs range. */
+__device__ __forceinline__ void mortonExpandBits42(unsigned long long v,
+                                                    unsigned long long* out_lo,
+                                                    unsigned long long* out_hi)
+{
+    unsigned long long lo = 0, hi = 0;
+    #pragma unroll
+    for (int i = 0; i < 42; ++i)
+    {
+        unsigned long long bit = (v >> i) & 1ULL;
+        int pos = 3 * i;
+        if (pos < 64) lo |= bit << pos;
+        else          hi |= bit << (pos - 64);
+    }
+    *out_lo = lo;
+    *out_hi = hi;
+}
+
+/* Extract the 3-bit octant code at tree depth d from a 128-bit
+ * Morton key. Octant bits live at positions (125 - 3d, 124 - 3d,
+ * 123 - 3d) of the 126-bit Morton; we read the 3-bit slice starting
+ * at p = 123 - 3d.
+ *
+ * For 42-bit-per-axis Morton, depth ranges over [0, 41] before the
+ * Morton bits run out. The fused tree builder caps the level loop
+ * at NBODY_CUDA_MAXDEPTH = 26, well within this range. */
+__device__ __forceinline__ unsigned int morton128_octant(const Morton128& m, int depth)
+{
+    const int p = 123 - 3 * depth;
+    if (p >= 64)
+    {
+        return (unsigned int) ((m.hi >> (p - 64)) & 7ULL);
+    }
+    if (p <= 61)
+    {
+        return (unsigned int) ((m.lo >> p) & 7ULL);
+    }
+    /* Straddle: bits at p=62 or p=63 straddle the 64-bit boundary. */
+    if (p == 63)
+    {
+        /* bits 63 (lo), 64 (hi[0]), 65 (hi[1]) */
+        unsigned long long low_part = (m.lo >> 63) & 1ULL;            /* bit 0 of result */
+        unsigned long long hi_part  = (m.hi & 3ULL) << 1;             /* bits 1..2 of result */
+        return (unsigned int) (low_part | hi_part);
+    }
+    /* p == 62: bits 62 (lo), 63 (lo), 64 (hi[0]) */
+    unsigned long long low_part = (m.lo >> 62) & 3ULL;                /* bits 0..1 of result */
+    unsigned long long hi_part  = (m.hi & 1ULL) << 2;                 /* bit 2 of result */
+    return (unsigned int) (low_part | hi_part);
+}
+
+/* Compute 128-bit Morton code for each body. 42 bits per axis × 3
+ * axes = 126 output bits. The code packs interleaved bits of
+ * normalised (px, py, pz) ∈ [0,1] so that bodies in the same root
+ * octant share a 3-bit prefix, same depth-2 octant share 6-bit prefix,
+ * etc. Octant code at depth d = (X<<2)|(Y<<1)|Z, matching the
+ * per-cell octant index used by the BH walk and summarization.
+ *
+ * Normalisation: pos ∈ [-rsize/2, +rsize/2] → t = (pos+half)/rsize
+ * ∈ [0,1]. Multiply by 2^42 and truncate. 42 bits / axis is enough
+ * to resolve any cell down to legacy's MAXDEPTH=26 (which only
+ * resolves bodies separated by 2^-26 of bbox). Beyond depth 26
+ * Morton still has 16 bits of headroom.
+ *
+ * Bit interpretation: at depth d (0 = root), the octant index is
+ * bits (125-3d, 124-3d, 123-3d) of the 126-bit Morton. The
+ * morton128_octant() helper extracts this 3-bit slice from a
+ * (lo, hi) pair. */
+__global__ void nbCUDAComputeMortonKernel(
+    const double* __restrict__ d_posX,
+    const double* __restrict__ d_posY,
+    const double* __restrict__ d_posZ,
+    Morton128* __restrict__ d_morton,
+    int* __restrict__ d_idx,
+    const struct NBodyCUDATreeStatus* __restrict__ d_treeStatus,
+    int nbody)
+{
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= nbody) return;
+
+    /* Root cell SIZE = d_treeStatus->radius (full edge length; bodies
+     * live in [-rsize/2, +rsize/2]). Read once per kernel; the value
+     * was set by boundingBox earlier in this step. */
+    const double rsize = d_treeStatus->radius;
+
+    const double px = d_posX[i];
+    const double py = d_posY[i];
+    const double pz = d_posZ[i];
+
+    /* Map pos in [-rsize/2, +rsize/2] -> [0, 1] -> [0, 1<<42). Use
+     * scale = 2^42 so that t = 0.5 (body at centre) lands on q = 2^41,
+     * with bit-41 set — matches the atomicCAS kernel's "<=" octant
+     * encoding (centre body goes to high octant). For t = 1.0 (body
+     * at +rsize/2), q = 2^42, clamped to 2^42 - 1, still in high
+     * octant. */
+    const double scale = (double) (1ULL << 42);
+    const double half = 0.5 * rsize;
+    double tx = (px + half) / rsize;
+    double ty = (py + half) / rsize;
+    double tz = (pz + half) / rsize;
+    if (tx < 0.0) tx = 0.0; else if (tx > 1.0) tx = 1.0;
+    if (ty < 0.0) ty = 0.0; else if (ty > 1.0) ty = 1.0;
+    if (tz < 0.0) tz = 0.0; else if (tz > 1.0) tz = 1.0;
+    unsigned long long qx = (unsigned long long) (tx * scale);
+    unsigned long long qy = (unsigned long long) (ty * scale);
+    unsigned long long qz = (unsigned long long) (tz * scale);
+    const unsigned long long MAX_Q = (1ULL << 42) - 1ULL;
+    if (qx > MAX_Q) qx = MAX_Q;
+    if (qy > MAX_Q) qy = MAX_Q;
+    if (qz > MAX_Q) qz = MAX_Q;
+
+    /* Expand each axis to a 126-bit (lo, hi) pair, then combine via
+     * (mx<<2) | (my<<1) | mz across the 128-bit pair. */
+    unsigned long long mx_lo, mx_hi, my_lo, my_hi, mz_lo, mz_hi;
+    mortonExpandBits42(qx, &mx_lo, &mx_hi);
+    mortonExpandBits42(qy, &my_lo, &my_hi);
+    mortonExpandBits42(qz, &mz_lo, &mz_hi);
+
+    /* 128-bit left shift by 2: lo<<2, hi = (hi<<2) | (lo>>62). */
+    const unsigned long long mxs_lo = mx_lo << 2;
+    const unsigned long long mxs_hi = (mx_hi << 2) | (mx_lo >> 62);
+    /* 128-bit left shift by 1: lo<<1, hi = (hi<<1) | (lo>>63). */
+    const unsigned long long mys_lo = my_lo << 1;
+    const unsigned long long mys_hi = (my_hi << 1) | (my_lo >> 63);
+    /* mz already at shift 0. */
+
+    Morton128 m;
+    m.lo = mxs_lo | mys_lo | mz_lo;
+    m.hi = mxs_hi | mys_hi | mz_hi;
+    d_morton[i] = m;
+    d_idx[i] = i;
+}
+
+/* The previous launch-wrapper entry points
+ * (nbCUDALaunchComputeMorton, nbCUDALaunchSortByMorton) have been
+ * removed; the Morton orchestrator below calls
+ * nbCUDAComputeMortonKernel and thrust::sort_by_key directly. */
+
+/* Fused per-level kernel: count octants AND emit children in one
+ * pass. Cell indices are allocated via atomicSub on d_treeStatus->bottom
+ * — non-deterministic across runs, but the tree TOPOLOGY (which
+ * bodies live under which cell) is deterministic from sorted-Morton
+ * partitioning, which is what matters for downstream FP determinism:
+ *
+ *   - Summarization (line 2380) COMPACTS non-empty children into
+ *     slots [0..n) in octant-iteration order, so its 8-child sum is
+ *     deterministic from tree topology alone.
+ *   - Force walk visits cells via d_child pointers; visit ORDER is
+ *     determined by tree topology, not by cell indices.
+ *
+ * Thus atomicSub-allocated cells give bit-identical likelihoods
+ * across runs even though their integer indices differ.
+ *
+ * Each thread handles one cell from the level-in queue. New cells go
+ * into the level-out queue at positions allocated via atomicAdd on
+ * d_outCount. d_inCount/d_outCount are pure device-side counters: no
+ * host syncs needed between levels. */
+__global__ void nbCUDAMortonFusedKernel(
+    const Morton128* __restrict__ d_morton,
+    const int* __restrict__ d_sortedIdx,
+    const int* __restrict__ d_lvlInCells,
+    const int* __restrict__ d_lvlInStart,
+    const int* __restrict__ d_lvlInEnd,
+    const int* __restrict__ d_lvlInDepth,
+    const int* __restrict__ d_inCount,
+    int* __restrict__ d_lvlOutCells,
+    int* __restrict__ d_lvlOutStart,
+    int* __restrict__ d_lvlOutEnd,
+    int* __restrict__ d_lvlOutDepth,
+    int* __restrict__ d_outCount,
+    int* __restrict__ d_child,
+    double* __restrict__ d_posX,
+    double* __restrict__ d_posY,
+    double* __restrict__ d_posZ,
+    double* __restrict__ d_critRadii,
+    struct NBodyCUDATreeStatus* d_treeStatus,
+    int nbody, int nNode)
+{
+    const int c = blockIdx.x * blockDim.x + threadIdx.x;
+    const int inCount = *d_inCount;
+    if (c >= inCount) return;
+
+    const int cellIdx = d_lvlInCells[c];
+    const int start   = d_lvlInStart[c];
+    const int end     = d_lvlInEnd[c];
+    const int depth   = d_lvlInDepth[c];
+
+    /* Per-cell depth tracking: bubble up to d_treeStatus->maxDepth so
+     * downstream kernels (quadMoments) see a consistent max-depth
+     * value. Each cell's `depth + 1` is the deepest LEVEL its
+     * children populate at; threads racing on atomicMax is fine. */
+    atomicMax(&d_treeStatus->maxDepth, depth + 1);
+
+    /* 128-bit Morton boundary search: 7 binary searches in the
+     * sorted d_morton range, using morton128_octant() to extract the
+     * 3-bit octant code at this depth. 42 bits/axis covers depth
+     * 0..41 — well past the legacy MAXDEPTH=26 cap, so the
+     * rank-partition fallback below should never fire on a realistic
+     * WU. */
+    int boundaries[9];
+    boundaries[0] = start;
+    boundaries[8] = end;
+    if (depth <= 41)
+    {
+        #pragma unroll
+        for (int o = 1; o < 8; ++o)
+        {
+            int lo = start, hi = end;
+            while (lo < hi)
+            {
+                int mid = (lo + hi) >> 1;
+                unsigned int oct = morton128_octant(d_morton[mid], depth);
+                if (oct < (unsigned int) o) lo = mid + 1;
+                else hi = mid;
+            }
+            boundaries[o] = lo;
+        }
+    }
+    else
+    {
+        /* Defensive only: depth >41 should never happen for realistic
+         * WUs given NBODY_CUDA_MAXDEPTH=26. If hit, partition the
+         * sorted body range evenly by rank so the tree-build still
+         * terminates without orphan cells (which would NaN-hang quad
+         * moments). errorCode is set so the host knows precision
+         * was exceeded. */
+        const int rangeLen = end - start;
+        #pragma unroll
+        for (int o = 0; o <= 8; ++o)
+        {
+            boundaries[o] = start + (o * rangeLen) / 8;
+        }
+        if (threadIdx.x == 0 && blockIdx.x == 0)
+            d_treeStatus->errorCode = 3;
+    }
+
+    /* Read parent cell geometry (set by boundingBox or by a previous
+     * level's emit for non-root cells). */
+    const double cx    = d_posX[cellIdx];
+    const double cy    = d_posY[cellIdx];
+    const double cz    = d_posZ[cellIdx];
+    const double csize = d_critRadii[cellIdx];
+
+    const double cellSize = 0.5  * csize;
+    const double offset   = 0.25 * csize;
+
+    #pragma unroll
+    for (int o = 0; o < 8; ++o)
+    {
+        int s = boundaries[o];
+        int e = boundaries[o + 1];
+        int cnt = e - s;
+        int slot = NBODY_CUDA_NSUB * cellIdx + o;
+
+        if (cnt == 0)
+        {
+            d_child[slot] = -1;
+        }
+        else if (cnt == 1)
+        {
+            d_child[slot] = d_sortedIdx[s];
+        }
+        else if (depth + 1 > NBODY_CUDA_MAXDEPTH)
+        {
+            /* MAXDEPTH overflow — matches legacy atomicCAS's behavior:
+             * legacy's split loop exits via `depth > NBODY_CUDA_MAXDEPTH`,
+             * after which `d_child[NSUB*n+j] = i` places the body
+             * currently being inserted, OVERWRITING the previously-placed
+             * body in that slot. Net effect: one body retained per slot,
+             * others lost; errorCode is set.
+             *
+             * The "i" body in legacy's race is determined by thread
+             * scheduling (not deterministic across runs with pinned, but
+             * deterministic without). To approximate legacy's choice, we
+             * keep the body with the HIGHEST body_idx in the range — the
+             * intuition is that legacy's stride-based body assignment
+             * (thread tid handles bodies tid, tid+inc, tid+2*inc, ...)
+             * tends to make higher-idx bodies "win" the deepest split
+             * because they're processed in later iterations of each
+             * thread's loop. This is an approximation, not bit-exact. */
+            d_child[slot] = d_sortedIdx[e - 1];
+            d_treeStatus->errorCode = 1;
+        }
+        else
+        {
+            int newCell = atomicSub(&d_treeStatus->bottom, 1) - 1;
+
+            double cnx = cx + ((o & 4) ? offset : -offset);
+            double cny = cy + ((o & 2) ? offset : -offset);
+            double cnz = cz + ((o & 1) ? offset : -offset);
+
+            d_posX[newCell] = cnx;
+            d_posY[newCell] = cny;
+            d_posZ[newCell] = cnz;
+            d_critRadii[newCell] = cellSize;
+
+            d_child[slot] = newCell;
+
+            int q = atomicAdd(d_outCount, 1);
+            d_lvlOutCells[q] = newCell;
+            d_lvlOutStart[q] = s;
+            d_lvlOutEnd[q]   = e;
+            d_lvlOutDepth[q] = depth + 1;
+        }
+    }
+}
+
+/* Tiny kernel: in_count = out_count; out_count = 0. */
+__global__ void nbCUDAMortonSwapCountersKernel(int* d_inCount, int* d_outCount)
+{
+    if (threadIdx.x == 0 && blockIdx.x == 0)
+    {
+        *d_inCount = *d_outCount;
+        *d_outCount = 0;
+    }
+}
+
+/* Tiny kernel: seed the level-in queue with the root cell AND set
+ * counters (in_count=1, out_count=0). One thread does all of it. */
+__global__ void nbCUDAMortonSeedRootKernel(int* d_lvlInCells,
+                                           int* d_lvlInStart,
+                                           int* d_lvlInEnd,
+                                           int* d_lvlInDepth,
+                                           int* d_inCount,
+                                           int* d_outCount,
+                                           int nNode,
+                                           int nbody)
+{
+    if (threadIdx.x == 0 && blockIdx.x == 0)
+    {
+        d_lvlInCells[0] = nNode;
+        d_lvlInStart[0] = 0;
+        d_lvlInEnd[0]   = nbody;
+        d_lvlInDepth[0] = 0;
+        *d_inCount  = 1;
+        *d_outCount = 0;
+    }
+}
+
+/* ============================================================
+ * nbCUDABuildTreeMorton — full deterministic tree builder.
+ * ============================================================
+ *
+ * Phases:
+ *   1. Compute Morton code per body and seed the sort permutation.
+ *   2. thrust::sort_by_key on (morton, body_idx). Output sorted in
+ *      ascending Morton order.
+ *   3. Seed the level queue with the root cell covering [0, nbody)
+ *      at depth 0.
+ *   4. Loop: while inCount > 0 and depth <= MAXDEPTH:
+ *      4a. Count kernel: per-cell, find 8 octant boundaries via
+ *          binary search; set predicate[i] = 1 if octant i has >=2
+ *          bodies.
+ *      4b. thrust::exclusive_scan over predicate -> offsets.
+ *      4c. Read offsets[N-1] + predicate[N-1] = totalNew via a
+ *          pinned-host async readback.
+ *      4d. Emit kernel: allocate (oldBottom-1, oldBottom-2, ...)
+ *          deterministically, write d_child slots, set new cell
+ *          geometry, enqueue children in out-queue.
+ *      4e. oldBottom -= totalNew; swap in/out; inCount = totalNew.
+ *   5. Write final bottom to d_treeStatus->bottom.
+ *
+ * The reads in 4c are the only host syncs. With max ~21 levels per
+ * step and ~17000 steps per WU, that's ~360K sync points. Each sync
+ * is ~10us, so ~3.6s of sync overhead per WU. Acceptable given the
+ * determinism win.
+ */
+/* Per-phase timers, enabled by NBODY_BUILDTREE_MORTON_PROFILE=1. The
+ * first NBODY_MORTON_PROFILE_STEPS calls write a CSV row to stderr
+ * with elapsed microseconds per phase. */
+#define NBODY_MORTON_PROFILE_STEPS 5
+
+/* Issue the entire Morton tree-build pipeline onto `stream`. Used
+ * both to capture the CUDA graph (first call) and as the fallback
+ * if graph launch isn't available. All kernels are launched on
+ * `stream` so they can be captured into a single graph. */
+static cudaError_t nbCUDAMortonRecord(struct NBodyCUDABuffers* buffers,
+                                      int nbody, int nNode,
+                                      cudaStream_t stream)
+{
+    cudaError_t err;
+
+    const int block = NBODY_CUDA_BLOCK;
+    const int grid  = (nbody + block - 1) / block;
+
+    /* Phase 1: Morton compute → *Scratch arrays. */
+    nbCUDAComputeMortonKernel<<<grid, block, 0, stream>>>(
+        buffers->d_posX, buffers->d_posY, buffers->d_posZ,
+        buffers->d_mortonScratch, buffers->d_sortedIdxScratch,
+        buffers->d_treeStatus, nbody);
+    if ((err = cudaGetLastError()) != cudaSuccess) return err;
+
+    /* Phase 2: CUB radix sort, decomposer-driven, on the same stream. */
+    err = cub::DeviceRadixSort::SortPairs(
+        buffers->d_sortTempStorage, buffers->sortTempBytes,
+        (const Morton128*) buffers->d_mortonScratch,
+        (Morton128*)       buffers->d_morton,
+        (const int*)       buffers->d_sortedIdxScratch,
+        (int*)             buffers->d_sortedIdx,
+        nbody,
+        Morton128Decomposer{},
+        0, 128, stream);
+    if (err != cudaSuccess) return err;
+
+    /* Phase 3: seed root cell + reset counters. */
+    nbCUDAMortonSeedRootKernel<<<1, 32, 0, stream>>>(
+        buffers->d_lvlInCells, buffers->d_lvlInStart,
+        buffers->d_lvlInEnd,   buffers->d_lvlInDepth,
+        buffers->d_lvlInCount, buffers->d_lvlOutCount,
+        nNode, nbody);
+    if ((err = cudaGetLastError()) != cudaSuccess) return err;
+
+    /* Phase 4: alternating fused + swap-counter, MAXDEPTH+1 iterations.
+     * Pointers alternate per iteration so each iteration's `in` =
+     * previous iteration's `out`. The pointer pairs cycle through
+     * 2 values, so we just swap on host between launches. The kernel
+     * args differ per iteration, baking into separate graph nodes. */
+    int* lvlInCells   = buffers->d_lvlInCells;
+    int* lvlInStart   = buffers->d_lvlInStart;
+    int* lvlInEnd     = buffers->d_lvlInEnd;
+    int* lvlInDepth   = buffers->d_lvlInDepth;
+    int* lvlOutCells  = buffers->d_lvlOutCells;
+    int* lvlOutStart  = buffers->d_lvlOutStart;
+    int* lvlOutEnd    = buffers->d_lvlOutEnd;
+    int* lvlOutDepth  = buffers->d_lvlOutDepth;
+    for (int level = 0; level <= NBODY_CUDA_MAXDEPTH; ++level)
+    {
+        nbCUDAMortonFusedKernel<<<grid, block, 0, stream>>>(
+            buffers->d_morton, buffers->d_sortedIdx,
+            lvlInCells, lvlInStart, lvlInEnd, lvlInDepth,
+            buffers->d_lvlInCount,
+            lvlOutCells, lvlOutStart, lvlOutEnd, lvlOutDepth,
+            buffers->d_lvlOutCount,
+            buffers->d_child,
+            buffers->d_posX, buffers->d_posY, buffers->d_posZ,
+            buffers->d_critRadii,
+            buffers->d_treeStatus,
+            nbody, nNode);
+        nbCUDAMortonSwapCountersKernel<<<1, 32, 0, stream>>>(
+            buffers->d_lvlInCount, buffers->d_lvlOutCount);
+        { int* t = lvlInCells; lvlInCells = lvlOutCells; lvlOutCells = t; }
+        { int* t = lvlInStart; lvlInStart = lvlOutStart; lvlOutStart = t; }
+        { int* t = lvlInEnd;   lvlInEnd   = lvlOutEnd;   lvlOutEnd   = t; }
+        { int* t = lvlInDepth; lvlInDepth = lvlOutDepth; lvlOutDepth = t; }
+    }
+    return cudaGetLastError();
+}
+
+extern "C" NBodyStatus_int nbCUDABuildTreeMorton(struct NBodyCUDABuffers* buffers,
+                                                 int nbody,
+                                                 int nNode)
+{
+    if (!buffers || !buffers->d_treeStatus || !buffers->d_child) return NBODY_CUDA_ERROR;
+    if (!buffers->d_morton || !buffers->d_sortedIdx) return NBODY_CUDA_ERROR;
+    if (nbody != buffers->nbody) return NBODY_CUDA_ERROR;
+    if (!buffers->mortonStream) return NBODY_CUDA_ERROR;
+
+    static int profileCachedFlag = -1;
+    static int profileStepCount = 0;
+    if (profileCachedFlag < 0) {
+        const char* e = getenv("NBODY_BUILDTREE_MORTON_PROFILE");
+        profileCachedFlag = (e && e[0] && e[0] != '0') ? 1 : 0;
+    }
+    int doProfile = profileCachedFlag && (profileStepCount < NBODY_MORTON_PROFILE_STEPS);
+
+    auto syncNow = [](){ cudaDeviceSynchronize(); };
+    struct timespec t0, t1, t2, t3, t4, t5;
+    if (doProfile) {
+        syncNow();
+        clock_gettime(CLOCK_MONOTONIC, &t0);
+    }
+    cudaError_t err;
+
+    /* opt #24: capture-and-replay via CUDA graphs. First call captures
+     * the entire Morton pipeline onto buffers->mortonStream and
+     * instantiates an executable graph; subsequent calls replay the
+     * graph (single launch instead of ~50 individual kernel launches).
+     *
+     * After launching (capture or replay), cudaStreamSynchronize the
+     * mortonStream so the subsequent default-stream pipeline (Sort,
+     * Summarization, etc.) sees the new tree. */
+    if (!buffers->mortonGraphCaptured)
+    {
+        if ((err = cudaStreamBeginCapture(buffers->mortonStream,
+                                          cudaStreamCaptureModeThreadLocal)) != cudaSuccess) {
+            fprintf(stderr, "[nbody_cuda] morton graph beginCapture: %s\n", cudaGetErrorString(err));
+            return NBODY_CUDA_ERROR;
+        }
+        if ((err = nbCUDAMortonRecord(buffers, nbody, nNode, buffers->mortonStream)) != cudaSuccess) {
+            cudaStreamEndCapture(buffers->mortonStream, &buffers->mortonGraph);
+            fprintf(stderr, "[nbody_cuda] morton record (capture): %s\n", cudaGetErrorString(err));
+            return NBODY_CUDA_ERROR;
+        }
+        if ((err = cudaStreamEndCapture(buffers->mortonStream, &buffers->mortonGraph)) != cudaSuccess) {
+            fprintf(stderr, "[nbody_cuda] morton graph endCapture: %s\n", cudaGetErrorString(err));
+            return NBODY_CUDA_ERROR;
+        }
+        if ((err = cudaGraphInstantiate(&buffers->mortonGraphExec,
+                                         buffers->mortonGraph,
+                                         nullptr, nullptr, 0)) != cudaSuccess) {
+            fprintf(stderr, "[nbody_cuda] morton graph instantiate: %s\n", cudaGetErrorString(err));
+            return NBODY_CUDA_ERROR;
+        }
+        buffers->mortonGraphCaptured = 1;
+    }
+
+    if ((err = cudaGraphLaunch(buffers->mortonGraphExec, buffers->mortonStream)) != cudaSuccess) {
+        fprintf(stderr, "[nbody_cuda] morton graph launch: %s\n", cudaGetErrorString(err));
+        return NBODY_CUDA_ERROR;
+    }
+    if ((err = cudaStreamSynchronize(buffers->mortonStream)) != cudaSuccess) {
+        fprintf(stderr, "[nbody_cuda] morton stream sync: %s\n", cudaGetErrorString(err));
+        return NBODY_CUDA_ERROR;
+    }
+    if (doProfile) { syncNow(); clock_gettime(CLOCK_MONOTONIC, &t3); }
+    /* Phases 1-4 were captured; t2 == t3 is fine for the legacy
+     * profile output below. */
+    t2 = t3;
+
+    if (doProfile) {
+        syncNow();
+        clock_gettime(CLOCK_MONOTONIC, &t5);
+        long us_morton     = (t2.tv_sec - t0.tv_sec)*1000000L + (t2.tv_nsec - t0.tv_nsec)/1000L;
+        long us_sort       = (t3.tv_sec - t2.tv_sec)*1000000L + (t3.tv_nsec - t2.tv_nsec)/1000L;
+        long us_levels     = (t5.tv_sec - t3.tv_sec)*1000000L + (t5.tv_nsec - t3.tv_nsec)/1000L;
+        long us_total      = (t5.tv_sec - t0.tv_sec)*1000000L + (t5.tv_nsec - t0.tv_nsec)/1000L;
+        fprintf(stderr, "[morton-prof step%d] morton=%ldus sort=%ldus 21-levels=%ldus total=%ldus\n",
+                profileStepCount, us_morton, us_sort, us_levels, us_total);
+        profileStepCount++;
+    }
+
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -1102,7 +2029,6 @@ extern "C" NBodyStatus_int nbCUDALaunchSummarizationClear(struct NBodyCUDABuffer
         fprintf(stderr, "[nbody_cuda] summarizationClear launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -1260,7 +2186,6 @@ extern "C" NBodyStatus_int nbCUDALaunchSort(struct NBodyCUDABuffers* buffers,
         fprintf(stderr, "[nbody_cuda] sortIdentity launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -1550,6 +2475,22 @@ extern "C" NBodyStatus_int nbCUDALaunchBuildTree(struct NBodyCUDABuffers* buffer
     if (!buffers || !buffers->d_treeStatus || !buffers->d_child) return NBODY_CUDA_ERROR;
     if (nbody != buffers->nbody) return NBODY_CUDA_ERROR;
 
+    /* Dispatch: deterministic Morton tree builder is the default; the
+     * legacy atomicCAS path is kept as an opt-out via
+     * NBODY_BUILDTREE_MORTON=0 for debugging only. Morton is required
+     * for opt #8 elaborate (pinned + async D->H of bodies for
+     * bestLikelihood eval) to remain deterministic. */
+    {
+        static int useMortonCached = -1;
+        if (useMortonCached < 0) {
+            const char* env = getenv("NBODY_BUILDTREE_MORTON");
+            useMortonCached = (env && env[0] == '0') ? 0 : 1;
+        }
+        if (useMortonCached) {
+            return nbCUDABuildTreeMorton(buffers, nbody, nNode);
+        }
+    }
+
     const int block = NBODY_CUDA_BLOCK;
     /* OpenCL ws->blocks[2] = 2 * maxCompUnits; mirror that here. */
     int grid = 2 * (buffers->numSMs > 0 ? buffers->numSMs : 1);
@@ -1568,7 +2509,6 @@ extern "C" NBodyStatus_int nbCUDALaunchBuildTree(struct NBodyCUDABuffers* buffer
         fprintf(stderr, "[nbody_cuda] buildTree launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -1837,7 +2777,6 @@ extern "C" NBodyStatus_int nbCUDALaunchSummarization(struct NBodyCUDABuffers* bu
         fprintf(stderr, "[nbody_cuda] summarization launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -2118,7 +3057,114 @@ extern "C" NBodyStatus_int nbCUDALaunchQuadMoments(struct NBodyCUDABuffers* buff
         fprintf(stderr, "[nbody_cuda] quadMoments launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
+    return NBODY_CUDA_SUCCESS;
+}
+
+/* Mega-pack: 16 doubles per index = exactly one 128-byte cache line.
+ * Combines pos+mass + critRadii + quad into a single contiguous
+ * layout so forceTree's leader read (pos+mass) and all-lane
+ * broadcasts (critRadii, quad) hit the SAME cache line for cell n.
+ * Replaces the prior pmpack + quadPack split.
+ *
+ * Layout per index k:
+ *   k*16 + 0..2 = posX, posY, posZ
+ *   k*16 + 3    = mass
+ *   k*16 + 4    = critRadii (rc^2 after summarization for cells; 0 for bodies)
+ *   k*16 + 5..10 = quad XX, XY, XZ, YY, YZ, ZZ
+ *   k*16 + 11..15 = padding to keep cell-aligned cache lines
+ *
+ * Run after QuadMoments (so quad components are settled). For bodies
+ * (k < nbody), d_critRadii[k] is 0 and d_quad** is NaN — we zero
+ * those to keep ForceTree's NaN check from spuriously rejecting body
+ * cases that go through the same code path. */
+__global__ void nbCUDACellPackKernel(
+    const double* __restrict__ d_posX,
+    const double* __restrict__ d_posY,
+    const double* __restrict__ d_posZ,
+    const double* __restrict__ d_masses,
+    const double* __restrict__ d_critRadii,
+    const double* __restrict__ d_quadXX,
+    const double* __restrict__ d_quadXY,
+    const double* __restrict__ d_quadXZ,
+    const double* __restrict__ d_quadYY,
+    const double* __restrict__ d_quadYZ,
+    const double* __restrict__ d_quadZZ,
+    double* __restrict__ d_cellPacked,
+    int nNode,
+    int nbody)
+{
+    const int k = blockIdx.x * blockDim.x + threadIdx.x;
+    if (k > nNode) return;
+    const int o = k * 16;
+    d_cellPacked[o + 0]  = d_posX[k];
+    d_cellPacked[o + 1]  = d_posY[k];
+    d_cellPacked[o + 2]  = d_posZ[k];
+    d_cellPacked[o + 3]  = d_masses[k];
+    if (k < nbody)
+    {
+        /* Bodies don't have rc^2 or quad — zero so the same read
+         * path in forceTree works without an n-vs-nbody branch
+         * on the packed read. */
+        d_cellPacked[o + 4]  = 0.0;
+        d_cellPacked[o + 5]  = 0.0;
+        d_cellPacked[o + 6]  = 0.0;
+        d_cellPacked[o + 7]  = 0.0;
+        d_cellPacked[o + 8]  = 0.0;
+        d_cellPacked[o + 9]  = 0.0;
+        d_cellPacked[o + 10] = 0.0;
+    }
+    else
+    {
+        d_cellPacked[o + 4]  = d_critRadii[k];
+        d_cellPacked[o + 5]  = d_quadXX[k];
+        d_cellPacked[o + 6]  = d_quadXY[k];
+        d_cellPacked[o + 7]  = d_quadXZ[k];
+        d_cellPacked[o + 8]  = d_quadYY[k];
+        d_cellPacked[o + 9]  = d_quadYZ[k];
+        d_cellPacked[o + 10] = d_quadZZ[k];
+    }
+    d_cellPacked[o + 11] = 0.0;
+    d_cellPacked[o + 12] = 0.0;
+    d_cellPacked[o + 13] = 0.0;
+    d_cellPacked[o + 14] = 0.0;
+    d_cellPacked[o + 15] = 0.0;
+}
+
+extern "C" NBodyStatus_int nbCUDALaunchCellPack(struct NBodyCUDABuffers* buffers,
+                                                int nNode)
+{
+    if (!buffers || !buffers->d_cellPacked) return NBODY_CUDA_ERROR;
+    /* useQuad-off path: d_quad** may be NULL. Detect and zero
+     * the quad slots from the kernel by skipping them; for now
+     * we require useQuad. (forceTree's useQuad branch handles
+     * the !useQuad case via the existing quad-zero pattern.) */
+    if (!buffers->d_quadXX)
+    {
+        /* Without quad allocated, just use pmpack for pos+mass and
+         * a separate critRadii path. Not currently exercised. */
+        return NBODY_CUDA_ERROR;
+    }
+    const int block = NBODY_CUDA_BLOCK;
+    const int grid  = (nNode + 1 + block - 1) / block;
+    nbCUDACellPackKernel<<<grid, block>>>(buffers->d_posX,
+                                           buffers->d_posY,
+                                           buffers->d_posZ,
+                                           buffers->d_masses,
+                                           buffers->d_critRadii,
+                                           buffers->d_quadXX,
+                                           buffers->d_quadXY,
+                                           buffers->d_quadXZ,
+                                           buffers->d_quadYY,
+                                           buffers->d_quadYZ,
+                                           buffers->d_quadZZ,
+                                           buffers->d_cellPacked,
+                                           nNode,
+                                           buffers->nbody);
+    cudaError_t e = cudaGetLastError();
+    if (e != cudaSuccess) {
+        fprintf(stderr, "[nbody_cuda] cellPack launch: %s\n", cudaGetErrorString(e));
+        return NBODY_CUDA_ERROR;
+    }
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -2158,7 +3204,8 @@ __device__ __constant__ double kSecondHalfBranch = -1024.0;
  * stack arrays are always allocated but only loaded/used when the flag
  * is set. USE_EXTERNAL_POTENTIAL is dropped — that lives in Phase 5b. */
 
-__global__ void nbCUDAForceTreeKernel(
+__global__
+void nbCUDAForceTreeKernel(
     const double* __restrict__ d_posX,
     const double* __restrict__ d_posY,
     const double* __restrict__ d_posZ,
@@ -2172,12 +3219,7 @@ __global__ void nbCUDAForceTreeKernel(
     const int* __restrict__ d_sort,
     const int* __restrict__ d_child,
     const double* __restrict__ d_critRadii,
-    const double* __restrict__ d_quadXX,
-    const double* __restrict__ d_quadXY,
-    const double* __restrict__ d_quadXZ,
-    const double* __restrict__ d_quadYY,
-    const double* __restrict__ d_quadYZ,
-    const double* __restrict__ d_quadZZ,
+    const double* __restrict__ d_cellPacked,    /* hot path uses this */
     struct NBodyCUDATreeStatus* d_treeStatus,
     int    nbody,
     int    nNode,
@@ -2197,59 +3239,30 @@ __global__ void nbCUDAForceTreeKernel(
     __shared__ unsigned int maxDepth;
     __shared__ double rootCritRadius;
 
-    /* Per-warp child broadcast slots (lane 0 writes, all lanes read). */
-    __shared__ volatile int    ch[kWarpsPerBlock];
-    __shared__ volatile double nx[kWarpsPerBlock];
-    __shared__ volatile double ny[kWarpsPerBlock];
-    __shared__ volatile double nz[kWarpsPerBlock];
-    __shared__ volatile double nm[kWarpsPerBlock];
+    /* (formerly per-warp child broadcast slots — now broadcast via
+     * __shfl_sync register-to-register, which is faster than the
+     * shared-mem write+read+__syncwarp triple.) */
 
     /* Per-warp DFS stacks (MAXDEPTH entries each). */
     __shared__ volatile int    pos [kStackSlots];
     __shared__ volatile int    node[kStackSlots];
     __shared__ volatile double dq  [kStackSlots];
 
-    /* Quadrupole stacks: always allocated, only populated when
-     * useQuad is non-zero. ~9.7 KB total — fits easily in shared mem. */
-    __shared__ volatile double quadXX[kStackSlots];
-    __shared__ volatile double quadXY[kStackSlots];
-    __shared__ volatile double quadXZ[kStackSlots];
-    __shared__ volatile double quadYY[kStackSlots];
-    __shared__ volatile double quadYZ[kStackSlots];
-    __shared__ volatile double quadZZ[kStackSlots];
-
-    /* Root-cell quadrupole snapshot (one per block). */
-    __shared__ double rootQXX, rootQXY, rootQXZ;
-    __shared__ double rootQYY, rootQYZ;
-    __shared__ double rootQZZ;
+    /* Note: there used to be __shared__ quad{XX,XY,XZ,YY,YZ,ZZ}[]
+     * depth-stacks here (~9.7 KB), populated on every cell-open path
+     * via volatile loads of d_quad** at the child's index, with NaN
+     * fallback. The values were never READ anywhere — the accept
+     * path uses the child's quad directly via d_quadPacked. The
+     * stacks were vestigial from an earlier version; removing them
+     * frees 9.7 KB of shared memory per block AND eliminates the 6
+     * per-open-path volatile loads (~6s wall on long WU). The
+     * root-cell quad snapshot (rootQXX..ZZ) was dead for the same
+     * reason and is gone too. */
 
     /* Thread 0 reads the per-step tree status + root cell data once. */
     if (threadIdx.x == 0)
     {
         maxDepth = (unsigned int) d_treeStatus->maxDepth;
-
-        if (useQuad)
-        {
-            /* All-volatile reads + collective NaN check, matching the
-             * open-cell quad load below. */
-            double qxx = *(volatile double*) &d_quadXX[nNode];
-            double qxy = *(volatile double*) &d_quadXY[nNode];
-            double qxz = *(volatile double*) &d_quadXZ[nNode];
-            double qyy = *(volatile double*) &d_quadYY[nNode];
-            double qyz = *(volatile double*) &d_quadYZ[nNode];
-            double qzz = *(volatile double*) &d_quadZZ[nNode];
-            if (isnan(qxx) || isnan(qxy) || isnan(qxz)
-                || isnan(qyy) || isnan(qyz) || isnan(qzz))
-            {
-                rootQXX = rootQXY = rootQXZ = 0.0;
-                rootQYY = rootQYZ = rootQZZ = 0.0;
-            }
-            else
-            {
-                rootQXX = qxx; rootQXY = qxy; rootQXZ = qxz;
-                rootQYY = qyy; rootQYZ = qyz; rootQZZ = qzz;
-            }
-        }
 
         /* TREECODE branch: opening-criterion radius is per-cell, set
          * up by the summarization pass; we just read the root's value. */
@@ -2296,9 +3309,14 @@ __global__ void nbCUDAForceTreeKernel(
         if (alive)
         {
             i  = d_sort[k];      /* permuted body index */
-            px = d_posX[i];
-            py = d_posY[i];
-            pz = d_posZ[i];
+            /* __ldg: read-only / texture-cache load. Bypasses the
+             * -dlcm=cv L1-bypass set globally for buildTree
+             * determinism; safe here because d_pos* is mutated by
+             * the integration kernel which runs AFTER forceTree, so
+             * the values are stable for the duration of this launch. */
+            px = __ldg(&d_posX[i]);
+            py = __ldg(&d_posY[i]);
+            pz = __ldg(&d_posZ[i]);
         }
         else
         {
@@ -2331,16 +3349,6 @@ __global__ void nbCUDAForceTreeKernel(
             node[j] = nNode;
             pos[j]  = 0;
             dq[j]   = rootCritRadius;
-
-            if (useQuad)
-            {
-                quadXX[j] = rootQXX;
-                quadXY[j] = rootQXY;
-                quadXZ[j] = rootQXZ;
-                quadYY[j] = rootQYY;
-                quadYZ[j] = rootQYZ;
-                quadZZ[j] = rootQZZ;
-            }
         }
         /* Volta+ uses independent thread scheduling: lanes in a warp
          * may run out of step until an explicit sync. The OpenCL
@@ -2357,35 +3365,49 @@ __global__ void nbCUDAForceTreeKernel(
             /* Stack frame at `depth` still has more children to process. */
             while ((curPos = pos[depth]) < NBODY_CUDA_NSUB)
             {
-                int n;
+                int n = -1;
+                double nx_loc = 0.0, ny_loc = 0.0, nz_loc = 0.0, nm_loc = 0.0;
                 if (leader)
                 {
                     /* Leader fetches the next child of node[depth] and
-                     * broadcasts it (plus its mass/position if non-NULL)
-                     * into the warp-scoped shared slot. */
+                     * its mass/position; broadcast to lanes via
+                     * __shfl_sync below. */
                     n = d_child[NBODY_CUDA_NSUB * node[depth] + curPos];
                     pos[depth] = curPos + 1;
-                    ch[base] = n;
                     if (n >= 0)
                     {
-                        nx[base] = d_posX[n];
-                        ny[base] = d_posY[n];
-                        nz[base] = d_posZ[n];
-                        nm[base] = d_masses[n];
+                        /* Mega-packed cell data: 16 doubles per index,
+                         * one 128-byte cache line. Slots [0..3] are
+                         * pos+mass. Critically, the SAME cache line
+                         * also holds critRadii[4] and quad[5..10],
+                         * so the all-lane broadcast reads below
+                         * (childCrit and the accept-case quad) hit
+                         * the same line that this leader load
+                         * brought in. */
+                        const double* pm = d_cellPacked + (size_t)n * 16;
+                        nx_loc = pm[0];
+                        ny_loc = pm[1];
+                        nz_loc = pm[2];
+                        nm_loc = pm[3];
                     }
                 }
-                /* See note above: __syncwarp gives the memory visibility
-                 * the OpenCL mem_fence relied on plus the warp re-convergence
-                 * Volta+ no longer guarantees implicitly. */
-                __syncwarp();
+                /* Broadcast leader's values to all lanes via warp
+                 * shuffle. __shfl_sync is a register-to-register move
+                 * (single instruction) and provides warp-level
+                 * synchronization, replacing the previous shared-mem
+                 * + __syncwarp + shared-read triple. srcLane=0 means
+                 * the warp's lane-0 (the leader). */
+                n = __shfl_sync(0xFFFFFFFFu, n, 0);
+                nx_loc = __shfl_sync(0xFFFFFFFFu, nx_loc, 0);
+                ny_loc = __shfl_sync(0xFFFFFFFFu, ny_loc, 0);
+                nz_loc = __shfl_sync(0xFFFFFFFFu, nz_loc, 0);
+                nm_loc = __shfl_sync(0xFFFFFFFFu, nm_loc, 0);
 
-                /* All lanes pick up the broadcast value. */
-                n = ch[base];
                 if (n >= 0)
                 {
-                    const double dx = nx[base] - px;
-                    const double dy = ny[base] - py;
-                    const double dz = nz[base] - pz;
+                    const double dx = nx_loc - px;
+                    const double dy = ny_loc - py;
+                    const double dz = nz_loc - pz;
                     double rSq = dx*dx + dy*dy + dz*dz;
 
                     /* Reset skip mode when warp has popped back at or
@@ -2409,7 +3431,9 @@ __global__ void nbCUDAForceTreeKernel(
                      * the warp-uniform stack invariant. With full mask
                      * we suppress dead lanes' vote via `&& alive`. */
                     const bool isBody = (n < nbody);
-                    const double childCrit = isBody ? 0.0 : d_critRadii[n];
+                    /* d_cellPacked[n*16 + 4] is critRadii. Same cache
+                     * line as the leader's pos+mass load above. */
+                    const double childCrit = d_cellPacked[(size_t)n * 16 + 4];
                     const bool laneActive = alive && (lane_skip_depth < 0);
                     const bool laneAccepts = laneActive && (isBody || (rSq >= childCrit));
                     const bool laneWantsOpen = laneActive && !isBody && !(rSq >= childCrit);
@@ -2432,7 +3456,7 @@ __global__ void nbCUDAForceTreeKernel(
                          * per step over 64673 steps. */
                         rSq += eps2;
                         const double r    = sqrt(rSq);
-                        const double phii = nm[base] / r;
+                        const double phii = nm_loc / r;
                         const double ai   = phii / rSq;
 
                         ax += ai * dx;
@@ -2441,18 +3465,18 @@ __global__ void nbCUDAForceTreeKernel(
 
                         if (useQuad && n >= nbody)
                         {
-                            /* Use child n's OWN quad (CPU's Quad(q) where
-                             * q is the visited node), not the parent's
-                             * (quadXX[depth] = node[depth] = parent of n
-                             * in the OpenCL/CUDA convention). All-6 NaN
-                             * check + zero fallback to defend against
+                            /* Quad components live at d_cellPacked
+                             * offset n*16 + 5..10 — same cache line
+                             * as the leader's pos+mass load above.
+                             * NaN-check stays as defense against
                              * partial-init in any cell. */
-                            const double q_xx = d_quadXX[n];
-                            const double q_xy = d_quadXY[n];
-                            const double q_xz = d_quadXZ[n];
-                            const double q_yy = d_quadYY[n];
-                            const double q_yz = d_quadYZ[n];
-                            const double q_zz = d_quadZZ[n];
+                            const double* qp = d_cellPacked + (size_t)n * 16 + 5;
+                            const double q_xx = qp[0];
+                            const double q_xy = qp[1];
+                            const double q_xz = qp[2];
+                            const double q_yy = qp[3];
+                            const double q_yz = qp[4];
+                            const double q_zz = qp[5];
 
                             const bool qok = !(isnan(q_xx) || isnan(q_xy) || isnan(q_xz)
                                             || isnan(q_yy) || isnan(q_yz) || isnan(q_zz));
@@ -2505,35 +3529,6 @@ __global__ void nbCUDAForceTreeKernel(
                             node[depth] = n;
                             pos[depth]  = 0;
                             dq[depth]   = d_critRadii[n];
-
-                            if (useQuad)
-                            {
-                                double qxx = *(volatile double*) &d_quadXX[n];
-                                double qxy = *(volatile double*) &d_quadXY[n];
-                                double qxz = *(volatile double*) &d_quadXZ[n];
-                                double qyy = *(volatile double*) &d_quadYY[n];
-                                double qyz = *(volatile double*) &d_quadYZ[n];
-                                double qzz = *(volatile double*) &d_quadZZ[n];
-                                if (isnan(qxx) || isnan(qxy) || isnan(qxz)
-                                    || isnan(qyy) || isnan(qyz) || isnan(qzz))
-                                {
-                                    quadXX[depth] = 0.0;
-                                    quadXY[depth] = 0.0;
-                                    quadXZ[depth] = 0.0;
-                                    quadYY[depth] = 0.0;
-                                    quadYZ[depth] = 0.0;
-                                    quadZZ[depth] = 0.0;
-                                }
-                                else
-                                {
-                                    quadXX[depth] = qxx;
-                                    quadXY[depth] = qxy;
-                                    quadXZ[depth] = qxz;
-                                    quadYY[depth] = qyy;
-                                    quadYZ[depth] = qyz;
-                                    quadZZ[depth] = qzz;
-                                }
-                            }
                         }
                         __syncwarp();
                     }
@@ -2646,12 +3641,7 @@ extern "C" NBodyStatus_int nbCUDALaunchForceTree(struct NBodyCUDABuffers* buffer
                                            buffers->d_sort,
                                            buffers->d_child,
                                            buffers->d_critRadii,
-                                           buffers->d_quadXX,
-                                           buffers->d_quadXY,
-                                           buffers->d_quadXZ,
-                                           buffers->d_quadYY,
-                                           buffers->d_quadYZ,
-                                           buffers->d_quadZZ,
+                                           buffers->d_cellPacked,
                                            buffers->d_treeStatus,
                                            nbody,
                                            nNode,
@@ -2667,7 +3657,6 @@ extern "C" NBodyStatus_int nbCUDALaunchForceTree(struct NBodyCUDABuffers* buffer
         fprintf(stderr, "[nbody_cuda] forceTree launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -3049,7 +4038,6 @@ extern "C" NBodyStatus_int nbCUDALaunchExternalPotential(
         fprintf(stderr, "[nbody_cuda] externalPotential launch: %s\n", cudaGetErrorString(e));
         return NBODY_CUDA_ERROR;
     }
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 
@@ -3189,7 +4177,6 @@ extern "C" NBodyStatus_int nbCUDALaunchIntegration(struct NBodyCUDABuffers* buff
     /* Synchronous semantics: callers expect the device pos/vel to be
      * coherent on return. Asynchronous launch + later sync is a Phase 6
      * optimization. */
-    CUDA_CHECK(cudaDeviceSynchronize());
     return NBODY_CUDA_SUCCESS;
 }
 

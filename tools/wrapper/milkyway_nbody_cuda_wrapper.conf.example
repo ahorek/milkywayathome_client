@@ -1,0 +1,44 @@
+# milkyway_nbody_cuda_wrapper.conf — example for a 1-GPU host
+# running 2 tasks per GPU.
+#
+# To use, copy this file (without the .example suffix) to one of:
+#   ./milkyway_nbody_cuda_wrapper.conf       (sibling of wrapper; needs app_info.xml file_ref)
+#   ~/.config/milkyway_nbody_cuda_wrapper.conf   (per-user, no app_info.xml change)
+#   /etc/milkyway_nbody_cuda_wrapper.conf    (system-wide)
+#
+# Then set BOINC's app_config.xml <project_max_concurrent> to match
+# total slot count (= N_GPUs × MW_TASKS_PER_GPU = 1 × 2 = 2 here).
+
+# ---- Concurrency ----
+
+# Number of concurrent BOINC tasks allowed on each GPU.
+# Default: 1.
+# 2 is a good starting point for V100/A100/RTX-class cards on small
+# WUs; raise if you observe GPU underutilization, lower if individual
+# tasks slow down too much under contention.
+MW_TASKS_PER_GPU=2
+
+# ---- GPU selection (optional) ----
+
+# Comma-separated allowlist of GPU indices to use. Omit / leave unset
+# to use every CUDA-visible GPU. With a single GPU on the host you
+# can skip this entirely; the wrapper uses GPU 0 automatically.
+#
+# Example for a multi-GPU box where GPU 0 drives the display and you
+# only want BOINC on GPUs 1+:
+# MW_GPU_INDICES="1,2,3"
+
+# ---- Other tunables (rarely needed) ----
+
+# Path override for the milkyway_nbody binary (defaults: ./milkyway_nbody.bh,
+# then a sibling of this wrapper script).
+# MW_NBODY_BIN="/path/to/milkyway_nbody"
+
+# Per-uid lock directory override. Defaults to $XDG_RUNTIME_DIR/milkyway_gpu
+# or /tmp/milkyway_gpu_<uid>. Locks are kernel-released on process exit so
+# crashes / aborts never strand a slot.
+# MW_LOCK_DIR="/tmp/my_custom_dir"
+
+# If 1, drop --use-cuda and run on CPU when no GPU is detected
+# (default 0 = error out instead).
+# MW_FALLBACK_CPU=0

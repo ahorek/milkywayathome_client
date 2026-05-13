@@ -26,6 +26,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "nbody_types.h"
 #include "milkyway_math.h"
@@ -438,6 +439,7 @@ NBodyStatus_int nbInitCUDA(const NBodyCtx* ctx, NBodyState* st)
             || (nbCUDALaunchSummarization(st->cudaBuffers, st->nbody, nNode) != 0)
             || (nbCUDALaunchSort(st->cudaBuffers, st->nbody, nNode) != 0)
             || (useQuad && nbCUDALaunchQuadMoments(st->cudaBuffers, nNode) != 0)
+            || (useQuad && nbCUDALaunchCellPack(st->cudaBuffers, nNode) != 0)
             || (nbCUDALaunchForceTree(st->cudaBuffers, st->nbody, nNode,
                                       ctx->eps2, ctx->theta, useQuad,
                                       /*updateVel=*/0,
@@ -695,6 +697,9 @@ NBodyStatus_int nbStepSystemCUDA(const NBodyCtx* ctx, NBodyState* st)
             KSTART("quadMoments");
             if (nbCUDALaunchQuadMoments(st->cudaBuffers, nNode) != 0)           return NBODY_ERROR;
             KEND("quadMoments");
+            KSTART("cellPack");
+            if (nbCUDALaunchCellPack(st->cudaBuffers, nNode) != 0)              return NBODY_ERROR;
+            KEND("cellPack");
         }
 
         KSTART("forceTree");
@@ -769,6 +774,20 @@ NBodyStatus_int nbRunSystemCUDA(const NBodyCtx* ctx, NBodyState* st, const void*
 
     const real Nstep = (real) ctx->nStep;
 
+    /* Optional steps-per-second heartbeat. Enabled via env
+     * NBODY_CUDA_STEP_HEARTBEAT=N (print every N steps). Useful for
+     * comparing forward-sim throughput across builds. */
+    int hb_every = 0;
+    {
+        const char* hbe = getenv("NBODY_CUDA_STEP_HEARTBEAT");
+        if (hbe && hbe[0] && hbe[0] != '0') hb_every = atoi(hbe);
+    }
+    struct timespec hb_t0, hb_t_prev;
+    if (hb_every > 0) {
+        clock_gettime(CLOCK_MONOTONIC, &hb_t0);
+        hb_t_prev = hb_t0;
+    }
+
     while (st->step < ctx->nStep)
     {
         if (nbStepSystemCUDA(ctx, st) != NBODY_SUCCESS)
@@ -776,25 +795,58 @@ NBodyStatus_int nbRunSystemCUDA(const NBodyCtx* ctx, NBodyState* st, const void*
             return NBODY_ERROR;
         }
 
-        /* Mirror the CPU loop: when we're in the BestLikeStart window
-         * and useBestLike is on, evaluate the likelihood every step so
-         * st->bestLikelihood tracks the best one seen. nbReportResults
-         * reads bestLikelihood at the end; without this update it stays
-         * at DEFAULT_WORST_CASE and the run reports a catastrophic
-         * value even when the trajectory is fine. The per-step cost is
-         * an EMD/likelihood eval over ~20K bodies — much smaller than a
-         * step's kernel time on this device, but still non-trivial, so
-         * we gate on the same condition the CPU uses. */
+        if (hb_every > 0 && (st->step % hb_every == 0)) {
+            struct timespec t1;
+            clock_gettime(CLOCK_MONOTONIC, &t1);
+            double dt_total = (t1.tv_sec - hb_t0.tv_sec) + (t1.tv_nsec - hb_t0.tv_nsec) / 1e9;
+            double dt_recent = (t1.tv_sec - hb_t_prev.tv_sec) + (t1.tv_nsec - hb_t_prev.tv_nsec) / 1e9;
+            fprintf(stderr, "[step-hb] step=%d/%d  recent=%.2fms/step (last %d)  total=%.1fs  rate=%.1fsteps/s\n",
+                    (int) st->step, (int) ctx->nStep,
+                    dt_recent * 1000.0 / hb_every, hb_every,
+                    dt_total, st->step / dt_total);
+            hb_t_prev = t1;
+        }
+
+        /* opt #8 elaborate: in the BestLikeStart window, kick off an
+         * async D2H of THIS step's bodies on a dedicated stream, and
+         * only EVALUATE the likelihood for the PREVIOUS step's bodies
+         * (already in the pinned buffer from last iteration's async
+         * copy). The result is bestLikelihood lags by one step, which
+         * doesn't change the "best across the window" computation —
+         * but the per-step D2H + EMD eval now overlaps the next step's
+         * GPU compute, eliminating the GPU-idle stall that the prior
+         * sync-marshal-then-eval pattern had. */
         if (nbf && ctx->useBestLike)
         {
             const real frac = (real) st->step / Nstep;
             if (frac >= ctx->BestLikeStart)
             {
-                if (nbCUDAMarshalBodiesFromDevice(st) != NBODY_SUCCESS)
+                /* Drain the previous step's pending async marshal, if
+                 * any, into bodytab and run the eval. Skipped on the
+                 * first step in the window. */
+                if (nbCUDABuffersIsAsyncMarshalPending(st->cudaBuffers))
+                {
+                    double* sc = nbCUDAAllocSoAScratch(st->nbody);
+                    if (!sc) return NBODY_ERROR;
+                    int rc = nbCUDABuffersWaitAsyncBodies(
+                        st->cudaBuffers,
+                        sc + 0 * (size_t) st->nbody,
+                        sc + 1 * (size_t) st->nbody,
+                        sc + 2 * (size_t) st->nbody,
+                        sc + 3 * (size_t) st->nbody,
+                        sc + 4 * (size_t) st->nbody,
+                        sc + 5 * (size_t) st->nbody);
+                    if (rc == 0) nbCUDAUnpackSoAToBodies(sc, st->bodytab, st->nbody);
+                    free(sc);
+                    if (rc != 0) return NBODY_ERROR;
+                    (void) nbGetLikelihoodForBest(ctx, st, nbf);
+                }
+                /* Kick off async D2H of THIS step's bodies — to be
+                 * drained on the NEXT iteration. */
+                if (nbCUDABuffersStartAsyncBodyMarshal(st->cudaBuffers) != NBODY_SUCCESS)
                 {
                     return NBODY_ERROR;
                 }
-                (void) nbGetLikelihoodForBest(ctx, st, nbf);
             }
         }
 
@@ -807,11 +859,16 @@ NBodyStatus_int nbRunSystemCUDA(const NBodyCtx* ctx, NBodyState* st, const void*
         /* Checkpoint when BOINC asks OR every NBODY_CUDA_CKPT_EVERY
          * steps (whichever fires first). The step-count fallback gives
          * users live progress visibility even in standalone mode where
-         * boinc_time_to_checkpoint cadence is sparse. Cost is one D2H
-         * marshal + one fwrite of the body array per checkpoint —
-         * negligible relative to the per-step kernel cost. */
+         * boinc_time_to_checkpoint cadence is sparse. Each checkpoint
+         * is a synchronous D2H marshal (stalls the GPU pipeline) plus
+         * an fwrite of the body array. Cadence raised from 50 to 500
+         * — at 50 a typical 50K-step WU paid ~1000 GPU pipeline stalls;
+         * 500 cuts that to ~100 while still bounding crash-recovery
+         * cost to ~5 sec of work (500 × ~10 ms/step). BOINC's
+         * time-based checkpoint still fires for longer-interval crash
+         * recovery. */
         #ifndef NBODY_CUDA_CKPT_EVERY
-          #define NBODY_CUDA_CKPT_EVERY 50
+          #define NBODY_CUDA_CKPT_EVERY 500
         #endif
         const int forceCheckpoint = (st->step % NBODY_CUDA_CKPT_EVERY == 0);
         if (forceCheckpoint || nbTimeToCheckpoint(ctx, st))
@@ -828,12 +885,43 @@ NBodyStatus_int nbRunSystemCUDA(const NBodyCtx* ctx, NBodyState* st, const void*
         }
     }
 
+    /* Drain any final pending async-marshal from the bestLike window
+     * so the last step's likelihood gets evaluated before we marshal
+     * the post-loop final state. */
+    if (nbf && ctx->useBestLike && nbCUDABuffersIsAsyncMarshalPending(st->cudaBuffers))
+    {
+        double* sc = nbCUDAAllocSoAScratch(st->nbody);
+        if (!sc) return NBODY_ERROR;
+        int rc = nbCUDABuffersWaitAsyncBodies(
+            st->cudaBuffers,
+            sc + 0 * (size_t) st->nbody,
+            sc + 1 * (size_t) st->nbody,
+            sc + 2 * (size_t) st->nbody,
+            sc + 3 * (size_t) st->nbody,
+            sc + 4 * (size_t) st->nbody,
+            sc + 5 * (size_t) st->nbody);
+        if (rc == 0) nbCUDAUnpackSoAToBodies(sc, st->bodytab, st->nbody);
+        free(sc);
+        if (rc != 0) return NBODY_ERROR;
+        (void) nbGetLikelihoodForBest(ctx, st, nbf);
+    }
+
     /* Pull final body state back to host so any post-loop CPU code
      * (likelihood/histogram/output) sees the latest pos/vel. */
     if (nbCUDAMarshalBodiesFromDevice(st) != NBODY_SUCCESS)
     {
         return NBODY_ERROR;
     }
+
+    /* Diagnostic: cumulative max tree depth reached across the run.
+     * For the Morton-buildTree path, depth > NBODY_CUDA_MAXDEPTH+1
+     * means the MAXDEPTH-overflow branch fired and some bodies were
+     * dropped to match legacy's atomicCAS overflow semantics. */
+    {
+        int maxDepth = nbCUDABuffersGetMaxDepth(st->cudaBuffers);
+        fprintf(stderr, "[nbody_cuda] cumulative maxDepth=%d\n", maxDepth);
+    }
+
     return NBODY_SUCCESS;
 }
 
