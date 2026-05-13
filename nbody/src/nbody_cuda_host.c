@@ -439,6 +439,7 @@ NBodyStatus_int nbInitCUDA(const NBodyCtx* ctx, NBodyState* st)
             || (nbCUDALaunchSummarization(st->cudaBuffers, st->nbody, nNode) != 0)
             || (nbCUDALaunchSort(st->cudaBuffers, st->nbody, nNode) != 0)
             || (useQuad && nbCUDALaunchQuadMoments(st->cudaBuffers, nNode) != 0)
+            || (useQuad && nbCUDALaunchQuadPack(st->cudaBuffers, nNode) != 0)
             || (nbCUDALaunchForceTree(st->cudaBuffers, st->nbody, nNode,
                                       ctx->eps2, ctx->theta, useQuad,
                                       /*updateVel=*/0,
@@ -696,6 +697,9 @@ NBodyStatus_int nbStepSystemCUDA(const NBodyCtx* ctx, NBodyState* st)
             KSTART("quadMoments");
             if (nbCUDALaunchQuadMoments(st->cudaBuffers, nNode) != 0)           return NBODY_ERROR;
             KEND("quadMoments");
+            KSTART("quadPack");
+            if (nbCUDALaunchQuadPack(st->cudaBuffers, nNode) != 0)              return NBODY_ERROR;
+            KEND("quadPack");
         }
 
         KSTART("forceTree");

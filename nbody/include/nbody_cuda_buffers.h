@@ -218,6 +218,12 @@ NBodyStatus_int nbCUDALaunchSort(struct NBodyCUDABuffers* buffers,
 NBodyStatus_int nbCUDALaunchQuadMoments(struct NBodyCUDABuffers* buffers,
                                         int nNode);
 
+/* Pack the 6 d_quad** arrays into a single d_quadPacked array (cell
+ * N's 6 components contiguous at offset N*8). Run after QuadMoments;
+ * ForceTree reads from packed for coalesced access. */
+NBodyStatus_int nbCUDALaunchQuadPack(struct NBodyCUDABuffers* buffers,
+                                     int nNode);
+
 /* ----- Phase 5b: external Milky Way + LMC potential ----- */
 
 /* Disk model selector. Wire values match the disk_t enum in
