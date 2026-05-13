@@ -803,25 +803,46 @@ NBodyStatus_int nbRunSystemCUDA(const NBodyCtx* ctx, NBodyState* st, const void*
             hb_t_prev = t1;
         }
 
-        /* Mirror the CPU loop: when we're in the BestLikeStart window
-         * and useBestLike is on, evaluate the likelihood every step so
-         * st->bestLikelihood tracks the best one seen. nbReportResults
-         * reads bestLikelihood at the end; without this update it stays
-         * at DEFAULT_WORST_CASE and the run reports a catastrophic
-         * value even when the trajectory is fine. The per-step cost is
-         * an EMD/likelihood eval over ~20K bodies — much smaller than a
-         * step's kernel time on this device, but still non-trivial, so
-         * we gate on the same condition the CPU uses. */
+        /* opt #8 elaborate: in the BestLikeStart window, kick off an
+         * async D2H of THIS step's bodies on a dedicated stream, and
+         * only EVALUATE the likelihood for the PREVIOUS step's bodies
+         * (already in the pinned buffer from last iteration's async
+         * copy). The result is bestLikelihood lags by one step, which
+         * doesn't change the "best across the window" computation —
+         * but the per-step D2H + EMD eval now overlaps the next step's
+         * GPU compute, eliminating the GPU-idle stall that the prior
+         * sync-marshal-then-eval pattern had. */
         if (nbf && ctx->useBestLike)
         {
             const real frac = (real) st->step / Nstep;
             if (frac >= ctx->BestLikeStart)
             {
-                if (nbCUDAMarshalBodiesFromDevice(st) != NBODY_SUCCESS)
+                /* Drain the previous step's pending async marshal, if
+                 * any, into bodytab and run the eval. Skipped on the
+                 * first step in the window. */
+                if (nbCUDABuffersIsAsyncMarshalPending(st->cudaBuffers))
+                {
+                    double* sc = nbCUDAAllocSoAScratch(st->nbody);
+                    if (!sc) return NBODY_ERROR;
+                    int rc = nbCUDABuffersWaitAsyncBodies(
+                        st->cudaBuffers,
+                        sc + 0 * (size_t) st->nbody,
+                        sc + 1 * (size_t) st->nbody,
+                        sc + 2 * (size_t) st->nbody,
+                        sc + 3 * (size_t) st->nbody,
+                        sc + 4 * (size_t) st->nbody,
+                        sc + 5 * (size_t) st->nbody);
+                    if (rc == 0) nbCUDAUnpackSoAToBodies(sc, st->bodytab, st->nbody);
+                    free(sc);
+                    if (rc != 0) return NBODY_ERROR;
+                    (void) nbGetLikelihoodForBest(ctx, st, nbf);
+                }
+                /* Kick off async D2H of THIS step's bodies — to be
+                 * drained on the NEXT iteration. */
+                if (nbCUDABuffersStartAsyncBodyMarshal(st->cudaBuffers) != NBODY_SUCCESS)
                 {
                     return NBODY_ERROR;
                 }
-                (void) nbGetLikelihoodForBest(ctx, st, nbf);
             }
         }
 
@@ -860,6 +881,27 @@ NBodyStatus_int nbRunSystemCUDA(const NBodyCtx* ctx, NBodyState* st, const void*
         }
     }
 
+    /* Drain any final pending async-marshal from the bestLike window
+     * so the last step's likelihood gets evaluated before we marshal
+     * the post-loop final state. */
+    if (nbf && ctx->useBestLike && nbCUDABuffersIsAsyncMarshalPending(st->cudaBuffers))
+    {
+        double* sc = nbCUDAAllocSoAScratch(st->nbody);
+        if (!sc) return NBODY_ERROR;
+        int rc = nbCUDABuffersWaitAsyncBodies(
+            st->cudaBuffers,
+            sc + 0 * (size_t) st->nbody,
+            sc + 1 * (size_t) st->nbody,
+            sc + 2 * (size_t) st->nbody,
+            sc + 3 * (size_t) st->nbody,
+            sc + 4 * (size_t) st->nbody,
+            sc + 5 * (size_t) st->nbody);
+        if (rc == 0) nbCUDAUnpackSoAToBodies(sc, st->bodytab, st->nbody);
+        free(sc);
+        if (rc != 0) return NBODY_ERROR;
+        (void) nbGetLikelihoodForBest(ctx, st, nbf);
+    }
+
     /* Pull final body state back to host so any post-loop CPU code
      * (likelihood/histogram/output) sees the latest pos/vel. */
     if (nbCUDAMarshalBodiesFromDevice(st) != NBODY_SUCCESS)
@@ -867,14 +909,13 @@ NBodyStatus_int nbRunSystemCUDA(const NBodyCtx* ctx, NBodyState* st, const void*
         return NBODY_ERROR;
     }
 
-    /* Diagnostic: print the cumulative max tree depth reached across
-     * the run. For the Morton-buildTree path, this tells us whether
-     * the rank-partition fallback at depth >20 fired (which would
-     * indicate Morton precision wasn't sufficient and explains any
-     * topology divergence from legacy). */
+    /* Diagnostic: cumulative max tree depth reached across the run.
+     * For the Morton-buildTree path, depth > NBODY_CUDA_MAXDEPTH+1
+     * means the MAXDEPTH-overflow branch fired and some bodies were
+     * dropped to match legacy's atomicCAS overflow semantics. */
     {
         int maxDepth = nbCUDABuffersGetMaxDepth(st->cudaBuffers);
-        fprintf(stderr, "[nbody_cuda] cumulative maxDepth=%d (Morton rank-partition fires at >20)\n", maxDepth);
+        fprintf(stderr, "[nbody_cuda] cumulative maxDepth=%d\n", maxDepth);
     }
 
     return NBODY_SUCCESS;

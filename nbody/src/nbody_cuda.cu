@@ -25,7 +25,10 @@
 #include <climits>
 #include <time.h>
 
-/* Thrust for deterministic sorting in the Morton-code buildTree path.
+/* Thrust + CUB for deterministic sorting in the Morton-code buildTree
+ * path. CUB's DeviceRadixSort::SortPairs (with a Morton128 decomposer)
+ * gives us radix-sort speed on a 128-bit composite key, with a
+ * pre-allocated workspace so we don't pay a cudaMalloc per sort.
  *
  * milkyway_config.h (pulled in transitively via nbody_cuda.h) defines
  * `PACKED` as `__attribute__((packed))`. CUB's block_radix_rank.cuh
@@ -38,6 +41,8 @@
 #include <thrust/sort.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
+#include <cub/device/device_radix_sort.cuh>
+#include <cuda/std/tuple>
 
 /* Vendored crlibm log_rn for __device__ use. Matches CPU's mw_log()
  * bit-for-bit so per-step rounding errors don't compound chaotically.
@@ -93,9 +98,40 @@ struct NBodyCUDATreeStatus
     int    _pad;          /* keep alignment stable across host & device */
 };
 
-/* 128-bit Morton key, used by NBODY_BUILDTREE_MORTON path. Full
- * definition appears later (alongside the kernels that use it). */
-struct Morton128;
+/* 128-bit Morton key, used by NBODY_BUILDTREE_MORTON path. Defined
+ * here (rather than next to the kernels that use it) because
+ * nbCUDATreeBuffersAlloc needs the full type for the CUB
+ * DeviceRadixSort temp-storage query. */
+struct __align__(16) Morton128
+{
+    unsigned long long lo;
+    unsigned long long hi;
+};
+
+/* Strict less-than for Morton128 — used as the thrust::sort_by_key
+ * comparator (legacy fallback path). Host+device so thrust can
+ * specialise on either side. */
+struct Morton128Less
+{
+    __host__ __device__ __forceinline__
+    bool operator()(const Morton128& a, const Morton128& b) const
+    {
+        return (a.hi < b.hi) || (a.hi == b.hi && a.lo < b.lo);
+    }
+};
+
+/* Decomposer for cub::DeviceRadixSort::SortPairs. Tuple order is
+ * (hi, lo) — most-significant first. CUB's radix-sort treats the
+ * tuple as a packed key with hi as MSDs, lo as LSDs. */
+struct Morton128Decomposer
+{
+    __host__ __device__ __forceinline__
+    ::cuda::std::tuple<unsigned long long&, unsigned long long&>
+    operator()(Morton128& key) const
+    {
+        return {key.hi, key.lo};
+    }
+};
 
 /* Phase 1: real device-side body storage in struct-of-arrays layout.
  * Phase 4: extended with Barnes-Hut tree storage.
@@ -189,6 +225,46 @@ struct NBodyCUDABuffers
      * No host sync needed between levels — the swap kernel handles it. */
     int*    d_lvlInCount;             /* 1 int */
     int*    d_lvlOutCount;            /* 1 int */
+
+    /* CUB DeviceRadixSort scratch (opt #23). ComputeMorton writes to
+     * the *Scratch arrays; CUB sorts those into d_morton/d_sortedIdx
+     * with d_sortTempStorage as workspace. Pre-allocated (sized at
+     * tree-buffers init time), so no per-step cudaMalloc. */
+    Morton128* d_mortonScratch;       /* sized as d_morton */
+    int*       d_sortedIdxScratch;    /* sized as d_sortedIdx */
+    void*      d_sortTempStorage;     /* size queried via CUB */
+    size_t     sortTempBytes;
+
+    /* CUDA-graph capture for the Morton tree-build pipeline (opt #24).
+     * Captured ONCE on the first nbCUDABuildTreeMorton call and
+     * replayed every subsequent step, eliminating the ~50 launches'
+     * worth of host-side launch overhead per build. mortonStream is
+     * dedicated to the captured ops; we cudaStreamSynchronize after
+     * each cudaGraphLaunch so the rest of the per-step pipeline
+     * (still on the default stream) sees the new tree. */
+    cudaStream_t   mortonStream;
+    cudaGraph_t    mortonGraph;
+    cudaGraphExec_t mortonGraphExec;
+    int            mortonGraphCaptured; /* 0 until first capture done */
+
+    /* opt #8 elaborate — pinned host buffer + async D2H stream for
+     * bestLikelihood eval. The bestLike window evaluates the per-step
+     * likelihood, which requires the CPU to see the latest body
+     * positions/velocities. Sync nbCUDAMarshalBodiesFromDevice stalls
+     * the GPU pipeline; async D2H lets the next step's GPU kernels
+     * overlap the previous step's D2H + EMD compute on the host.
+     *
+     * Layout of h_pinnedBodies (6*nbody doubles, pinned, contiguous):
+     *   posX[0..nbody)  posY[0..nbody)  posZ[0..nbody)
+     *   velX[0..nbody)  velY[0..nbody)  velZ[0..nbody)
+     *
+     * The previous-step's likelihood eval reads from this buffer;
+     * the current-step's async D2H writes into it (no overlap of
+     * the two — bestLikePending tracks ownership). */
+    double*        h_pinnedBodies;     /* 6 * nbody doubles, pinned */
+    cudaStream_t   bestLikeStream;
+    cudaEvent_t    bestLikeEvent;
+    int            bestLikePending;    /* 1 if an async D2H is in flight */
 };
 
 /* ----- Phase 5c: device introspection helper for the host wrapper ----- */
@@ -593,6 +669,8 @@ extern "C" NBodyStatus_int nbCUDATreeBuffersAlloc(struct NBodyCUDABuffers* buffe
 
         if (nbCUDAMallocRecorded((void**) &buffers->d_morton,           nbodyU128, allocList, &nAlloc, 48)) goto fail;
         if (nbCUDAMallocRecorded((void**) &buffers->d_sortedIdx,        lvlI,     allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_mortonScratch,    nbodyU128, allocList, &nAlloc, 48)) goto fail;
+        if (nbCUDAMallocRecorded((void**) &buffers->d_sortedIdxScratch, lvlI,     allocList, &nAlloc, 48)) goto fail;
         if (nbCUDAMallocRecorded((void**) &buffers->d_lvlInCells,       lvlI,     allocList, &nAlloc, 48)) goto fail;
         if (nbCUDAMallocRecorded((void**) &buffers->d_lvlInStart,       lvlI,     allocList, &nAlloc, 48)) goto fail;
         if (nbCUDAMallocRecorded((void**) &buffers->d_lvlInEnd,         lvlI,     allocList, &nAlloc, 48)) goto fail;
@@ -615,6 +693,60 @@ extern "C" NBodyStatus_int nbCUDATreeBuffersAlloc(struct NBodyCUDABuffers* buffe
                            2 * sizeof(double)) != cudaSuccess)
         {
             buffers->h_statusReadback = NULL;
+            goto fail;
+        }
+
+        /* CUB DeviceRadixSort temp-storage size depends on N and the
+         * key type. Query once (passing nullptr for d_temp_storage)
+         * and pre-allocate. */
+        buffers->sortTempBytes = 0;
+        cudaError_t cubQueryErr = cub::DeviceRadixSort::SortPairs(
+            (void*) nullptr, buffers->sortTempBytes,
+            (const Morton128*) buffers->d_mortonScratch,
+            (Morton128*)       buffers->d_morton,
+            (const int*)       buffers->d_sortedIdxScratch,
+            (int*)             buffers->d_sortedIdx,
+            buffers->nbody,
+            Morton128Decomposer{},
+            0, 128);
+        if (cubQueryErr != cudaSuccess || buffers->sortTempBytes == 0)
+        {
+            fprintf(stderr, "[nbody_cuda] cub::DeviceRadixSort::SortPairs query failed (%s, %zu bytes)\n",
+                    cudaGetErrorString(cubQueryErr), buffers->sortTempBytes);
+            goto fail;
+        }
+        if (nbCUDAMallocRecorded((void**) &buffers->d_sortTempStorage,
+                                 buffers->sortTempBytes,
+                                 allocList, &nAlloc, 48)) goto fail;
+
+        /* opt #24: dedicated stream for CUDA-graph capture of the
+         * Morton tree-build pipeline. Created here, captured on the
+         * first nbCUDABuildTreeMorton call, replayed each step. */
+        if (cudaStreamCreate(&buffers->mortonStream) != cudaSuccess)
+        {
+            buffers->mortonStream = NULL;
+            goto fail;
+        }
+
+        /* opt #8 elaborate: pinned host buffer (sized 6*nbody doubles)
+         * + dedicated stream + completion event for async body D2H.
+         * Failure here is fatal but cleanup is shared with the
+         * outer fail label. */
+        const size_t pinnedBytes = (size_t) 6 * buffers->nbody * sizeof(double);
+        if (cudaMallocHost((void**) &buffers->h_pinnedBodies, pinnedBytes) != cudaSuccess)
+        {
+            buffers->h_pinnedBodies = NULL;
+            goto fail;
+        }
+        if (cudaStreamCreate(&buffers->bestLikeStream) != cudaSuccess)
+        {
+            buffers->bestLikeStream = NULL;
+            goto fail;
+        }
+        if (cudaEventCreateWithFlags(&buffers->bestLikeEvent,
+                                     cudaEventDisableTiming) != cudaSuccess)
+        {
+            buffers->bestLikeEvent = NULL;
             goto fail;
         }
     }
@@ -640,6 +772,18 @@ fail:
     buffers->d_statusReadback = NULL;
     buffers->h_statusReadback = NULL;
     buffers->d_lvlInCount = buffers->d_lvlOutCount = NULL;
+    buffers->d_mortonScratch = NULL;
+    buffers->d_sortedIdxScratch = NULL;
+    buffers->d_sortTempStorage = NULL;
+    buffers->sortTempBytes = 0;
+    buffers->mortonStream = NULL;
+    buffers->mortonGraph = NULL;
+    buffers->mortonGraphExec = NULL;
+    buffers->mortonGraphCaptured = 0;
+    buffers->h_pinnedBodies = NULL;
+    buffers->bestLikeStream = NULL;
+    buffers->bestLikeEvent = NULL;
+    buffers->bestLikePending = 0;
     buffers->nNode = 0;
     return NBODY_CUDA_ERROR;
 }
@@ -695,6 +839,15 @@ extern "C" void nbCUDABuffersFree(struct NBodyCUDABuffers* buffers)
     if (buffers->h_statusReadback)     cudaFreeHost(buffers->h_statusReadback);
     if (buffers->d_lvlInCount)         cudaFree(buffers->d_lvlInCount);
     if (buffers->d_lvlOutCount)        cudaFree(buffers->d_lvlOutCount);
+    if (buffers->d_mortonScratch)      cudaFree(buffers->d_mortonScratch);
+    if (buffers->d_sortedIdxScratch)   cudaFree(buffers->d_sortedIdxScratch);
+    if (buffers->d_sortTempStorage)    cudaFree(buffers->d_sortTempStorage);
+    if (buffers->mortonGraphExec)      cudaGraphExecDestroy(buffers->mortonGraphExec);
+    if (buffers->mortonGraph)          cudaGraphDestroy(buffers->mortonGraph);
+    if (buffers->mortonStream)         cudaStreamDestroy(buffers->mortonStream);
+    if (buffers->h_pinnedBodies)       cudaFreeHost(buffers->h_pinnedBodies);
+    if (buffers->bestLikeStream)       cudaStreamDestroy(buffers->bestLikeStream);
+    if (buffers->bestLikeEvent)        cudaEventDestroy(buffers->bestLikeEvent);
     free(buffers);
 }
 
@@ -740,6 +893,85 @@ extern "C" NBodyStatus_int nbCUDABuffersDownloadBodies(const struct NBodyCUDABuf
     CUDA_CHECK(cudaMemcpy(hVelY, buffers->d_velY, bytes, cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(hVelZ, buffers->d_velZ, bytes, cudaMemcpyDeviceToHost));
     return NBODY_CUDA_SUCCESS;
+}
+
+/* opt #8 elaborate: kick off async D2H of bodies into the buffers'
+ * pinned host buffer (h_pinnedBodies) on bestLikeStream. Records
+ * bestLikeEvent on completion. Caller must NOT touch h_pinnedBodies
+ * until either nbCUDABuffersWaitAsyncBodies has returned or the
+ * caller has cudaEventSynchronize'd bestLikeEvent itself.
+ *
+ * The bestLikeStream first waits on the default stream (via a
+ * temporary event) so the D2H sees the just-completed step's
+ * outputs, then queues 6 cudaMemcpyAsync calls — one per SoA axis. */
+extern "C" NBodyStatus_int nbCUDABuffersStartAsyncBodyMarshal(struct NBodyCUDABuffers* buffers)
+{
+    if (!buffers || !buffers->h_pinnedBodies || !buffers->bestLikeStream) return NBODY_CUDA_ERROR;
+    if (buffers->bestLikePending) return NBODY_CUDA_ERROR;
+
+    /* Make bestLikeStream wait for the default stream so we capture
+     * the most-recent step's body data, not last step's. */
+    cudaEvent_t deps;
+    if (cudaEventCreateWithFlags(&deps, cudaEventDisableTiming) != cudaSuccess) return NBODY_CUDA_ERROR;
+    if (cudaEventRecord(deps, 0) != cudaSuccess) { cudaEventDestroy(deps); return NBODY_CUDA_ERROR; }
+    if (cudaStreamWaitEvent(buffers->bestLikeStream, deps, 0) != cudaSuccess) {
+        cudaEventDestroy(deps); return NBODY_CUDA_ERROR;
+    }
+    cudaEventDestroy(deps);
+
+    const size_t bytes = (size_t) buffers->nbody * sizeof(double);
+    double* p = buffers->h_pinnedBodies;
+    cudaStream_t s = buffers->bestLikeStream;
+
+    if (cudaMemcpyAsync(p + 0 * buffers->nbody, buffers->d_posX, bytes, cudaMemcpyDeviceToHost, s) != cudaSuccess) return NBODY_CUDA_ERROR;
+    if (cudaMemcpyAsync(p + 1 * buffers->nbody, buffers->d_posY, bytes, cudaMemcpyDeviceToHost, s) != cudaSuccess) return NBODY_CUDA_ERROR;
+    if (cudaMemcpyAsync(p + 2 * buffers->nbody, buffers->d_posZ, bytes, cudaMemcpyDeviceToHost, s) != cudaSuccess) return NBODY_CUDA_ERROR;
+    if (cudaMemcpyAsync(p + 3 * buffers->nbody, buffers->d_velX, bytes, cudaMemcpyDeviceToHost, s) != cudaSuccess) return NBODY_CUDA_ERROR;
+    if (cudaMemcpyAsync(p + 4 * buffers->nbody, buffers->d_velY, bytes, cudaMemcpyDeviceToHost, s) != cudaSuccess) return NBODY_CUDA_ERROR;
+    if (cudaMemcpyAsync(p + 5 * buffers->nbody, buffers->d_velZ, bytes, cudaMemcpyDeviceToHost, s) != cudaSuccess) return NBODY_CUDA_ERROR;
+    if (cudaEventRecord(buffers->bestLikeEvent, s) != cudaSuccess) return NBODY_CUDA_ERROR;
+
+    /* Make the default stream wait on bestLikeEvent so the NEXT
+     * step's integration kernel (which writes d_posX/Y/Z and
+     * d_velX/Y/Z) can't run until the async D2H finishes reading
+     * them. Without this, step N+1's integration races with step
+     * N's async D2H. The host can still proceed in parallel —
+     * we're only enforcing GPU-stream ordering. */
+    if (cudaStreamWaitEvent(0, buffers->bestLikeEvent, 0) != cudaSuccess) return NBODY_CUDA_ERROR;
+
+    buffers->bestLikePending = 1;
+    return NBODY_CUDA_SUCCESS;
+}
+
+/* opt #8 elaborate: block until the in-flight async D2H has finished,
+ * then copy the pinned SoA into the caller's per-axis pointers.
+ * Pointers may alias the buffer's pinned region — we use plain
+ * memcpy. Resets bestLikePending. */
+extern "C" NBodyStatus_int nbCUDABuffersWaitAsyncBodies(struct NBodyCUDABuffers* buffers,
+                                                        double* hPosX, double* hPosY, double* hPosZ,
+                                                        double* hVelX, double* hVelY, double* hVelZ)
+{
+    if (!buffers || !buffers->bestLikeEvent) return NBODY_CUDA_ERROR;
+    if (!buffers->bestLikePending) return NBODY_CUDA_ERROR;
+
+    if (cudaEventSynchronize(buffers->bestLikeEvent) != cudaSuccess) return NBODY_CUDA_ERROR;
+
+    const size_t bytes = (size_t) buffers->nbody * sizeof(double);
+    const double* p = buffers->h_pinnedBodies;
+    if (hPosX) memcpy(hPosX, p + 0 * buffers->nbody, bytes);
+    if (hPosY) memcpy(hPosY, p + 1 * buffers->nbody, bytes);
+    if (hPosZ) memcpy(hPosZ, p + 2 * buffers->nbody, bytes);
+    if (hVelX) memcpy(hVelX, p + 3 * buffers->nbody, bytes);
+    if (hVelY) memcpy(hVelY, p + 4 * buffers->nbody, bytes);
+    if (hVelZ) memcpy(hVelZ, p + 5 * buffers->nbody, bytes);
+
+    buffers->bestLikePending = 0;
+    return NBODY_CUDA_SUCCESS;
+}
+
+extern "C" int nbCUDABuffersIsAsyncMarshalPending(const struct NBodyCUDABuffers* buffers)
+{
+    return (buffers && buffers->bestLikePending) ? 1 : 0;
 }
 
 extern "C" NBodyStatus_int nbCUDABuffersUploadAccels(struct NBodyCUDABuffers* buffers,
@@ -1208,24 +1440,10 @@ extern "C" NBodyStatus_int nbCUDALaunchBuildTreeClear(struct NBodyCUDABuffers* b
  *   d_treeStatus->radius = root size (unchanged from bounding box pass)
  */
 
-/* 128-bit Morton key as a host/device POD pair. The (hi, lo) layout
- * gives lex ordering: a < b  iff  (a.hi, a.lo) < (b.hi, b.lo). */
-struct __align__(16) Morton128
-{
-    unsigned long long lo;
-    unsigned long long hi;
-};
-
-/* Strict less-than for Morton128 — used as the thrust::sort_by_key
- * comparator. Host+device so thrust can specialise on either side. */
-struct Morton128Less
-{
-    __host__ __device__ __forceinline__
-    bool operator()(const Morton128& a, const Morton128& b) const
-    {
-        return (a.hi < b.hi) || (a.hi == b.hi && a.lo < b.lo);
-    }
-};
+/* Morton128 + Morton128Less + Morton128Decomposer are defined near
+ * the top of this TU (above NBodyCUDABuffers) because the CUB
+ * temp-storage query in nbCUDATreeBuffersAlloc needs the complete
+ * type. The kernels below just use those declarations. */
 
 /* Expand 42-bit input to 126 output bits (3*i positions). Returns
  * the result as a (lo, hi) pair packed into 128 bits. Linear loop
@@ -1782,6 +2000,82 @@ __global__ void nbCUDAMortonSeedRootKernel(int* d_lvlInCells,
  * with elapsed microseconds per phase. */
 #define NBODY_MORTON_PROFILE_STEPS 5
 
+/* Issue the entire Morton tree-build pipeline onto `stream`. Used
+ * both to capture the CUDA graph (first call) and as the fallback
+ * if graph launch isn't available. All kernels are launched on
+ * `stream` so they can be captured into a single graph. */
+static cudaError_t nbCUDAMortonRecord(struct NBodyCUDABuffers* buffers,
+                                      int nbody, int nNode,
+                                      cudaStream_t stream)
+{
+    cudaError_t err;
+
+    const int block = NBODY_CUDA_BLOCK;
+    const int grid  = (nbody + block - 1) / block;
+
+    /* Phase 1: Morton compute → *Scratch arrays. */
+    nbCUDAComputeMortonKernel<<<grid, block, 0, stream>>>(
+        buffers->d_posX, buffers->d_posY, buffers->d_posZ,
+        buffers->d_mortonScratch, buffers->d_sortedIdxScratch,
+        buffers->d_treeStatus, nbody);
+    if ((err = cudaGetLastError()) != cudaSuccess) return err;
+
+    /* Phase 2: CUB radix sort, decomposer-driven, on the same stream. */
+    err = cub::DeviceRadixSort::SortPairs(
+        buffers->d_sortTempStorage, buffers->sortTempBytes,
+        (const Morton128*) buffers->d_mortonScratch,
+        (Morton128*)       buffers->d_morton,
+        (const int*)       buffers->d_sortedIdxScratch,
+        (int*)             buffers->d_sortedIdx,
+        nbody,
+        Morton128Decomposer{},
+        0, 128, stream);
+    if (err != cudaSuccess) return err;
+
+    /* Phase 3: seed root cell + reset counters. */
+    nbCUDAMortonSeedRootKernel<<<1, 32, 0, stream>>>(
+        buffers->d_lvlInCells, buffers->d_lvlInStart,
+        buffers->d_lvlInEnd,   buffers->d_lvlInDepth,
+        buffers->d_lvlInCount, buffers->d_lvlOutCount,
+        nNode, nbody);
+    if ((err = cudaGetLastError()) != cudaSuccess) return err;
+
+    /* Phase 4: alternating fused + swap-counter, MAXDEPTH+1 iterations.
+     * Pointers alternate per iteration so each iteration's `in` =
+     * previous iteration's `out`. The pointer pairs cycle through
+     * 2 values, so we just swap on host between launches. The kernel
+     * args differ per iteration, baking into separate graph nodes. */
+    int* lvlInCells   = buffers->d_lvlInCells;
+    int* lvlInStart   = buffers->d_lvlInStart;
+    int* lvlInEnd     = buffers->d_lvlInEnd;
+    int* lvlInDepth   = buffers->d_lvlInDepth;
+    int* lvlOutCells  = buffers->d_lvlOutCells;
+    int* lvlOutStart  = buffers->d_lvlOutStart;
+    int* lvlOutEnd    = buffers->d_lvlOutEnd;
+    int* lvlOutDepth  = buffers->d_lvlOutDepth;
+    for (int level = 0; level <= NBODY_CUDA_MAXDEPTH; ++level)
+    {
+        nbCUDAMortonFusedKernel<<<grid, block, 0, stream>>>(
+            buffers->d_morton, buffers->d_sortedIdx,
+            lvlInCells, lvlInStart, lvlInEnd, lvlInDepth,
+            buffers->d_lvlInCount,
+            lvlOutCells, lvlOutStart, lvlOutEnd, lvlOutDepth,
+            buffers->d_lvlOutCount,
+            buffers->d_child,
+            buffers->d_posX, buffers->d_posY, buffers->d_posZ,
+            buffers->d_critRadii,
+            buffers->d_treeStatus,
+            nbody, nNode);
+        nbCUDAMortonSwapCountersKernel<<<1, 32, 0, stream>>>(
+            buffers->d_lvlInCount, buffers->d_lvlOutCount);
+        { int* t = lvlInCells; lvlInCells = lvlOutCells; lvlOutCells = t; }
+        { int* t = lvlInStart; lvlInStart = lvlOutStart; lvlOutStart = t; }
+        { int* t = lvlInEnd;   lvlInEnd   = lvlOutEnd;   lvlOutEnd   = t; }
+        { int* t = lvlInDepth; lvlInDepth = lvlOutDepth; lvlOutDepth = t; }
+    }
+    return cudaGetLastError();
+}
+
 extern "C" NBodyStatus_int nbCUDABuildTreeMorton(struct NBodyCUDABuffers* buffers,
                                                  int nbody,
                                                  int nNode)
@@ -1789,6 +2083,7 @@ extern "C" NBodyStatus_int nbCUDABuildTreeMorton(struct NBodyCUDABuffers* buffer
     if (!buffers || !buffers->d_treeStatus || !buffers->d_child) return NBODY_CUDA_ERROR;
     if (!buffers->d_morton || !buffers->d_sortedIdx) return NBODY_CUDA_ERROR;
     if (nbody != buffers->nbody) return NBODY_CUDA_ERROR;
+    if (!buffers->mortonStream) return NBODY_CUDA_ERROR;
 
     static int profileCachedFlag = -1;
     static int profileStepCount = 0;
@@ -1806,106 +2101,51 @@ extern "C" NBodyStatus_int nbCUDABuildTreeMorton(struct NBodyCUDABuffers* buffer
     }
     cudaError_t err;
 
-    /* Phase 1: Morton compute. Kernel reads rsize from
-     * d_treeStatus->radius — no host sync needed. */
+    /* opt #24: capture-and-replay via CUDA graphs. First call captures
+     * the entire Morton pipeline onto buffers->mortonStream and
+     * instantiates an executable graph; subsequent calls replay the
+     * graph (single launch instead of ~50 individual kernel launches).
+     *
+     * After launching (capture or replay), cudaStreamSynchronize the
+     * mortonStream so the subsequent default-stream pipeline (Sort,
+     * Summarization, etc.) sees the new tree. */
+    if (!buffers->mortonGraphCaptured)
     {
-        const int block = NBODY_CUDA_BLOCK;
-        const int grid  = (nbody + block - 1) / block;
-        nbCUDAComputeMortonKernel<<<grid, block>>>(buffers->d_posX,
-                                                    buffers->d_posY,
-                                                    buffers->d_posZ,
-                                                    buffers->d_morton,
-                                                    buffers->d_sortedIdx,
-                                                    buffers->d_treeStatus,
-                                                    nbody);
-        if ((err = cudaGetLastError()) != cudaSuccess) {
-            fprintf(stderr, "[nbody_cuda] morton compute: %s\n", cudaGetErrorString(err));
+        if ((err = cudaStreamBeginCapture(buffers->mortonStream,
+                                          cudaStreamCaptureModeThreadLocal)) != cudaSuccess) {
+            fprintf(stderr, "[nbody_cuda] morton graph beginCapture: %s\n", cudaGetErrorString(err));
             return NBODY_CUDA_ERROR;
         }
+        if ((err = nbCUDAMortonRecord(buffers, nbody, nNode, buffers->mortonStream)) != cudaSuccess) {
+            cudaStreamEndCapture(buffers->mortonStream, &buffers->mortonGraph);
+            fprintf(stderr, "[nbody_cuda] morton record (capture): %s\n", cudaGetErrorString(err));
+            return NBODY_CUDA_ERROR;
+        }
+        if ((err = cudaStreamEndCapture(buffers->mortonStream, &buffers->mortonGraph)) != cudaSuccess) {
+            fprintf(stderr, "[nbody_cuda] morton graph endCapture: %s\n", cudaGetErrorString(err));
+            return NBODY_CUDA_ERROR;
+        }
+        if ((err = cudaGraphInstantiate(&buffers->mortonGraphExec,
+                                         buffers->mortonGraph,
+                                         nullptr, nullptr, 0)) != cudaSuccess) {
+            fprintf(stderr, "[nbody_cuda] morton graph instantiate: %s\n", cudaGetErrorString(err));
+            return NBODY_CUDA_ERROR;
+        }
+        buffers->mortonGraphCaptured = 1;
     }
-    if (doProfile) { syncNow(); clock_gettime(CLOCK_MONOTONIC, &t2); }
 
-    /* Phase 2: sort by 128-bit Morton key (lex on (hi, lo)). thrust's
-     * default falls back to merge sort for custom key types — slower
-     * than uint64 radix but deterministic. opt #23 (CUB DeviceRadixSort
-     * with two-pass on (hi, lo)) would recover the perf. */
-    try {
-        thrust::sort_by_key(thrust::device,
-                            buffers->d_morton, buffers->d_morton + nbody,
-                            buffers->d_sortedIdx,
-                            Morton128Less());
-    } catch (...) {
-        fprintf(stderr, "[nbody_cuda] morton sort failed\n");
+    if ((err = cudaGraphLaunch(buffers->mortonGraphExec, buffers->mortonStream)) != cudaSuccess) {
+        fprintf(stderr, "[nbody_cuda] morton graph launch: %s\n", cudaGetErrorString(err));
         return NBODY_CUDA_ERROR;
     }
-    if ((err = cudaGetLastError()) != cudaSuccess) {
-        fprintf(stderr, "[nbody_cuda] morton sort post: %s\n", cudaGetErrorString(err));
+    if ((err = cudaStreamSynchronize(buffers->mortonStream)) != cudaSuccess) {
+        fprintf(stderr, "[nbody_cuda] morton stream sync: %s\n", cudaGetErrorString(err));
         return NBODY_CUDA_ERROR;
     }
     if (doProfile) { syncNow(); clock_gettime(CLOCK_MONOTONIC, &t3); }
-
-    /* Phase 3: seed level-in queue with root cell (and counters). */
-    nbCUDAMortonSeedRootKernel<<<1, 32>>>(buffers->d_lvlInCells,
-                                           buffers->d_lvlInStart,
-                                           buffers->d_lvlInEnd,
-                                           buffers->d_lvlInDepth,
-                                           buffers->d_lvlInCount,
-                                           buffers->d_lvlOutCount,
-                                           nNode, nbody);
-
-    /* Phase 4: iterate up to 21 levels (max Morton-resolvable depth).
-     * No host syncs: counters live on device; the swap kernel handles
-     * advancing in/out at end of each level. After 21 levels, any
-     * remaining cells in the queue have body groups with identical
-     * Morton codes (spatially coincident) — atomicCAS would loop
-     * forever there too. We stop without further subdivision. */
-    int* lvlInCells   = buffers->d_lvlInCells;
-    int* lvlInStart   = buffers->d_lvlInStart;
-    int* lvlInEnd     = buffers->d_lvlInEnd;
-    int* lvlInDepth   = buffers->d_lvlInDepth;
-    int* lvlOutCells  = buffers->d_lvlOutCells;
-    int* lvlOutStart  = buffers->d_lvlOutStart;
-    int* lvlOutEnd    = buffers->d_lvlOutEnd;
-    int* lvlOutDepth  = buffers->d_lvlOutDepth;
-
-    /* Worst-case grid: at most nbody cells per level (one cell per
-     * body when fully separated). Launch fixed grid; threads with
-     * idx >= inCount no-op. Avoids the host needing to know inCount. */
-    const int block = NBODY_CUDA_BLOCK;
-    const int grid  = (nbody + block - 1) / block;
-
-    /* Process levels 0 .. NBODY_CUDA_MAXDEPTH (inclusive) to match
-     * legacy atomicCAS's depth budget. At level NBODY_CUDA_MAXDEPTH
-     * (= depth 26, my 0-indexed) the fused kernel will apply the
-     * MAXDEPTH-overflow branch instead of allocating new cells, so
-     * no orphan cells get queued. */
-    for (int level = 0; level <= NBODY_CUDA_MAXDEPTH; ++level)
-    {
-        nbCUDAMortonFusedKernel<<<grid, block>>>(buffers->d_morton,
-                                                  buffers->d_sortedIdx,
-                                                  lvlInCells, lvlInStart, lvlInEnd, lvlInDepth,
-                                                  buffers->d_lvlInCount,
-                                                  lvlOutCells, lvlOutStart, lvlOutEnd, lvlOutDepth,
-                                                  buffers->d_lvlOutCount,
-                                                  buffers->d_child,
-                                                  buffers->d_posX,
-                                                  buffers->d_posY,
-                                                  buffers->d_posZ,
-                                                  buffers->d_critRadii,
-                                                  buffers->d_treeStatus,
-                                                  nbody, nNode);
-        nbCUDAMortonSwapCountersKernel<<<1, 32>>>(buffers->d_lvlInCount,
-                                                  buffers->d_lvlOutCount);
-        /* Swap host-side pointers so next iteration's in = this iter's out. */
-        { int* t = lvlInCells; lvlInCells = lvlOutCells; lvlOutCells = t; }
-        { int* t = lvlInStart; lvlInStart = lvlOutStart; lvlOutStart = t; }
-        { int* t = lvlInEnd;   lvlInEnd   = lvlOutEnd;   lvlOutEnd   = t; }
-        { int* t = lvlInDepth; lvlInDepth = lvlOutDepth; lvlOutDepth = t; }
-    }
-    if ((err = cudaGetLastError()) != cudaSuccess) {
-        fprintf(stderr, "[nbody_cuda] morton fused loop: %s\n", cudaGetErrorString(err));
-        return NBODY_CUDA_ERROR;
-    }
+    /* Phases 1-4 were captured; t2 == t3 is fine for the legacy
+     * profile output below. */
+    t2 = t3;
 
     if (doProfile) {
         syncNow();

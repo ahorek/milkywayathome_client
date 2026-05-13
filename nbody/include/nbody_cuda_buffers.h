@@ -77,6 +77,18 @@ int nbCUDABuffersGetNNode(const struct NBodyCUDABuffers* buffers);
 /* Returns the cumulative max tree depth recorded in d_treeStatus, or -1 on error. */
 int nbCUDABuffersGetMaxDepth(const struct NBodyCUDABuffers* buffers);
 
+/* opt #8 elaborate — async body marshal for bestLikelihood eval.
+ * Start a non-blocking D2H of pos/vel into the buffers' pinned host
+ * staging area (sized at tree-buffers init time). The caller waits
+ * for completion and copies into per-axis hPos/hVel arrays via
+ * nbCUDABuffersWaitAsyncBodies. Allows the next step's GPU compute
+ * to overlap the host-side likelihood eval. */
+NBodyStatus_int nbCUDABuffersStartAsyncBodyMarshal(struct NBodyCUDABuffers* buffers);
+NBodyStatus_int nbCUDABuffersWaitAsyncBodies(struct NBodyCUDABuffers* buffers,
+                                             double* hPosX, double* hPosY, double* hPosZ,
+                                             double* hVelX, double* hVelY, double* hVelZ);
+int nbCUDABuffersIsAsyncMarshalPending(const struct NBodyCUDABuffers* buffers);
+
 /* DEBUG: dump tree-cell CoMs/Rcrit2 in DFS order. */
 int nbCUDABuffersDumpTree(const struct NBodyCUDABuffers* buffers,
                           int nbody, int nNode, const char* path);
