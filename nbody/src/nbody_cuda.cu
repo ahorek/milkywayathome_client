@@ -3192,47 +3192,21 @@ void nbCUDAForceTreeKernel(
     __shared__ volatile int    node[kStackSlots];
     __shared__ volatile double dq  [kStackSlots];
 
-    /* Quadrupole stacks: always allocated, only populated when
-     * useQuad is non-zero. ~9.7 KB total — fits easily in shared mem. */
-    __shared__ volatile double quadXX[kStackSlots];
-    __shared__ volatile double quadXY[kStackSlots];
-    __shared__ volatile double quadXZ[kStackSlots];
-    __shared__ volatile double quadYY[kStackSlots];
-    __shared__ volatile double quadYZ[kStackSlots];
-    __shared__ volatile double quadZZ[kStackSlots];
-
-    /* Root-cell quadrupole snapshot (one per block). */
-    __shared__ double rootQXX, rootQXY, rootQXZ;
-    __shared__ double rootQYY, rootQYZ;
-    __shared__ double rootQZZ;
+    /* Note: there used to be __shared__ quad{XX,XY,XZ,YY,YZ,ZZ}[]
+     * depth-stacks here (~9.7 KB), populated on every cell-open path
+     * via volatile loads of d_quad** at the child's index, with NaN
+     * fallback. The values were never READ anywhere — the accept
+     * path uses the child's quad directly via d_quadPacked. The
+     * stacks were vestigial from an earlier version; removing them
+     * frees 9.7 KB of shared memory per block AND eliminates the 6
+     * per-open-path volatile loads (~6s wall on long WU). The
+     * root-cell quad snapshot (rootQXX..ZZ) was dead for the same
+     * reason and is gone too. */
 
     /* Thread 0 reads the per-step tree status + root cell data once. */
     if (threadIdx.x == 0)
     {
         maxDepth = (unsigned int) d_treeStatus->maxDepth;
-
-        if (useQuad)
-        {
-            /* All-volatile reads + collective NaN check, matching the
-             * open-cell quad load below. */
-            double qxx = *(volatile double*) &d_quadXX[nNode];
-            double qxy = *(volatile double*) &d_quadXY[nNode];
-            double qxz = *(volatile double*) &d_quadXZ[nNode];
-            double qyy = *(volatile double*) &d_quadYY[nNode];
-            double qyz = *(volatile double*) &d_quadYZ[nNode];
-            double qzz = *(volatile double*) &d_quadZZ[nNode];
-            if (isnan(qxx) || isnan(qxy) || isnan(qxz)
-                || isnan(qyy) || isnan(qyz) || isnan(qzz))
-            {
-                rootQXX = rootQXY = rootQXZ = 0.0;
-                rootQYY = rootQYZ = rootQZZ = 0.0;
-            }
-            else
-            {
-                rootQXX = qxx; rootQXY = qxy; rootQXZ = qxz;
-                rootQYY = qyy; rootQYZ = qyz; rootQZZ = qzz;
-            }
-        }
 
         /* TREECODE branch: opening-criterion radius is per-cell, set
          * up by the summarization pass; we just read the root's value. */
@@ -3319,16 +3293,6 @@ void nbCUDAForceTreeKernel(
             node[j] = nNode;
             pos[j]  = 0;
             dq[j]   = rootCritRadius;
-
-            if (useQuad)
-            {
-                quadXX[j] = rootQXX;
-                quadXY[j] = rootQXY;
-                quadXZ[j] = rootQXZ;
-                quadYY[j] = rootQYY;
-                quadYZ[j] = rootQYZ;
-                quadZZ[j] = rootQZZ;
-            }
         }
         /* Volta+ uses independent thread scheduling: lanes in a warp
          * may run out of step until an explicit sync. The OpenCL
@@ -3440,18 +3404,15 @@ void nbCUDAForceTreeKernel(
 
                         if (useQuad && n >= nbody)
                         {
-                            /* Use child n's OWN quad (CPU's Quad(q) where
-                             * q is the visited node), not the parent's
-                             * (quadXX[depth] = node[depth] = parent of n
-                             * in the OpenCL/CUDA convention). All-6 NaN
-                             * check + zero fallback to defend against
-                             * partial-init in any cell. */
-                            /* Packed quad layout: cell n's 6 components
-                             * at offset n*8 (slots 6..7 padded). One
-                             * 64-byte cache-line load gets all 6 — vs
-                             * 6 separate cache-line loads from the 6
-                             * d_quad** arrays (each is a different
-                             * memory region for cell n). */
+                            /* Use child n's OWN quad (CPU's Quad(q)
+                             * where q is the visited node). Packed
+                             * layout: cell n's 6 components at offset
+                             * n*8 (slots 6..7 padded). One 64-byte
+                             * cache-line load gets all 6 — vs 6
+                             * separate cache-line loads from the 6
+                             * d_quad** arrays. NaN-check stays as
+                             * defense against partial-init in any
+                             * cell. */
                             const double* qp = d_quadPacked + (size_t)n * 8;
                             const double q_xx = qp[0];
                             const double q_xy = qp[1];
@@ -3511,35 +3472,6 @@ void nbCUDAForceTreeKernel(
                             node[depth] = n;
                             pos[depth]  = 0;
                             dq[depth]   = d_critRadii[n];
-
-                            if (useQuad)
-                            {
-                                double qxx = *(volatile double*) &d_quadXX[n];
-                                double qxy = *(volatile double*) &d_quadXY[n];
-                                double qxz = *(volatile double*) &d_quadXZ[n];
-                                double qyy = *(volatile double*) &d_quadYY[n];
-                                double qyz = *(volatile double*) &d_quadYZ[n];
-                                double qzz = *(volatile double*) &d_quadZZ[n];
-                                if (isnan(qxx) || isnan(qxy) || isnan(qxz)
-                                    || isnan(qyy) || isnan(qyz) || isnan(qzz))
-                                {
-                                    quadXX[depth] = 0.0;
-                                    quadXY[depth] = 0.0;
-                                    quadXZ[depth] = 0.0;
-                                    quadYY[depth] = 0.0;
-                                    quadYZ[depth] = 0.0;
-                                    quadZZ[depth] = 0.0;
-                                }
-                                else
-                                {
-                                    quadXX[depth] = qxx;
-                                    quadXY[depth] = qxy;
-                                    quadXZ[depth] = qxz;
-                                    quadYY[depth] = qyy;
-                                    quadYZ[depth] = qyz;
-                                    quadZZ[depth] = qzz;
-                                }
-                            }
                         }
                         __syncwarp();
                     }
