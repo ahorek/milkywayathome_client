@@ -218,18 +218,6 @@ NBodyStatus_int nbCUDALaunchSort(struct NBodyCUDABuffers* buffers,
 NBodyStatus_int nbCUDALaunchQuadMoments(struct NBodyCUDABuffers* buffers,
                                         int nNode);
 
-/* Pack the 6 d_quad** arrays into a single d_quadPacked array (cell
- * N's 6 components contiguous at offset N*8). Run after QuadMoments;
- * ForceTree reads from packed for coalesced access. */
-NBodyStatus_int nbCUDALaunchQuadPack(struct NBodyCUDABuffers* buffers,
-                                     int nNode);
-
-/* Pack (posX, posY, posZ, mass) per index into d_posMassPacked. Run
- * after Summarization; ForceTree leader reads 1 cache line per
- * cell visit instead of 4 separate loads from d_pos and d_masses. */
-NBodyStatus_int nbCUDALaunchPosMassPack(struct NBodyCUDABuffers* buffers,
-                                        int nNode);
-
 /* Mega-pack: pos+mass+critRadii+quad into a single 128-byte/cell
  * layout (16 doubles). ForceTree's three separate cache-line loads
  * (pmPacked + critRadii + qPacked) collapse to one. Run after
