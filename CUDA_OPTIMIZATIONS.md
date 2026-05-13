@@ -50,8 +50,11 @@ the per-step pipeline (`cudaMallocHost` anywhere) perturbed CUDA
 scheduling and flipped downstream FP results.
 
 Morton replaces buildTree with a deterministic Sort → level-by-level
-fused-kernel approach. Enabled via env: `NBODY_BUILDTREE_MORTON=1`
-(default = legacy path).
+fused-kernel approach. **Morton is the default tree builder.** The
+legacy atomicCAS path can be re-selected for debugging via the env
+var `NBODY_BUILDTREE_MORTON=0`. (Default flipped because BOINC has no
+clean way to set env vars, and Morton is bit-identical + deterministic
++ faster on all reference WUs.)
 
 | Commit      | What                                                            |
 |-------------|-----------------------------------------------------------------|
@@ -169,11 +172,14 @@ ForceTree resource usage on sm_70 after the cleanups:
 # Build (in build/ created by build_cuda.sh)
 cd build && make -j8 milkyway_nbody
 
-# Run with Morton tree (default = legacy)
-NBODY_BUILDTREE_MORTON=1 ./bin/milkyway_nbody \
+# Run (Morton tree is now the default)
+./bin/milkyway_nbody \
     -f nbody_parameters.lua -h histogram.txt \
     --seed <seed> -np 12 -p <12 params> \
     --nthreads 4 --use-cuda
+
+# Force legacy buildTree (debug only)
+NBODY_BUILDTREE_MORTON=0 ./bin/milkyway_nbody ...
 
 # 3-run determinism check
 bash /tmp/morton_3run.sh WU_1021003732 milkyway_nbody.morton
@@ -184,6 +190,6 @@ nsys stats --report cuda_gpu_kern_sum /tmp/nsys_out.nsys-rep
 ```
 
 Diagnostic env vars:
-- `NBODY_BUILDTREE_MORTON=1` — enable Morton path
+- `NBODY_BUILDTREE_MORTON=0` — force legacy buildTree (Morton is default)
 - `NBODY_CUDA_STEP_HEARTBEAT=N` — print steps-per-second every N steps
 - `NBODY_BUILDTREE_MORTON_PROFILE=1` — per-phase timing for the first 5 Morton builds

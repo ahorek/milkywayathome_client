@@ -205,9 +205,9 @@ struct NBodyCUDABuffers
     struct NBodyCUDATreeStatus* d_treeStatus;  /* size 1 */
 
     /* ----- Morton-based deterministic buildTree scratch -----
-     * Allocated alongside other tree buffers in nbCUDATreeBuffersAlloc
-     * when NBODY_BUILDTREE_MORTON is enabled at compile time, or always
-     * (small footprint) so a runtime flag can choose at launch time. */
+     * Allocated alongside other tree buffers in nbCUDATreeBuffersAlloc.
+     * Always allocated (small footprint) so the path is available at
+     * runtime; Morton is now the default tree builder. */
     Morton128* d_morton;              /* per-body 128-bit Morton key, size nbody */
     int*    d_sortedIdx;              /* sort permutation, size nbody */
 
@@ -2475,17 +2475,16 @@ extern "C" NBodyStatus_int nbCUDALaunchBuildTree(struct NBodyCUDABuffers* buffer
     if (!buffers || !buffers->d_treeStatus || !buffers->d_child) return NBODY_CUDA_ERROR;
     if (nbody != buffers->nbody) return NBODY_CUDA_ERROR;
 
-    /* Dispatch: NBODY_BUILDTREE_MORTON env flag (read once, cached)
-     * selects the deterministic Morton-based parallel tree builder
-     * instead of the legacy atomicCAS path. Default = legacy. The
-     * Morton path is deterministic across runs regardless of CUDA
-     * runtime scheduling, which is required for opt #8 elaborate
-     * (pinned + async D->H of bodies for bestLikelihood eval). */
+    /* Dispatch: deterministic Morton tree builder is the default; the
+     * legacy atomicCAS path is kept as an opt-out via
+     * NBODY_BUILDTREE_MORTON=0 for debugging only. Morton is required
+     * for opt #8 elaborate (pinned + async D->H of bodies for
+     * bestLikelihood eval) to remain deterministic. */
     {
         static int useMortonCached = -1;
         if (useMortonCached < 0) {
             const char* env = getenv("NBODY_BUILDTREE_MORTON");
-            useMortonCached = (env && env[0] && env[0] != '0') ? 1 : 0;
+            useMortonCached = (env && env[0] == '0') ? 0 : 1;
         }
         if (useMortonCached) {
             return nbCUDABuildTreeMorton(buffers, nbody, nNode);
