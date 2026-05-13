@@ -3074,7 +3074,8 @@ __device__ __constant__ double kSecondHalfBranch = -1024.0;
  * stack arrays are always allocated but only loaded/used when the flag
  * is set. USE_EXTERNAL_POTENTIAL is dropped — that lives in Phase 5b. */
 
-__global__ void nbCUDAForceTreeKernel(
+__global__
+void nbCUDAForceTreeKernel(
     const double* __restrict__ d_posX,
     const double* __restrict__ d_posY,
     const double* __restrict__ d_posZ,
@@ -3113,12 +3114,9 @@ __global__ void nbCUDAForceTreeKernel(
     __shared__ unsigned int maxDepth;
     __shared__ double rootCritRadius;
 
-    /* Per-warp child broadcast slots (lane 0 writes, all lanes read). */
-    __shared__ volatile int    ch[kWarpsPerBlock];
-    __shared__ volatile double nx[kWarpsPerBlock];
-    __shared__ volatile double ny[kWarpsPerBlock];
-    __shared__ volatile double nz[kWarpsPerBlock];
-    __shared__ volatile double nm[kWarpsPerBlock];
+    /* (formerly per-warp child broadcast slots — now broadcast via
+     * __shfl_sync register-to-register, which is faster than the
+     * shared-mem write+read+__syncwarp triple.) */
 
     /* Per-warp DFS stacks (MAXDEPTH entries each). */
     __shared__ volatile int    pos [kStackSlots];
@@ -3212,9 +3210,14 @@ __global__ void nbCUDAForceTreeKernel(
         if (alive)
         {
             i  = d_sort[k];      /* permuted body index */
-            px = d_posX[i];
-            py = d_posY[i];
-            pz = d_posZ[i];
+            /* __ldg: read-only / texture-cache load. Bypasses the
+             * -dlcm=cv L1-bypass set globally for buildTree
+             * determinism; safe here because d_pos* is mutated by
+             * the integration kernel which runs AFTER forceTree, so
+             * the values are stable for the duration of this launch. */
+            px = __ldg(&d_posX[i]);
+            py = __ldg(&d_posY[i]);
+            pz = __ldg(&d_posZ[i]);
         }
         else
         {
@@ -3273,35 +3276,46 @@ __global__ void nbCUDAForceTreeKernel(
             /* Stack frame at `depth` still has more children to process. */
             while ((curPos = pos[depth]) < NBODY_CUDA_NSUB)
             {
-                int n;
+                int n = -1;
+                double nx_loc = 0.0, ny_loc = 0.0, nz_loc = 0.0, nm_loc = 0.0;
                 if (leader)
                 {
                     /* Leader fetches the next child of node[depth] and
-                     * broadcasts it (plus its mass/position if non-NULL)
-                     * into the warp-scoped shared slot. */
+                     * its mass/position; broadcast to lanes via
+                     * __shfl_sync below. */
                     n = d_child[NBODY_CUDA_NSUB * node[depth] + curPos];
                     pos[depth] = curPos + 1;
-                    ch[base] = n;
                     if (n >= 0)
                     {
-                        nx[base] = d_posX[n];
-                        ny[base] = d_posY[n];
-                        nz[base] = d_posZ[n];
-                        nm[base] = d_masses[n];
+                        /* Plain reads (no __ldg) — d_pos and d_masses
+                         * for n >= nbody is the cell CoM written by
+                         * summarization in THIS step; using __ldg
+                         * here can read stale per-step values from
+                         * the read-only cache (verified: produces
+                         * delta ~0.02 on long WU). */
+                        nx_loc = d_posX[n];
+                        ny_loc = d_posY[n];
+                        nz_loc = d_posZ[n];
+                        nm_loc = d_masses[n];
                     }
                 }
-                /* See note above: __syncwarp gives the memory visibility
-                 * the OpenCL mem_fence relied on plus the warp re-convergence
-                 * Volta+ no longer guarantees implicitly. */
-                __syncwarp();
+                /* Broadcast leader's values to all lanes via warp
+                 * shuffle. __shfl_sync is a register-to-register move
+                 * (single instruction) and provides warp-level
+                 * synchronization, replacing the previous shared-mem
+                 * + __syncwarp + shared-read triple. srcLane=0 means
+                 * the warp's lane-0 (the leader). */
+                n = __shfl_sync(0xFFFFFFFFu, n, 0);
+                nx_loc = __shfl_sync(0xFFFFFFFFu, nx_loc, 0);
+                ny_loc = __shfl_sync(0xFFFFFFFFu, ny_loc, 0);
+                nz_loc = __shfl_sync(0xFFFFFFFFu, nz_loc, 0);
+                nm_loc = __shfl_sync(0xFFFFFFFFu, nm_loc, 0);
 
-                /* All lanes pick up the broadcast value. */
-                n = ch[base];
                 if (n >= 0)
                 {
-                    const double dx = nx[base] - px;
-                    const double dy = ny[base] - py;
-                    const double dz = nz[base] - pz;
+                    const double dx = nx_loc - px;
+                    const double dy = ny_loc - py;
+                    const double dz = nz_loc - pz;
                     double rSq = dx*dx + dy*dy + dz*dz;
 
                     /* Reset skip mode when warp has popped back at or
@@ -3348,7 +3362,7 @@ __global__ void nbCUDAForceTreeKernel(
                          * per step over 64673 steps. */
                         rSq += eps2;
                         const double r    = sqrt(rSq);
-                        const double phii = nm[base] / r;
+                        const double phii = nm_loc / r;
                         const double ai   = phii / rSq;
 
                         ax += ai * dx;
