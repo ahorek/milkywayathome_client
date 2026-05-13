@@ -208,19 +208,6 @@ struct NBodyCUDABuffers
     int*    d_lvlOutEnd;
     int*    d_lvlOutDepth;
 
-    /* Per-cell-per-octant scratch: boundaries (9 ints), predicate (8),
-     * and exclusive-scan offsets (8). Sized for max nbody cells/level.
-     * Used only by the legacy count/scan/emit Morton path; fused path
-     * doesn't touch them. */
-    int*    d_octantBoundaries;       /* 9 * nbody */
-    int*    d_predicate;              /* 8 * nbody */
-    int*    d_offsets;                /* 8 * nbody */
-
-    /* Status-readback scratch: device-side 2-double slot read by
-     * nbCUDAReadStatusKernel; host-side pinned 2-double mirror. */
-    double* d_statusReadback;         /* size 2 doubles */
-    double* h_statusReadback;         /* pinned, size 2 doubles */
-
     /* Fused-Morton path: device-side level counters (in_count, out_count).
      * No host sync needed between levels — the swap kernel handles it. */
     int*    d_lvlInCount;             /* 1 int */
@@ -664,9 +651,6 @@ extern "C" NBodyStatus_int nbCUDATreeBuffersAlloc(struct NBodyCUDABuffers* buffe
          * TU — cudaMalloc just needs the byte count and a void**. */
         const size_t nbodyU128 = (size_t) buffers->nbody * 16;
         const size_t lvlI     = (size_t) buffers->nbody * sizeof(int);
-        const size_t obI      = (size_t) 9 * buffers->nbody * sizeof(int);
-        const size_t pI       = (size_t) 8 * buffers->nbody * sizeof(int);
-
         if (nbCUDAMallocRecorded((void**) &buffers->d_morton,           nbodyU128, allocList, &nAlloc, 48)) goto fail;
         if (nbCUDAMallocRecorded((void**) &buffers->d_sortedIdx,        lvlI,     allocList, &nAlloc, 48)) goto fail;
         if (nbCUDAMallocRecorded((void**) &buffers->d_mortonScratch,    nbodyU128, allocList, &nAlloc, 48)) goto fail;
@@ -679,22 +663,8 @@ extern "C" NBodyStatus_int nbCUDATreeBuffersAlloc(struct NBodyCUDABuffers* buffe
         if (nbCUDAMallocRecorded((void**) &buffers->d_lvlOutStart,      lvlI,     allocList, &nAlloc, 48)) goto fail;
         if (nbCUDAMallocRecorded((void**) &buffers->d_lvlOutEnd,        lvlI,     allocList, &nAlloc, 48)) goto fail;
         if (nbCUDAMallocRecorded((void**) &buffers->d_lvlOutDepth,      lvlI,     allocList, &nAlloc, 48)) goto fail;
-        if (nbCUDAMallocRecorded((void**) &buffers->d_octantBoundaries, obI,      allocList, &nAlloc, 48)) goto fail;
-        if (nbCUDAMallocRecorded((void**) &buffers->d_predicate,        pI,       allocList, &nAlloc, 48)) goto fail;
-        if (nbCUDAMallocRecorded((void**) &buffers->d_offsets,          pI,       allocList, &nAlloc, 48)) goto fail;
-        if (nbCUDAMallocRecorded((void**) &buffers->d_statusReadback,   2 * sizeof(double), allocList, &nAlloc, 48)) goto fail;
         if (nbCUDAMallocRecorded((void**) &buffers->d_lvlInCount,       sizeof(int), allocList, &nAlloc, 48)) goto fail;
         if (nbCUDAMallocRecorded((void**) &buffers->d_lvlOutCount,      sizeof(int), allocList, &nAlloc, 48)) goto fail;
-
-        /* Pinned host mirror for status readback. cudaMallocHost
-         * goes via the runtime; failure here is fatal but separate
-         * from the device-side rollback list. */
-        if (cudaMallocHost((void**) &buffers->h_statusReadback,
-                           2 * sizeof(double)) != cudaSuccess)
-        {
-            buffers->h_statusReadback = NULL;
-            goto fail;
-        }
 
         /* CUB DeviceRadixSort temp-storage size depends on N and the
          * key type. Query once (passing nullptr for d_temp_storage)
@@ -755,7 +725,6 @@ extern "C" NBodyStatus_int nbCUDATreeBuffersAlloc(struct NBodyCUDABuffers* buffe
 
 fail:
     for (int i = 0; i < nAlloc; ++i) cudaFree(allocList[i]);
-    if (buffers->h_statusReadback) cudaFreeHost(buffers->h_statusReadback);
     /* Null out everything we touched so a later free is safe. */
     buffers->d_minX = buffers->d_minY = buffers->d_minZ = NULL;
     buffers->d_maxX = buffers->d_maxY = buffers->d_maxZ = NULL;
@@ -768,9 +737,6 @@ fail:
     buffers->d_sortedIdx = NULL;
     buffers->d_lvlInCells = buffers->d_lvlInStart = buffers->d_lvlInEnd = buffers->d_lvlInDepth = NULL;
     buffers->d_lvlOutCells = buffers->d_lvlOutStart = buffers->d_lvlOutEnd = buffers->d_lvlOutDepth = NULL;
-    buffers->d_octantBoundaries = buffers->d_predicate = buffers->d_offsets = NULL;
-    buffers->d_statusReadback = NULL;
-    buffers->h_statusReadback = NULL;
     buffers->d_lvlInCount = buffers->d_lvlOutCount = NULL;
     buffers->d_mortonScratch = NULL;
     buffers->d_sortedIdxScratch = NULL;
@@ -832,11 +798,6 @@ extern "C" void nbCUDABuffersFree(struct NBodyCUDABuffers* buffers)
     if (buffers->d_lvlOutStart)        cudaFree(buffers->d_lvlOutStart);
     if (buffers->d_lvlOutEnd)          cudaFree(buffers->d_lvlOutEnd);
     if (buffers->d_lvlOutDepth)        cudaFree(buffers->d_lvlOutDepth);
-    if (buffers->d_octantBoundaries)   cudaFree(buffers->d_octantBoundaries);
-    if (buffers->d_predicate)          cudaFree(buffers->d_predicate);
-    if (buffers->d_offsets)            cudaFree(buffers->d_offsets);
-    if (buffers->d_statusReadback)     cudaFree(buffers->d_statusReadback);
-    if (buffers->h_statusReadback)     cudaFreeHost(buffers->h_statusReadback);
     if (buffers->d_lvlInCount)         cudaFree(buffers->d_lvlInCount);
     if (buffers->d_lvlOutCount)        cudaFree(buffers->d_lvlOutCount);
     if (buffers->d_mortonScratch)      cudaFree(buffers->d_mortonScratch);
@@ -1762,186 +1723,6 @@ __global__ void nbCUDAMortonSwapCountersKernel(int* d_inCount, int* d_outCount)
     {
         *d_inCount = *d_outCount;
         *d_outCount = 0;
-    }
-}
-
-/* Per-cell pass 1: for each cell at the current level, do 7 binary
- * searches in its sorted-body range to find the 8 octant boundaries
- * for this depth's 3-bit Morton slice. Writes:
- *   d_octantBoundaries[9*cellInLevel .. 9*cellInLevel+8] = boundaries
- *   d_predicate[8*cellInLevel + o]   = 1 if octant o has >=2 bodies
- *
- * Boundaries are inclusive-lo / exclusive-hi positions in the sorted
- * body list. boundaries[0] = cell.start, boundaries[8] = cell.end.
- *
- * NOTE: this is the OLD count/scan/emit path. Kept temporarily for
- * fallback. Default path is nbCUDAMortonFusedKernel above. */
-__global__ void nbCUDAMortonCountKernel(
-    const unsigned long long* __restrict__ d_morton,
-    const int* __restrict__ d_lvlInStart,
-    const int* __restrict__ d_lvlInEnd,
-    const int* __restrict__ d_lvlInDepth,
-    int inCount,
-    int* __restrict__ d_octantBoundaries,
-    int* __restrict__ d_predicate)
-{
-    const int c = blockIdx.x * blockDim.x + threadIdx.x;
-    if (c >= inCount) return;
-
-    const int start = d_lvlInStart[c];
-    const int end   = d_lvlInEnd[c];
-    const int depth = d_lvlInDepth[c];
-
-    /* Morton bit layout: bit 62 = top X bit, 61 = top Y, 60 = top Z.
-     * At depth d, octant bits live at positions (60-3d, 61-3d, 62-3d). */
-    int shiftBits = 60 - 3 * depth;
-    if (shiftBits < 0) shiftBits = 0;
-
-    d_octantBoundaries[c * 9 + 0] = start;
-    d_octantBoundaries[c * 9 + 8] = end;
-
-    /* 7 binary searches for the boundary into octants 1..7. */
-    for (int o = 1; o < 8; ++o)
-    {
-        int lo = start, hi = end;
-        while (lo < hi)
-        {
-            int mid = (lo + hi) >> 1;
-            unsigned int oct = (unsigned int) ((d_morton[mid] >> shiftBits) & 7ULL);
-            if (oct < (unsigned int) o) lo = mid + 1;
-            else hi = mid;
-        }
-        d_octantBoundaries[c * 9 + o] = lo;
-    }
-
-    /* Predicate: 1 if octant has >=2 bodies (needs new cell). */
-    for (int o = 0; o < 8; ++o)
-    {
-        int s = d_octantBoundaries[c * 9 + o];
-        int e = d_octantBoundaries[c * 9 + o + 1];
-        d_predicate[c * 8 + o] = (e - s >= 2) ? 1 : 0;
-    }
-}
-
-/* Per-cell pass 2: emit children. Reads exclusive-scan offsets from
- * the predicate to determine deterministic child cell indices, then
- * writes d_child slots, child cell geometry, and the level-out queue.
- *
- *  oldBottom = value of d_treeStatus->bottom before this level allocates.
- *              New cells take indices (oldBottom-1, oldBottom-2, ...) in
- *              the deterministic prefix-scan order. */
-__global__ void nbCUDAMortonEmitKernel(
-    const int* __restrict__ d_sortedIdx,
-    const int* __restrict__ d_lvlInCells,
-    const int* __restrict__ d_lvlInDepth,
-    int inCount,
-    const int* __restrict__ d_octantBoundaries,
-    const int* __restrict__ d_predicate,
-    const int* __restrict__ d_offsets,
-    int oldBottom,
-    int* __restrict__ d_child,
-    double* __restrict__ d_posX,
-    double* __restrict__ d_posY,
-    double* __restrict__ d_posZ,
-    double* __restrict__ d_critRadii,
-    int* __restrict__ d_lvlOutCells,
-    int* __restrict__ d_lvlOutStart,
-    int* __restrict__ d_lvlOutEnd,
-    int* __restrict__ d_lvlOutDepth)
-{
-    const int c = blockIdx.x * blockDim.x + threadIdx.x;
-    if (c >= inCount) return;
-
-    const int cellIdx = d_lvlInCells[c];
-    const int depth   = d_lvlInDepth[c];
-
-    const double cx    = d_posX[cellIdx];
-    const double cy    = d_posY[cellIdx];
-    const double cz    = d_posZ[cellIdx];
-    const double csize = d_critRadii[cellIdx];   /* parent cell size */
-
-    const double cellSize = 0.5  * csize;
-    const double offset   = 0.25 * csize;
-
-    for (int o = 0; o < 8; ++o)
-    {
-        int s = d_octantBoundaries[c * 9 + o];
-        int e = d_octantBoundaries[c * 9 + o + 1];
-        int cnt = e - s;
-        int slot = NBODY_CUDA_NSUB * cellIdx + o;
-
-        if (cnt == 0)
-        {
-            d_child[slot] = -1;
-        }
-        else if (cnt == 1)
-        {
-            d_child[slot] = d_sortedIdx[s];
-        }
-        else
-        {
-            /* Allocate new cell at oldBottom - offsets[i] - 1, where
-             * i is the linear index into the per-cell-octant
-             * predicate/offset arrays. Deterministic by construction. */
-            int i = c * 8 + o;
-            int newCell = oldBottom - d_offsets[i] - 1;
-
-            /* Child center: octant bit 0 = Z, 1 = Y, 2 = X. bit=1 means
-             * body coord >= parent center → child center = parent + s/4. */
-            double cnx = cx + ((o & 4) ? offset : -offset);
-            double cny = cy + ((o & 2) ? offset : -offset);
-            double cnz = cz + ((o & 1) ? offset : -offset);
-
-            d_posX[newCell] = cnx;
-            d_posY[newCell] = cny;
-            d_posZ[newCell] = cnz;
-            d_critRadii[newCell] = cellSize;
-
-            d_child[slot] = newCell;
-
-            int q = d_offsets[i];
-            d_lvlOutCells[q] = newCell;
-            d_lvlOutStart[q] = s;
-            d_lvlOutEnd[q]   = e;
-            d_lvlOutDepth[q] = depth + 1;
-        }
-    }
-}
-
-/* Tiny kernel: set d_treeStatus->bottom = newBottom (single thread). */
-__global__ void nbCUDASetBottomKernel(struct NBodyCUDATreeStatus* d_treeStatus, int newBottom)
-{
-    if (threadIdx.x == 0 && blockIdx.x == 0)
-    {
-        d_treeStatus->bottom = newBottom;
-    }
-}
-
-/* Tiny kernel: read d_treeStatus->{bottom,radius} into a 2-double host
- * mirror in pinned memory. Avoids a sync cudaMemcpy by letting host
- * cudaMemcpyAsync the result. Out: [0] = (double) bottom, [1] = radius. */
-__global__ void nbCUDAReadStatusKernel(const struct NBodyCUDATreeStatus* d_treeStatus,
-                                       double* out)
-{
-    if (threadIdx.x == 0 && blockIdx.x == 0)
-    {
-        out[0] = (double) d_treeStatus->bottom;
-        out[1] = d_treeStatus->radius;
-    }
-}
-
-/* Tiny kernel: copy two ints (predicate[N-1], offsets[N-1]) into the
- * status-readback slots as doubles. Avoids a separate D->H copy of the
- * last predicate + offset entries each level. */
-__global__ void nbCUDAReadScanTailKernel(const int* __restrict__ predicate,
-                                         const int* __restrict__ offsets,
-                                         int idx,
-                                         double* out)
-{
-    if (threadIdx.x == 0 && blockIdx.x == 0)
-    {
-        out[0] = (double) predicate[idx];
-        out[1] = (double) offsets[idx];
     }
 }
 
