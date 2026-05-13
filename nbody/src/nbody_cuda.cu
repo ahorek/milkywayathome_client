@@ -203,6 +203,21 @@ struct NBodyCUDABuffers
      * from d_pos and d_masses. Sized (nNode+1) * 4 doubles. */
     double* d_posMassPacked;
 
+    /* Mega-pack: 16 doubles = 128 bytes per index, exactly one V100
+     * L2 cache line. Layout:
+     *   [0..2]  posX, posY, posZ
+     *   [3]     mass
+     *   [4]     critRadii  (rc^2 for cells, 0 for bodies)
+     *   [5..10] quad XX, XY, XZ, YY, YZ, ZZ  (0 for bodies)
+     *   [11..15] padding
+     * Populated by nbCUDACellPackKernel after QuadMoments (so all
+     * components are settled). ForceTree reads pos+mass, critRadii,
+     * AND quad for cell n from the SAME cache line — eliminates the
+     * 3 separate cache-line loads (pmPacked + critRadii + qPacked)
+     * the prior two-pack scheme had. Sized (nNode+1) * 16 doubles
+     * (~10 MB for 80K cells). */
+    double* d_cellPacked;
+
     struct NBodyCUDATreeStatus* d_treeStatus;  /* size 1 */
 
     /* ----- Morton-based deterministic buildTree scratch -----
@@ -658,6 +673,12 @@ extern "C" NBodyStatus_int nbCUDATreeBuffersAlloc(struct NBodyCUDABuffers* buffe
         if (nbCUDAMallocRecorded((void**) &buffers->d_posMassPacked, pmBytes, allocList, &nAlloc, 48)) goto fail;
     }
 
+    /* Mega-pack: (nNode+1) * 16 doubles. ~10 MB for 80K cells. */
+    {
+        const size_t cellBytes = (size_t) (nNode + 1) * 16 * sizeof(double);
+        if (nbCUDAMallocRecorded((void**) &buffers->d_cellPacked, cellBytes, allocList, &nAlloc, 48)) goto fail;
+    }
+
     /* Tree status struct. */
     if (nbCUDAMallocRecorded((void**) &buffers->d_treeStatus,
                              sizeof(struct NBodyCUDATreeStatus),
@@ -761,6 +782,7 @@ fail:
     buffers->d_quadYY = buffers->d_quadYZ = buffers->d_quadZZ = NULL;
     buffers->d_quadPacked = NULL;
     buffers->d_posMassPacked = NULL;
+    buffers->d_cellPacked = NULL;
     buffers->d_treeStatus = NULL;
     buffers->d_morton = NULL;
     buffers->d_sortedIdx = NULL;
@@ -817,6 +839,7 @@ extern "C" void nbCUDABuffersFree(struct NBodyCUDABuffers* buffers)
     if (buffers->d_quadZZ) cudaFree(buffers->d_quadZZ);
     if (buffers->d_quadPacked) cudaFree(buffers->d_quadPacked);
     if (buffers->d_posMassPacked) cudaFree(buffers->d_posMassPacked);
+    if (buffers->d_cellPacked) cudaFree(buffers->d_cellPacked);
     if (buffers->d_treeStatus) cudaFree(buffers->d_treeStatus);
     /* Morton-path scratch (NULL-safe). */
     if (buffers->d_morton)             cudaFree(buffers->d_morton);
@@ -3169,6 +3192,114 @@ extern "C" NBodyStatus_int nbCUDALaunchPosMassPack(struct NBodyCUDABuffers* buff
     return NBODY_CUDA_SUCCESS;
 }
 
+/* Mega-pack: 16 doubles per index = exactly one 128-byte cache line.
+ * Combines pos+mass + critRadii + quad into a single contiguous
+ * layout so forceTree's leader read (pos+mass) and all-lane
+ * broadcasts (critRadii, quad) hit the SAME cache line for cell n.
+ * Replaces the prior pmpack + quadPack split.
+ *
+ * Layout per index k:
+ *   k*16 + 0..2 = posX, posY, posZ
+ *   k*16 + 3    = mass
+ *   k*16 + 4    = critRadii (rc^2 after summarization for cells; 0 for bodies)
+ *   k*16 + 5..10 = quad XX, XY, XZ, YY, YZ, ZZ
+ *   k*16 + 11..15 = padding to keep cell-aligned cache lines
+ *
+ * Run after QuadMoments (so quad components are settled). For bodies
+ * (k < nbody), d_critRadii[k] is 0 and d_quad** is NaN — we zero
+ * those to keep ForceTree's NaN check from spuriously rejecting body
+ * cases that go through the same code path. */
+__global__ void nbCUDACellPackKernel(
+    const double* __restrict__ d_posX,
+    const double* __restrict__ d_posY,
+    const double* __restrict__ d_posZ,
+    const double* __restrict__ d_masses,
+    const double* __restrict__ d_critRadii,
+    const double* __restrict__ d_quadXX,
+    const double* __restrict__ d_quadXY,
+    const double* __restrict__ d_quadXZ,
+    const double* __restrict__ d_quadYY,
+    const double* __restrict__ d_quadYZ,
+    const double* __restrict__ d_quadZZ,
+    double* __restrict__ d_cellPacked,
+    int nNode,
+    int nbody)
+{
+    const int k = blockIdx.x * blockDim.x + threadIdx.x;
+    if (k > nNode) return;
+    const int o = k * 16;
+    d_cellPacked[o + 0]  = d_posX[k];
+    d_cellPacked[o + 1]  = d_posY[k];
+    d_cellPacked[o + 2]  = d_posZ[k];
+    d_cellPacked[o + 3]  = d_masses[k];
+    if (k < nbody)
+    {
+        /* Bodies don't have rc^2 or quad — zero so the same read
+         * path in forceTree works without an n-vs-nbody branch
+         * on the packed read. */
+        d_cellPacked[o + 4]  = 0.0;
+        d_cellPacked[o + 5]  = 0.0;
+        d_cellPacked[o + 6]  = 0.0;
+        d_cellPacked[o + 7]  = 0.0;
+        d_cellPacked[o + 8]  = 0.0;
+        d_cellPacked[o + 9]  = 0.0;
+        d_cellPacked[o + 10] = 0.0;
+    }
+    else
+    {
+        d_cellPacked[o + 4]  = d_critRadii[k];
+        d_cellPacked[o + 5]  = d_quadXX[k];
+        d_cellPacked[o + 6]  = d_quadXY[k];
+        d_cellPacked[o + 7]  = d_quadXZ[k];
+        d_cellPacked[o + 8]  = d_quadYY[k];
+        d_cellPacked[o + 9]  = d_quadYZ[k];
+        d_cellPacked[o + 10] = d_quadZZ[k];
+    }
+    d_cellPacked[o + 11] = 0.0;
+    d_cellPacked[o + 12] = 0.0;
+    d_cellPacked[o + 13] = 0.0;
+    d_cellPacked[o + 14] = 0.0;
+    d_cellPacked[o + 15] = 0.0;
+}
+
+extern "C" NBodyStatus_int nbCUDALaunchCellPack(struct NBodyCUDABuffers* buffers,
+                                                int nNode)
+{
+    if (!buffers || !buffers->d_cellPacked) return NBODY_CUDA_ERROR;
+    /* useQuad-off path: d_quad** may be NULL. Detect and zero
+     * the quad slots from the kernel by skipping them; for now
+     * we require useQuad. (forceTree's useQuad branch handles
+     * the !useQuad case via the existing quad-zero pattern.) */
+    if (!buffers->d_quadXX)
+    {
+        /* Without quad allocated, just use pmpack for pos+mass and
+         * a separate critRadii path. Not currently exercised. */
+        return NBODY_CUDA_ERROR;
+    }
+    const int block = NBODY_CUDA_BLOCK;
+    const int grid  = (nNode + 1 + block - 1) / block;
+    nbCUDACellPackKernel<<<grid, block>>>(buffers->d_posX,
+                                           buffers->d_posY,
+                                           buffers->d_posZ,
+                                           buffers->d_masses,
+                                           buffers->d_critRadii,
+                                           buffers->d_quadXX,
+                                           buffers->d_quadXY,
+                                           buffers->d_quadXZ,
+                                           buffers->d_quadYY,
+                                           buffers->d_quadYZ,
+                                           buffers->d_quadZZ,
+                                           buffers->d_cellPacked,
+                                           nNode,
+                                           buffers->nbody);
+    cudaError_t e = cudaGetLastError();
+    if (e != cudaSuccess) {
+        fprintf(stderr, "[nbody_cuda] cellPack launch: %s\n", cudaGetErrorString(e));
+        return NBODY_CUDA_ERROR;
+    }
+    return NBODY_CUDA_SUCCESS;
+}
+
 /* Magic-number wire encoding for the leapfrog branch selector.
  * Both the force-tree kernel and the integration kernel compare the
  * runtime `branch` value against these. Defined here (before Phase 5)
@@ -3228,6 +3359,7 @@ void nbCUDAForceTreeKernel(
     const double* __restrict__ d_quadZZ,
     const double* __restrict__ d_quadPacked,    /* hot path uses this */
     const double* __restrict__ d_posMassPacked, /* hot path uses this */
+    const double* __restrict__ d_cellPacked,    /* hot path uses this */
     struct NBodyCUDATreeStatus* d_treeStatus,
     int    nbody,
     int    nNode,
@@ -3384,16 +3516,15 @@ void nbCUDAForceTreeKernel(
                     pos[depth] = curPos + 1;
                     if (n >= 0)
                     {
-                        /* Packed pos+mass: 1 cache-line load gets all
-                         * 4 components for either a body (n < nbody)
-                         * or a cell (n >= nbody). d_posMassPacked is
-                         * refreshed once per step by
-                         * nbCUDAPosMassPackKernel after Summarization
-                         * — by the time we read here, both the body
-                         * range (carried over from previous
-                         * Integration) and the cell range (just
-                         * written by Summarization) are consistent. */
-                        const double* pm = d_posMassPacked + (size_t)n * 4;
+                        /* Mega-packed cell data: 16 doubles per index,
+                         * one 128-byte cache line. Slots [0..3] are
+                         * pos+mass. Critically, the SAME cache line
+                         * also holds critRadii[4] and quad[5..10],
+                         * so the all-lane broadcast reads below
+                         * (childCrit and the accept-case quad) hit
+                         * the same line that this leader load
+                         * brought in. */
+                        const double* pm = d_cellPacked + (size_t)n * 16;
                         nx_loc = pm[0];
                         ny_loc = pm[1];
                         nz_loc = pm[2];
@@ -3440,7 +3571,9 @@ void nbCUDAForceTreeKernel(
                      * the warp-uniform stack invariant. With full mask
                      * we suppress dead lanes' vote via `&& alive`. */
                     const bool isBody = (n < nbody);
-                    const double childCrit = isBody ? 0.0 : d_critRadii[n];
+                    /* d_cellPacked[n*16 + 4] is critRadii. Same cache
+                     * line as the leader's pos+mass load above. */
+                    const double childCrit = d_cellPacked[(size_t)n * 16 + 4];
                     const bool laneActive = alive && (lane_skip_depth < 0);
                     const bool laneAccepts = laneActive && (isBody || (rSq >= childCrit));
                     const bool laneWantsOpen = laneActive && !isBody && !(rSq >= childCrit);
@@ -3472,16 +3605,12 @@ void nbCUDAForceTreeKernel(
 
                         if (useQuad && n >= nbody)
                         {
-                            /* Use child n's OWN quad (CPU's Quad(q)
-                             * where q is the visited node). Packed
-                             * layout: cell n's 6 components at offset
-                             * n*8 (slots 6..7 padded). One 64-byte
-                             * cache-line load gets all 6 — vs 6
-                             * separate cache-line loads from the 6
-                             * d_quad** arrays. NaN-check stays as
-                             * defense against partial-init in any
-                             * cell. */
-                            const double* qp = d_quadPacked + (size_t)n * 8;
+                            /* Quad components live at d_cellPacked
+                             * offset n*16 + 5..10 — same cache line
+                             * as the leader's pos+mass load above.
+                             * NaN-check stays as defense against
+                             * partial-init in any cell. */
+                            const double* qp = d_cellPacked + (size_t)n * 16 + 5;
                             const double q_xx = qp[0];
                             const double q_xy = qp[1];
                             const double q_xz = qp[2];
@@ -3660,6 +3789,7 @@ extern "C" NBodyStatus_int nbCUDALaunchForceTree(struct NBodyCUDABuffers* buffer
                                            buffers->d_quadZZ,
                                            buffers->d_quadPacked,
                                            buffers->d_posMassPacked,
+                                           buffers->d_cellPacked,
                                            buffers->d_treeStatus,
                                            nbody,
                                            nNode,

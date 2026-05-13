@@ -437,10 +437,9 @@ NBodyStatus_int nbInitCUDA(const NBodyCtx* ctx, NBodyState* st)
             || (nbCUDALaunchBuildTree(st->cudaBuffers, st->nbody, nNode) != 0)
             || (nbCUDALaunchSummarizationClear(st->cudaBuffers, st->nbody, nNode) != 0)
             || (nbCUDALaunchSummarization(st->cudaBuffers, st->nbody, nNode) != 0)
-            || (nbCUDALaunchPosMassPack(st->cudaBuffers, nNode) != 0)
             || (nbCUDALaunchSort(st->cudaBuffers, st->nbody, nNode) != 0)
             || (useQuad && nbCUDALaunchQuadMoments(st->cudaBuffers, nNode) != 0)
-            || (useQuad && nbCUDALaunchQuadPack(st->cudaBuffers, nNode) != 0)
+            || (useQuad && nbCUDALaunchCellPack(st->cudaBuffers, nNode) != 0)
             || (nbCUDALaunchForceTree(st->cudaBuffers, st->nbody, nNode,
                                       ctx->eps2, ctx->theta, useQuad,
                                       /*updateVel=*/0,
@@ -690,9 +689,6 @@ NBodyStatus_int nbStepSystemCUDA(const NBodyCtx* ctx, NBodyState* st)
         KSTART("summarization");
         if (nbCUDALaunchSummarization(st->cudaBuffers, nbody, nNode) != 0)      return NBODY_ERROR;
         KEND("summarization");
-        KSTART("posMassPack");
-        if (nbCUDALaunchPosMassPack(st->cudaBuffers, nNode) != 0)               return NBODY_ERROR;
-        KEND("posMassPack");
         KSTART("sort");
         if (nbCUDALaunchSort(st->cudaBuffers, nbody, nNode) != 0)               return NBODY_ERROR;
         KEND("sort");
@@ -701,9 +697,9 @@ NBodyStatus_int nbStepSystemCUDA(const NBodyCtx* ctx, NBodyState* st)
             KSTART("quadMoments");
             if (nbCUDALaunchQuadMoments(st->cudaBuffers, nNode) != 0)           return NBODY_ERROR;
             KEND("quadMoments");
-            KSTART("quadPack");
-            if (nbCUDALaunchQuadPack(st->cudaBuffers, nNode) != 0)              return NBODY_ERROR;
-            KEND("quadPack");
+            KSTART("cellPack");
+            if (nbCUDALaunchCellPack(st->cudaBuffers, nNode) != 0)              return NBODY_ERROR;
+            KEND("cellPack");
         }
 
         KSTART("forceTree");

@@ -230,6 +230,13 @@ NBodyStatus_int nbCUDALaunchQuadPack(struct NBodyCUDABuffers* buffers,
 NBodyStatus_int nbCUDALaunchPosMassPack(struct NBodyCUDABuffers* buffers,
                                         int nNode);
 
+/* Mega-pack: pos+mass+critRadii+quad into a single 128-byte/cell
+ * layout (16 doubles). ForceTree's three separate cache-line loads
+ * (pmPacked + critRadii + qPacked) collapse to one. Run after
+ * QuadMoments. */
+NBodyStatus_int nbCUDALaunchCellPack(struct NBodyCUDABuffers* buffers,
+                                     int nNode);
+
 /* ----- Phase 5b: external Milky Way + LMC potential ----- */
 
 /* Disk model selector. Wire values match the disk_t enum in
