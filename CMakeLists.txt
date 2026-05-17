@@ -403,7 +403,7 @@ add_subdirectory(lua)
 add_subdirectory(dSFMT)
 add_definitions("${DSFMT_FLAGS}")
 
-add_subdirectory(openpa)
+#add_subdirectory(openpa)
 
 if(NBODY_GL)
   if(NOT APPLE)
