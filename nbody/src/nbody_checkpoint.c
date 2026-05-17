@@ -719,7 +719,7 @@ int nbTimeToCheckpoint(const NBodyCtx* ctx, NBodyState* st)
 {
     time_t now;
 
-    if (BOINC_APPLICATION)
+    //if (BOINC_APPLICATION)
     {
         return mw_time_to_checkpoint();
     }
@@ -741,8 +741,8 @@ int nbTimeToCheckpoint(const NBodyCtx* ctx, NBodyState* st)
 
 NBodyStatus nbWriteFinalCheckpoint(const NBodyCtx* ctx, NBodyState* st)
 {
-    if (BOINC_APPLICATION || ctx->checkpointT >= 0)
-    {
+    //if (BOINC_APPLICATION || ctx->checkpointT >= 0)
+    //{
         mw_report("Making final checkpoint\n");
         if (nbWriteCheckpoint(ctx, st))
         {
@@ -750,7 +750,7 @@ NBodyStatus nbWriteFinalCheckpoint(const NBodyCtx* ctx, NBodyState* st)
             return NBODY_CHECKPOINT_ERROR;
         }
 	//mw_printf("Made final checkpoint\n");
-    }
+    //}
 
     return NBODY_SUCCESS;
 }

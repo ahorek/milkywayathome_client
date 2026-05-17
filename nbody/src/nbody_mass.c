@@ -247,7 +247,7 @@ void nbCalcDisp(NBodyHistogram* histogram, mwbool initial, real correction_facto
     
 }
 
-void nbRemoveOutliers(const NBodyState* st, NBodyHistogram* histogram, real * use_body, real * var, real sigma_cutoff, real sunGCdist __attribute__((unused)), int histBins)
+void nbRemoveOutliers(const NBodyState* st, NBodyHistogram* histogram, real * use_body, real * var, real sigma_cutoff, real sunGCdist __attribute__((unused)), const int histBins)
 {
     unsigned int Histindex;
     Body* p;
@@ -261,10 +261,10 @@ void nbRemoveOutliers(const NBodyState* st, NBodyHistogram* histogram, real * us
     real bin_sigma, new_count, this_var;
 
     /*Calculate old average and reset counters and sums for each histogram bin*/
-    real bin_ave[histBins];
-    real temp_sum[histBins];
-    real temp_sqr[histBins];
-    real temp_removed[histBins];
+    real bin_ave[1000];
+    real temp_sum[1000];
+    real temp_sqr[1000];
+    real temp_removed[1000];
 
     for (int indx1 = 0; indx1 < histBins; ++indx1)
     {

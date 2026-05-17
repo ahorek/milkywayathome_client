@@ -99,7 +99,7 @@
 
 
 */
-static inline void log2_130(double *resh, double *resm, double *resl,
+static void log2_130(double *resh, double *resm, double *resl,
 	                    int index, double ed, double xh, double xm) {
 
   double p_t_1_0h;
@@ -180,7 +180,7 @@ static inline void log2_130(double *resh, double *resm, double *resl,
    where ||eps|| <= 2^(-119.5)
 
 */
-static inline void exp2_120(int *H, double *resh, double *resm, double *resl,
+static void exp2_120(int *H, double *resh, double *resm, double *resl,
 			    double xh, double xm, double xl) {
   double xhMult2L, rhMult2L, r;
   int k, index1, index2;
@@ -323,7 +323,7 @@ void pow_120(int *H, double *resh, double *resm, double *resl, double *log2xh,
 
 */
 
-static inline int pow_round_and_check_rn(double *pow,
+static int pow_round_and_check_rn(double *pow,
 					 int H, double powh, double powm, double powl,
 					 int *G, double *kh, double *kl) {
   double th, tm, tl;
@@ -950,7 +950,8 @@ double pow_rn(double x, double y) {
 
          return NaN and raise invalid exception
       */
-      return 0.0/0.0;
+      //return 0.0/0.0;
+      return 1e+300;
     }
     /* Here y is integer
 

@@ -202,8 +202,8 @@ mwbool checkHaloConstants(Halo* h)
             }
             break;
 
-        case CausticHalo:
-            break;
+        //case CausticHalo:
+        //    break;
 
         case AllenSantillanHalo:
             if (   !isfinite(h->gamma)

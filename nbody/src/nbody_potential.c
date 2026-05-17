@@ -23,10 +23,9 @@
 #include "nbody_potential.h"
 #include "nbody_potential_types.h"
 #include "milkyway_util.h"
-#include "nbody_caustic.h"
 #include "nbody_bessel.h"
 
-/* Human-readable names for the potential components â€” used to log the
+/* Human-readable names for the potential components — used to log the
  * WU's potential model in stderr.txt. Helpful for distinguishing the
  * many WU variants the project ships, especially since some halo/disk
  * types fall back to CPU. The CUDA backend (nbody_cuda_host.c) also
@@ -62,7 +61,6 @@ const char* nbCUDAHaloName(halo_t t)
         case NFWHalo:               return "NFW";
         case NFWMassHalo:           return "NFWMass";
         case TriaxialHalo:          return "Triaxial (CPU-only)";
-        case CausticHalo:           return "Caustic (CPU-only)";
         case AllenSantillanHalo:    return "AllenSantillan (CPU-only)";
         case WilkinsonEvansHalo:    return "WilkinsonEvans (CPU-only)";
         case PlummerHalo:           return "PlummerHalo (CPU-only)";
@@ -866,9 +864,6 @@ mwvector nbExtAcceleration(const Potential* pot, mwvector pos, real time)
             break;
         case TriaxialHalo:
             acctmp = triaxialHaloAccel(&pot->halo, pos, r);
-            break;
-        case CausticHalo:
-            acctmp = causticHaloAccel(&pot->halo, pos, r);
             break;
         case AllenSantillanHalo:
             acctmp = ASHaloAccel(&pot->halo, pos, r);

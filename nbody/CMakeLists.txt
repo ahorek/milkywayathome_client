@@ -322,6 +322,7 @@ if(NBODY_CUDA)
                  NAMES cudart_static cudart
                  HINTS ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}/../lib64
                        ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}/../lib
+                       ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}/../lib/x64
                        /usr/local/cuda-12.9/lib64
                        /usr/local/cuda/lib64)
   endif()

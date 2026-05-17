@@ -48,13 +48,14 @@ typedef char mwbool;
   #define FALSE 0
 #endif
 
+/*
 #ifdef _MSC_VER
   #define strdup _strdup
   #define isnan _isnan
   #define isfinite _finite
   #define copysign _copysign
   #define access _access
-  #define snprintf _snprintf
+  //#define snprintf _snprintf
   #define getcwd _getcwd
   #define strncasecmp(a, b, n) _strnicmp(a, b, n)
   #define strcasecmp(a, b) _stricmp(a, b)
@@ -70,7 +71,10 @@ typedef char mwbool;
   #endif
 
   #define isinf(x) (!_finite(x) && !_isnan(x))
-#endif /* _MSC_VER */
+#endif
+*/
+//#define isinf(x) (!_finite(x) && !_isnan(x))
+#define strcasecmp(a, b) _stricmp(a, b)
 
 /* Horrible workaround for lack of C99 in MSVCRT and it being
    impossible to print size_t correctly and standardly */

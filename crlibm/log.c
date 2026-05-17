@@ -96,7 +96,8 @@ Renormalize3(p_resh,p_resm,p_resl,p_t_21_0h,p_t_21_0m,p_t_21_0l);
    /* Filter cases */
    if (xdb.i[HI] < 0x00100000){        /* x < 2^(-1022)    */
      if (((xdb.i[HI] & 0x7fffffff)|xdb.i[LO])==0){
-       return -1.0/0.0;
+       //return -1.0/0.0;
+       return 1e+300;
      }                    		   /* log(+/-0) = -Inf */
      if (xdb.i[HI] < 0){
        return (x-x)/0;                      /* log(-x) = Nan    */
@@ -276,7 +277,8 @@ Renormalize3(p_resh,p_resm,p_resl,p_t_21_0h,p_t_21_0m,p_t_21_0l);
    /* Filter cases */
    if (xdb.i[HI] < 0x00100000){        /* x < 2^(-1022)    */
      if (((xdb.i[HI] & 0x7fffffff)|xdb.i[LO])==0){
-       return -1.0/0.0;
+       //return -1.0/0.0;
+       return 1e+300;
      }                    		   /* log(+/-0) = -Inf */
      if (xdb.i[HI] < 0){
        return (x-x)/0;                      /* log(-x) = Nan    */
@@ -455,7 +457,8 @@ Renormalize3(p_resh,p_resm,p_resl,p_t_21_0h,p_t_21_0m,p_t_21_0l);
    /* Filter cases */
    if (xdb.i[HI] < 0x00100000){        /* x < 2^(-1022)    */
      if (((xdb.i[HI] & 0x7fffffff)|xdb.i[LO])==0){
-       return -1.0/0.0;
+       //return -1.0/0.0;
+       return 1e+300;
      }                    		   /* log(+/-0) = -Inf */
      if (xdb.i[HI] < 0){
        return (x-x)/0;                      /* log(-x) = Nan    */
@@ -634,7 +637,8 @@ Renormalize3(p_resh,p_resm,p_resl,p_t_21_0h,p_t_21_0m,p_t_21_0l);
    /* Filter cases */
    if (xdb.i[HI] < 0x00100000){        /* x < 2^(-1022)    */
      if (((xdb.i[HI] & 0x7fffffff)|xdb.i[LO])==0){
-       return -1.0/0.0;
+       //return -1.0/0.0;
+       return 1e+300;
      }                    		   /* log(+/-0) = -Inf */
      if (xdb.i[HI] < 0){
        return (x-x)/0;                      /* log(-x) = Nan    */
@@ -812,7 +816,8 @@ Renormalize3(p_resh,p_resm,p_resl,p_t_21_0h,p_t_21_0m,p_t_21_0l);
    /* Filter cases */
    if (xdb.i[HI] < 0x00100000){        /* x < 2^(-1022)    */
      if (((xdb.i[HI] & 0x7fffffff)|xdb.i[LO])==0){
-       return -1.0/0.0;
+       //return -1.0/0.0;
+       return 1e+300;
      }                    		   /* log(+/-0) = -Inf */
      if (xdb.i[HI] < 0){
        return (x-x)/0;                      /* log(-x) = Nan    */
@@ -978,7 +983,8 @@ Renormalize3(p_resh,p_resm,p_resl,p_t_21_0h,p_t_21_0m,p_t_21_0l);
    /* Filter cases */
    if (xdb.i[HI] < 0x00100000){        /* x < 2^(-1022)    */
      if (((xdb.i[HI] & 0x7fffffff)|xdb.i[LO])==0){
-       return -1.0/0.0;
+       //return -1.0/0.0;
+       return 1e+300;
      }                    		   /* log(+/-0) = -Inf */
      if (xdb.i[HI] < 0){
        return (x-x)/0;                      /* log(-x) = Nan    */
@@ -1160,7 +1166,8 @@ Renormalize3(p_resh,p_resm,p_resl,p_t_21_0h,p_t_21_0m,p_t_21_0l);
    /* Filter cases */
    if (xdb.i[HI] < 0x00100000){        /* x < 2^(-1022)    */
      if (((xdb.i[HI] & 0x7fffffff)|xdb.i[LO])==0){
-       return -1.0/0.0;
+       //return -1.0/0.0;
+       return 1e+300;
      }                    		   /* log(+/-0) = -Inf */
      if (xdb.i[HI] < 0){
        return (x-x)/0;                      /* log(-x) = Nan    */
@@ -1342,7 +1349,8 @@ Renormalize3(p_resh,p_resm,p_resl,p_t_21_0h,p_t_21_0m,p_t_21_0l);
    /* Filter cases */
    if (xdb.i[HI] < 0x00100000){        /* x < 2^(-1022)    */
      if (((xdb.i[HI] & 0x7fffffff)|xdb.i[LO])==0){
-       return -1.0/0.0;
+       //return -1.0/0.0;
+       return 1e+300;
      }                    		   /* log(+/-0) = -Inf */
      if (xdb.i[HI] < 0){
        return (x-x)/0;                      /* log(-x) = Nan    */
@@ -1525,7 +1533,8 @@ Renormalize3(p_resh,p_resm,p_resl,p_t_21_0h,p_t_21_0m,p_t_21_0l);
    /* Filter cases */
    if (xdb.i[HI] < 0x00100000){        /* x < 2^(-1022)    */
      if (((xdb.i[HI] & 0x7fffffff)|xdb.i[LO])==0){
-       return -1.0/0.0;
+       //return -1.0/0.0;
+       return 1e+300;
      }                    		   /* log(+/-0) = -Inf */
      if (xdb.i[HI] < 0){
        return (x-x)/0;                      /* log(-x) = Nan    */
@@ -1712,7 +1721,8 @@ Renormalize3(p_resh,p_resm,p_resl,p_t_21_0h,p_t_21_0m,p_t_21_0l);
    /* Filter cases */
    if (xdb.i[HI] < 0x00100000){        /* x < 2^(-1022)    */
      if (((xdb.i[HI] & 0x7fffffff)|xdb.i[LO])==0){
-       return -1.0/0.0;
+       //return -1.0/0.0;
+       return 1e+300;
      }                    		   /* log(+/-0) = -Inf */
      if (xdb.i[HI] < 0){
        return (x-x)/0;                      /* log(-x) = Nan    */
@@ -1899,7 +1909,8 @@ Renormalize3(p_resh,p_resm,p_resl,p_t_21_0h,p_t_21_0m,p_t_21_0l);
    /* Filter cases */
    if (xdb.i[HI] < 0x00100000){        /* x < 2^(-1022)    */
      if (((xdb.i[HI] & 0x7fffffff)|xdb.i[LO])==0){
-       return -1.0/0.0;
+       //return -1.0/0.0;
+       return 1e+300;
      }                    		   /* log(+/-0) = -Inf */
      if (xdb.i[HI] < 0){
        return (x-x)/0;                      /* log(-x) = Nan    */
@@ -2085,7 +2096,8 @@ Renormalize3(p_resh,p_resm,p_resl,p_t_21_0h,p_t_21_0m,p_t_21_0l);
    /* Filter cases */
    if (xdb.i[HI] < 0x00100000){        /* x < 2^(-1022)    */
      if (((xdb.i[HI] & 0x7fffffff)|xdb.i[LO])==0){
-       return -1.0/0.0;
+       //return -1.0/0.0;
+       return 1e+300;
      }                    		   /* log(+/-0) = -Inf */
      if (xdb.i[HI] < 0){
        return (x-x)/0;                      /* log(-x) = Nan    */

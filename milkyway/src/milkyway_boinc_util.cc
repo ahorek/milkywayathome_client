@@ -21,7 +21,6 @@
 #include "milkyway_config.h"
 
 #if BOINC_APPLICATION
-  #include <graphics2.h>
   #include <util.h>
   #include <diagnostics.h>
 #endif
@@ -128,8 +127,9 @@ static const int debugOptions = BOINC_DIAG_DUMPCALLSTACKENABLED
  * diagnostics API type stuff. */
 static int mwBoincInitGraphics(MWInitType type)
 {
-    bool useDebug = !!(type & MW_DEBUG);
-    return boinc_init_graphics_diagnostics(useDebug ? debugOptions : BOINC_DIAG_DEFAULTS);
+    //bool useDebug = !!(type & MW_DEBUG);
+    //return boinc_init_graphics_diagnostics(useDebug ? debugOptions : BOINC_DIAG_DEFAULTS);
+    return 0;
 }
 
 static int mwBoincInitNormal(MWInitType type)
@@ -156,14 +156,14 @@ int mwBoincInit(MWInitType type)
 {
     int rc = 0;
 
-    if (type & MW_GRAPHICS)
-    {
-        rc = mwBoincInitGraphics(type);
-    }
-    else
-    {
+    //if (type & MW_GRAPHICS)
+    //{
+    //    rc = mwBoincInitGraphics(type);
+    //}
+    //else
+    //{
         rc = mwBoincInitNormal(type);
-    }
+    //}
 
     if (rc)
     {
@@ -212,16 +212,6 @@ int mw_file_exists(const char* file)
 void mw_boinc_sleep(double t)
 {
     boinc_sleep(t);
-}
-
-void* mw_graphics_make_shmem(const char* x, int y)
-{
-    return boinc_graphics_make_shmem(x, y);
-}
-
-void* mw_graphics_get_shmem(const char* x)
-{
-    return boinc_graphics_get_shmem(x);
 }
 
 int mwReadProjectPrefs(MWProjectPrefs* prefs, const char* prefConfig)

@@ -189,7 +189,7 @@ int nbReadMinVersion(lua_State* luaSt, int* major, int* minor)
         /* Print the ACTUAL app version (NBODY_VERSION), not the
          * workunit's minimum-required version (the lua var being parsed
          * here). The previous wording "Running ... v<minVersion>" was
-         * misleading â€” the running app may be newer than the workunit
+         * misleading — the running app may be newer than the workunit
          * minimum. */
         mw_printf("Running MilkyWay@home Nbody v%s (workunit requires >= %s)\n",
                   NBODY_VERSION, version);

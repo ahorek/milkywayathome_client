@@ -97,7 +97,7 @@ extern "C" {
 
 
 extern const NBodyCtx defaultNBodyCtx;
-extern const HistogramParams defaultHistogramParams;
+extern HistogramParams defaultHistogramParams;
 
 #ifdef __cplusplus
 }

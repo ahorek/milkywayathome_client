@@ -67,7 +67,7 @@
 #ifdef _MSC_VER
   #define RESTRICT __restrict
   #define FUNC_NAME __FUNCTION__
-  #define inline __inline
+  //#define inline __inline
 #else
   #ifdef __cplusplus
     #define RESTRICT __restrict__

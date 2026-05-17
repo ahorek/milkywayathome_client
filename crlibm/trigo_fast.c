@@ -39,7 +39,7 @@ extern double scs_tan_rn(double);
 extern double scs_tan_rd(double);
 extern double scs_tan_ru(double);
 extern double scs_tan_rz(double);
-extern int rem_pio2_scs(scs_ptr, scs_ptr);
+//extern int rem_pio2_scs(scs_ptr, scs_ptr);
 
 
 /*

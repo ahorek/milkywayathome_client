@@ -265,19 +265,6 @@ static scene_t* nbOpenMappedSharedSegment(const char* name, size_t size)
 
 int nbCreateSharedScene(NBodyState* st, const NBodyCtx* ctx)
 {
-    size_t size = nbFindShmemSize(st->nbody, ctx->nStep);
-
-    st->scene = (scene_t*) mw_graphics_make_shmem(NBODY_BIN_NAME, (int) size);
-    if (!st->scene)
-    {
-        mw_printf("Failed to get shmem of size %d\n", (int) size);
-        return 1;
-    }
-
-    memset(st->scene, 0, sizeof(scene_t));
-    OPA_store_int(&st->scene->ownerPID, (int) getpid());
-    nbPrepareSceneFromState(ctx, st);
-
     return 0;
 }
 

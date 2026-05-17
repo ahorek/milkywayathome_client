@@ -42,7 +42,6 @@ static const MWEnumAssociation haloOptions[] =
     { "logarithmic",        LogarithmicHalo        },
     { "nfw",                NFWHalo,               },
     { "triaxial",           TriaxialHalo,          },
-    { "caustic",            CausticHalo,           },
     { "allenSantillan",     AllenSantillanHalo,    },
     { "wilkinsonEvans",     WilkinsonEvansHalo,    },
     { "nfwmass",            NFWMassHalo,           },
@@ -122,20 +121,6 @@ static int createNFWHalo(lua_State* luaSt)
         };
 
     h.type = NFWHalo;
-    return createHalo(luaSt, argTable, &h);
-}
-
-static int createCausticHalo(lua_State* luaSt)
-{
-    static Halo h = EMPTY_HALO;
-    static const MWNamedArg argTable[] =
-        {
-            { "vhalo",       LUA_TNUMBER, NULL, TRUE, &h.vhalo,       1 },
-            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength, 1 },
-            END_MW_NAMED_ARG
-        };
-
-    h.type = CausticHalo;
     return createHalo(luaSt, argTable, &h);
 }
 
@@ -279,7 +264,6 @@ static const luaL_reg methodsHalo[] =
     { "logarithmic",        createLogarithmicHalo        },
     { "nfw",                createNFWHalo                },
     { "triaxial",           createTriaxialHalo           },
-    { "caustic",            createCausticHalo            },
     { "allenSantillan",     createAllenSantillanHalo     },
     { "wilkinsonEvans",     createWilkinsonEvansHalo     },
     { "nfwmass",            createNFWMassHalo            },
@@ -350,7 +334,6 @@ int registerHaloKinds(lua_State* luaSt)
     setModelTableItem(luaSt, table, createLogarithmicHalo, "logarithmic");
     setModelTableItem(luaSt, table, createNFWHalo, "nfw");
     setModelTableItem(luaSt, table, createTriaxialHalo, "triaxial");
-    setModelTableItem(luaSt, table, createCausticHalo, "caustic");
     setModelTableItem(luaSt, table, createAllenSantillanHalo, "allenSantillan");
     setModelTableItem(luaSt, table, createWilkinsonEvansHalo, "wilkinsonEvans");
     setModelTableItem(luaSt, table, createNFWMassHalo, "nfwmass");

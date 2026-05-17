@@ -97,7 +97,7 @@ const NBodyCtx defaultNBodyCtx =
     /* .pot             */  EMPTY_POTENTIAL
 };
 
-const HistogramParams defaultHistogramParams =
+HistogramParams defaultHistogramParams =
 {
     /* .phi         */  histogramPhi,
     /* .theta       */  histogramTheta,
@@ -108,8 +108,8 @@ const HistogramParams defaultHistogramParams =
     /* .betaStart   */  histogrambetaStart,
     /* .betaEnd     */  histogrambetaEnd,
     /* .betaBins    */  histogrambetaBins,
-    /* .L           */  histogramL,
-    /* .LErr        */  histogramLErr,
+    /* .L           */  0,
+    /* .LErr        */  0,
     /* .nRange      */  histogramnRange,
     /* .EMDRange    */  {histogramEMDRange}
 };

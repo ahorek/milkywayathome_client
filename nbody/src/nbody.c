@@ -69,10 +69,10 @@ static NBodyStatus nbResumeOrNewRun(NBodyCtx* ctx, NBodyState* st, const NBodyFl
     }
     else /* Resume from checkpoint */
     {
-        if (nbf->inputFile && !BOINC_APPLICATION)
-        {
-            mw_printf("Warning: input file '%s' unused\n", nbf->inputFile);
-        }
+        //if (nbf->inputFile && !BOINC_APPLICATION)
+        //{
+        //    mw_printf("Warning: input file '%s' unused\n", nbf->inputFile);
+        //}
 
         if (nbReadCheckpoint(ctx, st))
         {

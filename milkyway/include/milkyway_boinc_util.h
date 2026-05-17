@@ -24,14 +24,14 @@
 #include "milkyway_config.h"
 
 
-#if BOINC_APPLICATION
+//#if BOINC_APPLICATION
   #if HAVE_SYS_TYPES_H
     /* Workaround: Old version of BOINC libraries missed including this */
     #include <sys/types.h>
   #endif
   #include <boinc_api.h>
   #include <filesys.h>
-#endif /* BOINC_APPLICATION */
+//#endif /* BOINC_APPLICATION */
 
 #include <stdio.h>
 
@@ -71,7 +71,7 @@ typedef struct
 extern "C" {
 #endif
 
-#if BOINC_APPLICATION
+//#if BOINC_APPLICATION
   #define mw_boinc_print(f, msg, ...) fprintf(f, msg, ##__VA_ARGS__)
   #define mw_finish(x) boinc_finish(x)
   #define mw_fopen(x,y) boinc_fopen((x),(y))
@@ -84,7 +84,8 @@ extern "C" {
   #define mw_is_standalone() boinc_is_standalone()
   #define mw_status_quit_request() (boinc_status.quit_request)
   #define mw_status_abort_request() (boinc_status.abort_request)
-#else
+/*
+  #else
   #define mw_boinc_print(f, msg, ...)
   #define mw_finish(x) exit(x)
   #define mw_fopen(x,y) fopen((x),(y))
@@ -97,7 +98,8 @@ extern "C" {
   #define mw_is_standalone() (TRUE)
   #define mw_status_quit_request() (0)
   #define mw_status_abort_request() (0)
-#endif /* BOINC_APPLICATION */
+#endif
+*/
 
 
 int mwBoincInit(MWInitType type);
@@ -124,11 +126,11 @@ int mwGetBoincOpenCLDeviceIndex(void);
 const char* mwGetBoincOpenCLPlatformVendor(void);
 
 
-#if BOINC_APPLICATION
+//#if BOINC_APPLICATION
 void mw_boinc_sleep(double t);
 void* mw_graphics_make_shmem(const char* x, int y);
 void* mw_graphics_get_shmem(const char* x);
-#endif /* BOINC_APPLICATION */
+//#endif /* BOINC_APPLICATION */
 
 #ifdef __cplusplus
 }

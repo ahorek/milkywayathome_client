@@ -377,9 +377,9 @@ real nbExtDensity(const Potential* pot, mwvector pos, real time)
         case TriaxialHalo:
             density += triaxialHaloDensity(&(pot->halo), pos);
             break;
-        case CausticHalo:
-            density += 0.0; /*FIXME: Add density profile for caustic halo when we actually plan on making this work*/
-            break;
+        //case CausticHalo:
+        //    density += 0.0; /*FIXME: Add density profile for caustic halo when we actually plan on making this work*/
+        //    break;
         case AllenSantillanHalo:
             density += allenSantillanHaloDensity(&(pot->halo), r);
             break;

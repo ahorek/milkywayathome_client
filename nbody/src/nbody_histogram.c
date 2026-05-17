@@ -417,11 +417,11 @@ static void nbPrintHistogramHeader(FILE* f,
                     p->halo.flattenY,
                     p->halo.triaxAngle);
             break;
-        case CausticHalo:
-            fprintf(f,
-                    "# Halo: Caustic\n"
-                    "#\n");
-            break;
+        //case CausticHalo:
+        //    fprintf(f,
+        //            "# Halo: Caustic\n"
+        //            "#\n");
+        //    break;
 
         case AllenSantillanHalo:
             fprintf(f,
@@ -915,12 +915,13 @@ MainStruct* nbCreateHistogram(const NBodyCtx* ctx,        /* Simulation context 
             mu_ras[ub_counter] = DEFAULT_NOT_USE;
             mu_decs[ub_counter] = DEFAULT_NOT_USE;
 
+
             /* Find the indices. Casting a negative double to unsigned int is
-             * undefined behavior, and x86_64 vs aarch64 implement it
-             * differently: x86_64 wraps to a huge unsigned (correctly fails the
-             * < lambdaBins check), aarch64 saturates to 0 (incorrectly bins
-             * out-of-range particles into bin 0). Bound-check on the float
-             * first to keep behavior identical across architectures. */
+           * undefined behavior, and x86_64 vs aarch64 implement it
+           * differently: x86_64 wraps to a huge unsigned (correctly fails the
+           * < lambdaBins check), aarch64 saturates to 0 (incorrectly bins
+           * out-of-range particles into bin 0). Bound-check on the float
+           * first to keep behavior identical across architectures. */
             real lambdaIdxF = mw_floor((lambda - lambdaStart) / lambdaSize);
             real betaIdxF   = mw_floor((beta  - betaStart)  / betaSize);
             mwbool inRange  = (lambdaIdxF >= 0.0 && lambdaIdxF < (real) lambdaBins
@@ -1003,9 +1004,6 @@ MainStruct* nbCreateHistogram(const NBodyCtx* ctx,        /* Simulation context 
    
     for(int i = 0; i < 8; i++)
         if(all->usage[i]) all->histograms[i]->totalNum = totalNum; /* Total particles in range */
-
-    /* Per-bin diagnostic dump removed in production — was used to track
-     * down a CUDA vs CPU likelihood mismatch during the bring-up. */
 
     if(all->usage[1])    // if using beta disp
         nbCalcDisp(all->histograms[1], TRUE, ctx->BetaCorrect);

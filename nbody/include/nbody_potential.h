@@ -49,7 +49,7 @@ void nbPrintPotentialModel(const NBodyCtx* ctx);
 void nbPrintArgv(int argc, const char* const* argv);
 
 /* Print the derived numeric simulation parameters (nStep, timestep,
- * eps2, theta, etc.) â€” useful for triaging anomalous runs at a glance
+ * eps2, theta, etc.) — useful for triaging anomalous runs at a glance
  * even without re-deriving them from argv + lua. */
 void nbPrintRunParams(const NBodyCtx* ctx, int nbody);
 

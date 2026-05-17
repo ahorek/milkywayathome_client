@@ -89,7 +89,6 @@ typedef struct MW_ALIGN_TYPE
 #define _LOG_HALO 1
 #define _NFW_HALO 2
 #define _TRIAXIAL_HALO 3
-#define _CAUSTIC_HALO 4
 #define _AS_HALO 5
 #define _WE_HALO 6
 #define _NFWM_HALO 7
@@ -104,7 +103,6 @@ typedef enum
     LogarithmicHalo       = _LOG_HALO,
     NFWHalo               = _NFW_HALO,
     TriaxialHalo          = _TRIAXIAL_HALO,
-    CausticHalo           = _CAUSTIC_HALO,
     AllenSantillanHalo    = _AS_HALO,
     WilkinsonEvansHalo    = _WE_HALO,
     NFWMassHalo           = _NFWM_HALO,

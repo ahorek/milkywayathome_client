@@ -172,7 +172,8 @@ void log_quick(double *pres_hi, double *pres_lo, int* prndcstindex, db_number * 
    /* Filter cases */
    if (y.i[HI] < 0x00100000){        /* x < 2^(-1022)    */
      if (((y.i[HI] & 0x7fffffff)|y.i[LO])==0){
-       return -1.0/0.0;
+       //return -1.0/0.0;
+       return 1e+300;
      }                    		   /* log(+/-0) = -Inf */
      if (y.i[HI] < 0){
        return (x-x)/0;                      /* log(-x) = Nan    */

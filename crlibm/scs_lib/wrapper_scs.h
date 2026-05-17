@@ -112,12 +112,12 @@ Scs::Scs(const Scs& nb){
 /**************
  * CAST
  **************/
-inline Scs::operator double() {
+Scs::operator double() {
     double d;
     scs_get_d(&d, &(this->scsnb));
     return d;
 }
-inline Scs::operator int() {
+Scs::operator int() {
     double d;
     scs_get_d(&d, &(this->scsnb));
     return ((int)d);
@@ -140,11 +140,11 @@ inline Scs &Scs::operator=(const Scs& nb){
   
   return *this;
 }
-inline Scs &Scs::operator=(const double nb){
+Scs &Scs::operator=(const double nb){
     scs_set_d(&(this->scsnb), nb);
     return *this;
 }
-inline Scs fabs(const Scs &a){
+Scs fabs(const Scs &a){
     Scs res(a);
     res.scsnb.sign = 1;
     return res;
@@ -154,26 +154,26 @@ inline Scs fabs(const Scs &a){
 /************
  * ADDITION
  ************/
-inline Scs operator+(Scs &nb1,Scs &nb2){
+Scs operator+(Scs &nb1,Scs &nb2){
     Scs res;    scs_add(&(res.scsnb), &(nb1.scsnb), &(nb2.scsnb));
     return res;
 }
-inline Scs operator+(Scs &nb1,const double &nb2){
+Scs operator+(Scs &nb1,const double &nb2){
     Scs res, op;
     scs_set_d(&(op.scsnb), nb2);
     scs_add(&(res.scsnb), &(nb1.scsnb), &(op.scsnb));
     return res;
 }
-inline Scs operator+(const double &nb1, Scs &nb2){
+Scs operator+(const double &nb1, Scs &nb2){
     Scs res, op;
     scs_set_d(&(op.scsnb), nb1);
     scs_add(&(res.scsnb), &(nb2.scsnb), &(op.scsnb));
     return res;
 }
-void inline Scs::operator+=(Scs &nb) {
+void Scs::operator+=(Scs &nb) {
     scs_add(&(this->scsnb), &(this->scsnb), &(nb.scsnb));
 }
-void inline Scs::operator+=(const double nb) {
+void Scs::operator+=(const double nb) {
     Scs op;
     scs_set_d(&(op.scsnb), nb);
     scs_add(&(this->scsnb), &(this->scsnb), &(op.scsnb));

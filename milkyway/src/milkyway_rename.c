@@ -179,7 +179,7 @@ static int mw_boinc_rename(const char* old, const char* newf, int fallback)
         double start = mwGetTime();
         do
         {
-            mw_boinc_sleep(2.0 * (double) rand() / (double) RAND_MAX);
+            //mw_boinc_sleep(2.0 * (double) rand() / (double) RAND_MAX);
             retval = mw_boinc_rename_aux(old, newf, fallback);
             if (!retval)
                 break;
@@ -192,7 +192,17 @@ static int mw_boinc_rename(const char* old, const char* newf, int fallback)
 
 int mw_rename(const char* oldf, const char* newf)
 {
-    return mw_boinc_rename(oldf, newf, FALSE);
+    if (mw_boinc_rename(oldf, newf, FALSE))
+    {
+        /* If the move with transactions failed for some reason,
+           try again but without transactions */
+        if (mw_boinc_rename(oldf, newf, TRUE))
+        {
+            /* If this still fails, try a simple rename */
+            return rename(oldf, newf);
+        }
+    }
+    return 0;
 }
 
 #else /* !BOINC_APPLICATION */

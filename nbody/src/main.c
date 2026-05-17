@@ -143,7 +143,7 @@ static void nbPrintVersion(int boincTag, int verbose)
     {
         mw_printf("%s %s\n",
                   versionStr,
-                  BOINC_APPLICATION ? "BOINC" : "");
+                  "BOINC");
     }
 
     if (verbose)
@@ -185,7 +185,7 @@ static void nbSpecialSetup()
      * defaults to printing 3 digits in the exponent. There are still
      * issues where the rounding of the last digit by printf on
      * windows in a small number of cases. */
-    _set_output_format(_TWO_DIGIT_EXPONENT);
+    //_set_output_format(_TWO_DIGIT_EXPONENT);
   #endif /* _WIN32 */
 }
 
@@ -533,7 +533,7 @@ static void nbSetDefaultFlags(NBodyFlags* nbf)
         nbf->checkpointPeriod = NOBOINC_DEFAULT_CHECKPOINT_PERIOD;
     }
 
-    if (BOINC_APPLICATION && nbf->debugLuaLibs)
+    if (nbf->debugLuaLibs)
     {
         mw_printf("Warning: disabling --lua-debug-libraries\n");
         nbf->debugLuaLibs = FALSE;
@@ -614,12 +614,12 @@ int main(int argc, const char* argv[])
 
     if (nbReadParameters(argc, argvCopy ? argvCopy : argv, &nbf))
     {
-        if (BOINC_APPLICATION)
-        {
+        //if (BOINC_APPLICATION)
+        //{
             mwBoincInit(MW_PLAIN);
             nbReadParameters(argc, argvCopy ? argvCopy : argv, &nbf);
             nbPrintVersion(TRUE, FALSE);
-        }
+        //}
 
         mw_finish(EXIT_FAILURE);
     }
@@ -629,7 +629,7 @@ int main(int argc, const char* argv[])
         exit(EXIT_FAILURE);
     }
 
-    if (BOINC_APPLICATION && mwIsFirstRun())
+    if (mwIsFirstRun())
     {
         nbPrintVersion(TRUE, FALSE);
     }
@@ -686,10 +686,10 @@ int main(int argc, const char* argv[])
 
     freeNBodyFlags(&nbf);
 
-    if (BOINC_APPLICATION)
-    {
+    //if (BOINC_APPLICATION)
+    //{
         mw_finish(rc);
-    }
+    //}
 
     return rc;
 }
