@@ -287,6 +287,20 @@ static void nbPrintHistogramHeader(FILE* f,
                     p->disk.scaleLength);
             break;
 
+        case OrbitingBar:
+            fprintf(f,
+                    "# Primary Disk: OrbitingBar\n"
+                    "#   mass = %f\n"
+                    "#   b = %f\n"
+                    "#   pattern speed = %f\n"
+                    "#   start angle = %f\n"
+                    "#\n",
+                    p->disk.mass,
+                    p->disk.scaleLength,
+                    p->disk.patternSpeed,
+                    p->disk.startAngle);
+            break;
+
         case NoDisk:
             fprintf(f,
                     "# Primary Disk: None\n");
