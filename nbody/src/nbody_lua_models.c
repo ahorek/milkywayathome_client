@@ -158,31 +158,54 @@ static int luaCalculateTimestep(lua_State* luaSt)
     return 1;
 }
 
-static real nbCalculateEps2_NEW(const Dwarf* light_comp, unsigned int nbody) //new softening length is dwarf specific and needs velocity dispersion
+static real nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int nbody, unsigned int total) //new softening length is dwarf specific and uses velocity dispersion approximation
 {
     // Average distance between stars
-    real m = light_comp->mass / nbody;
-    real rho_0 = get_density(light_comp, light_comp->scaleLength/10); //central density
-    real d = 2* mw_pow(3*m/(4*pi*rho_0), 1.0/3.0);
+    real dm_nbody = total - nbody;
+    real m_l = light_comp->mass / nbody;
+    real m_d = dark_comp->mass / dm_nbody;
+    real rho_0_l = get_density(light_comp, light_comp->scaleLength/10); //central density
+    real rho_0_d = get_density(dark_comp, dark_comp->scaleLength/10); //central density
+
+    real d_l = 2* mw_pow(3*m_l/(4*pi*rho_0_l), 1.0/3.0);
+    real d_d = 2* mw_pow(3*m_d/(4*pi*rho_0_d), 1.0/3.0);
 
     // Strong interaction radius
-    real v_disp = get_vel_disp(light_comp);
-    real r_strong = 2 * m / v_disp; 
+    real light_hmr = get_hmr(light_comp);
+    real dark_hmr = get_hmr(dark_comp);
+    real light_m = sqr(2*light_hmr)*first_derivative(get_potential, 2*light_hmr, light_comp) + sqr(light_hmr)*first_derivative(get_potential, light_hmr, dark_comp);
+    real dark_m = sqr(2*dark_hmr)*first_derivative(get_potential, 2*dark_hmr, dark_comp) + sqr(dark_hmr)*first_derivative(get_potential, dark_hmr, dark_comp);
+    real light_v_disp = light_m / (2*light_hmr);
+    real dark_v_disp = dark_m / (2*dark_hmr);
+    real r_strong_l = 2 * m_l / light_v_disp;
+    real r_strong_d = 2 * m_d / dark_v_disp;
 
     // Softening length
-    real logeps = 0.5 * (mw_log10(d) + mw_log10(r_strong));
-    real eps = mw_pow(10, logeps);
-    real eps2 = sqr(eps);
-    mw_printf("Optimal Softening Length = %.15f kpc, Upper bound = %.15f kpc, Lower bound = %.15f kpc\n", eps, d, r_strong);
-    return eps2;
+    // Suggestion for multidwarf: pass up both strong interaction radii and distance calculations and make the softening lengths in Lua (so you can do NxN)
+    real cross_r_strong = (r_strong_l > r_strong_d) ? r_strong_l : r_strong_d;
+    real d_cross = (d_l > d_d) ? d_l : d_d;
+    real eps2_l = r_strong_l * d_l;
+    real eps_l = mw_sqrt(eps2_l);
+    real eps2_d = r_strong_d * d_d;
+    real eps_d = mw_sqrt(eps2_d);
+    real eps2_cross = cross_r_strong * d_cross;
+    real eps_cross = mw_sqrt(eps2_cross);
+
+    mw_printf("Optimal Baryon Softening Length = %.15f kpc, Upper bound = %.15f kpc, Lower bound = %.15f kpc\n", eps_l, d_l, r_strong_l);
+    mw_printf("Optimal Dark Matter Softening Length = %.15f kpc, Upper bound = %.15f kpc, Lower bound = %.15f kpc\n", eps_d, d_d, r_strong_d);
+    mw_printf("Optimal Dark Matter-Baryon Softening Length = %.15f kpc, Upper bound = %.15f kpc, Lower bound = %.15f kpc\n", eps_cross, d_cross, cross_r_strong);
+    real eps2_array[2][2] = {{eps2_l, eps2_cross}, {eps2_cross, eps2_d}};
+    return eps2_cross;
 }
 
 static int luaCalculateEps2Dwarf(lua_State* luaSt) //read in params from lua to calc new softening length
 {
-    const Dwarf* model = (const Dwarf*) mw_checknamedudata(luaSt, 1, DWARF_TYPE);
-    unsigned int nbody = (unsigned int) luaL_checkinteger(luaSt, 2);
+    const Dwarf* model_1 = (const Dwarf*) mw_checknamedudata(luaSt, 1, DWARF_TYPE);
+    const Dwarf* model_2 = (const Dwarf*) mw_checknamedudata(luaSt, 2, DWARF_TYPE);
+    unsigned int nbody = (unsigned int) luaL_checkinteger(luaSt, 3);
+    unsigned int total = (unsigned int) luaL_checkinteger(luaSt, 4);
     
-    lua_pushnumber(luaSt, nbCalculateEps2_NEW(model, nbody));
+    lua_pushnumber(luaSt, nbCalculateEps2_NEW(model_1, model_2, nbody, total));
     return 1;
 }
 

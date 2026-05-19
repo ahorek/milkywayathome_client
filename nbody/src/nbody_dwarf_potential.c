@@ -83,13 +83,6 @@
     return  4.0 * M_PI * sqr(rscale) * p0 * inv(R) * mw_log(1.0 + R);                                                    //
 }                                                                                                                        //
                                                                                                                          //
- static real nfw_vel_disp(const Dwarf* model, real r)                                                                    //
-{                                                                                                                        //
-    printf("WARNING: currently using velocity dispersion approximation for NFW");                                        //
-    const real mass = model->mass;                                                                                       //
-    const real rscale = model->scaleLength;                                                                              //
-    return mass / (6* mw_sqrt(sqr(r)+sqr(rscale)));                                                                      //
-}                                                                                                                        //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*                             GENERAL HERNQUIST                                                                         */
 /* this potential and density are both taken from the 1990 paper by hernquist                                            */
@@ -109,21 +102,16 @@ static real gen_hern_pot(const Dwarf* model, real r)                            
                                                                                                                          //
 static real gen_hern_vel_disp(const Dwarf* model, real r)                                                                //
 {                                                                                                                        //
-    printf("WARNING: currently using plummer velocity dispersion for Hernquist");                                        //
     const real mass = model->mass;                                                                                       //
     const real rscale = model->scaleLength;                                                                              //
-    return mass / (6* mw_sqrt(sqr(r)+sqr(rscale)));                                                                      //
+    const real term1 = 12 * r * mw_pow(r + rscale, 3.0) * mw_log((r + rscale) / r) / mw_pow(rscale, 4.0);                //
+    const real term2 = 25 + 52 * r / rscale + 42 * sqr(r / rscale) + 12 * mw_pow(r / rscale, 3.0);                       //
+    return mass / (12*rscale) * (term1 - r / (r + rscale) * term2);                                                      //
 }                                                                                                                        //
-                                                                                                                         //
- static real gen_hern_half_mass(const Dwarf* model)                                                                      //
- {                                                                                                                       //
-    const real rscale = model->scaleLength;                                                                              //
-    return (1+mw_sqrt(2)) * rscale                                                                                       //
- }                                                                                                                       //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*                             EINASTO                                                                                   */
 /* these are taken from the einasto paper. There are many problems with this, so it is currently unused.                 */
-static real einasto_den(const Dwarf* model, real r)                                                                      //                                                                     //
+static real einasto_den(const Dwarf* model, real r)                                                                      //
 {                                                                                                                        //
     const real mass __attribute__((unused)) = model->mass;                                                               //
     const real h = model->scaleLength;                                                                                   //
@@ -149,13 +137,6 @@ static real einasto_pot(const Dwarf* model, real r)                             
     return coeff * term;                                                                                                 //
 }                                                                                                                        //
                                                                                                                          //
-static real einasto_vel_disp(const Dwarf* model, real r)                                                                 //
-{                                                                                                                        //
-    printf("WARNING: currently using plummer velocity dispersion for Einasto");                                          //
-    const real mass = model->mass;                                                                                       //
-    const real rscale = model->scaleLength;                                                                              //
-    return mass / (6* mw_sqrt(sqr(r)+sqr(rscale)));                                                                      //
-}                                                                                                                        //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*                             CORED                                                                                     */
 /* this potential and density are cored profiles to be used with SIDM.                                                   */
@@ -212,14 +193,6 @@ static real cored_pot(const Dwarf* model, real r)                               
     {                                                                                                                    //
             return  -1.0 * (-4.0 * M_PI * ps * cube(rs) / r * mw_log(1.0 + r / rs) + C3 / r);                            //
     }                                                                                                                    //
-}                                                                                                                        //
-                                                                                                                         //
-static real cored_vel_disp(const Dwarf* model, real r)                                                                   //
-{                                                                                                                        //
-    printf("WARNING: currently using plummer velocity dispersion for Cored");                                            //
-    const real mass = model->mass;                                                                                       //
-    const real rscale = model->scaleLength;                                                                              //
-    return mass / (6* mw_sqrt(sqr(r)+sqr(rscale)));                                                                      //
 }                                                                                                                        //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -286,35 +259,33 @@ real get_density(const Dwarf* model, real r)
     return den_temp;
 }
 
-real get_vel_disp(const Dwarf* model) //radii calculated here are for softening length calculation
+real get_hmr(const Dwarf* model) //radii calculated here are for softening length calculation
 {
-    real vel_disp_temp = 0;
-    real r = 0;
+    real hmr_temp = 0;
 
     switch(model->type)
     {
         case Plummer:
-            r = 1.3*model->scaleLength;
-            vel_disp_temp = plummer_vel_disp(model, r);
+            hmr_temp = 1.3*model->scaleLength;
             break;
         case NFW:
-            vel_disp_temp = nfw_vel_disp(model, r );
+        // This is (allegedly) the point of maximum density, but it should be sufficient for softening length calculations
+            hmr_temp = model->scaleLength;
             break;
         case General_Hernquist:
-            r = (1 + mw_sqrt(2))*model->scaleLength;
-            vel_disp_temp = gen_hern_vel_disp(model, r );
+            hmr_temp = (1 + mw_sqrt(2))*model->scaleLength;
             break;
         case Einasto:
-            printf("WARNING: Einsato dwarf currently has problems and should not be used \n");
-            vel_disp_temp=einasto_vel_disp(model, r);
+            hmr_temp = model->scaleLength;
             break;
         case Cored:
-            vel_disp_temp = cored_vel_disp(model, r);
+        // This is also the point of maximum density, but it should be sufficient for softening length calculations
+            hmr_temp = (model->scaleLength > model->r1) ? model->scaleLength : model->r1;
             break;
         case InvalidDwarf:
         default:
             mw_fail("Invalid dwarf type, %d\n", model->type);
     }
 
-    return vel_disp_temp;
+    return hmr_temp;
 }
