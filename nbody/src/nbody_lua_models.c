@@ -44,6 +44,20 @@
 
 static const real pi = 3.1415926535;
 
+static inline real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
+{
+    /*yes, this does in fact use a 5-point stencil*/
+    const real h = 0.001;
+    real p1 =   1.0 * (*func)(comp1, (x - 2.0 * h));
+    real p2 = - 8.0 * (*func)(comp1, (x - h) );
+    real p3 = - 1.0 * (*func)(comp1, (x + 2.0 * h));
+    real p4 =   8.0 * (*func)(comp1, (x + h));
+    real denom = inv( 12.0 * h);
+    real deriv = (p1 + p2 + p3 + p4) * denom;
+    return deriv;
+}
+
+
 /* For using a combination of light and dark models to generate timestep */
 static real plummerTimestepIntegral(real smalla, real biga, real Md, real step)
 {                                                                                                                           
@@ -160,19 +174,41 @@ static int luaCalculateTimestep(lua_State* luaSt)
 
 static real nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int nbody, unsigned int total) //new softening length is dwarf specific and uses velocity dispersion approximation
 {
-    // Average distance between stars
-    real dm_nbody = total - nbody;
-    real m_l = light_comp->mass / nbody;
-    real m_d = dark_comp->mass / dm_nbody;
-    real rho_0_l = get_density(light_comp, light_comp->scaleLength/10); //central density
-    real rho_0_d = get_density(dark_comp, dark_comp->scaleLength/10); //central density
 
+    real dm_nbody = total - nbody;
+    if (dm_nbody == 0)
+        // Separate code for 1-component systems
+        real m_l = light_comp->mass / nbody;
+        real rho_0_l = get_density(light_comp, light_comp->scaleLength/10); //central density
+        real d_l = 2* mw_pow(3*m_l/(4*pi*rho_0_l), 1.0/3.0);
+
+        real light_hmr = get_hmr(light_comp);
+        real light_m = sqr(2*light_hmr)*first_derivative(get_potential, 2*light_hmr, light_comp);
+        real light_v_disp = light_m / (2*light_hmr);
+        real r_strong_l = 2 * m_l / light_v_disp;
+
+        real eps2_l = r_strong_l * d_l;
+        real eps_l = mw_sqrt(eps2_l);
+
+        real eps2_array[3] = {eps2_l, 0, 0};
+        return eps2_l;
+        mw_printf("Optimal Baryon Softening Length = %.15f kpc, Upper bound = %.15f kpc, Lower bound = %.15f kpc\n", eps_l, d_l, r_strong_l);
+
+
+    // Average distance between stars
+    
+    real m_l = light_comp->mass / nbody;
+    real rho_0_l = get_density(light_comp, light_comp->scaleLength/10); //central density
     real d_l = 2* mw_pow(3*m_l/(4*pi*rho_0_l), 1.0/3.0);
+
+    real m_d = dark_comp->mass / dm_nbody;
+    real rho_0_d = get_density(dark_comp, dark_comp->scaleLength/10); //central density
     real d_d = 2* mw_pow(3*m_d/(4*pi*rho_0_d), 1.0/3.0);
 
     // Strong interaction radius
     real light_hmr = get_hmr(light_comp);
     real dark_hmr = get_hmr(dark_comp);
+
     real light_m = sqr(2*light_hmr)*first_derivative(get_potential, 2*light_hmr, light_comp) + sqr(light_hmr)*first_derivative(get_potential, light_hmr, dark_comp);
     real dark_m = sqr(2*dark_hmr)*first_derivative(get_potential, 2*dark_hmr, dark_comp) + sqr(dark_hmr)*first_derivative(get_potential, dark_hmr, dark_comp);
     real light_v_disp = light_m / (2*light_hmr);
@@ -194,8 +230,8 @@ static real nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp,
     mw_printf("Optimal Baryon Softening Length = %.15f kpc, Upper bound = %.15f kpc, Lower bound = %.15f kpc\n", eps_l, d_l, r_strong_l);
     mw_printf("Optimal Dark Matter Softening Length = %.15f kpc, Upper bound = %.15f kpc, Lower bound = %.15f kpc\n", eps_d, d_d, r_strong_d);
     mw_printf("Optimal Dark Matter-Baryon Softening Length = %.15f kpc, Upper bound = %.15f kpc, Lower bound = %.15f kpc\n", eps_cross, d_cross, cross_r_strong);
-    real eps2_array[2][2] = {{eps2_l, eps2_cross}, {eps2_cross, eps2_d}};
-    return eps2_cross;
+    real eps2_array[3] = {eps2_l, eps2_cross, eps2_d};
+    return eps2_array;
 }
 
 static int luaCalculateEps2Dwarf(lua_State* luaSt) //read in params from lua to calc new softening length

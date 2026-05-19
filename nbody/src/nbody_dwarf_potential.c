@@ -60,7 +60,7 @@
  static real plummer_half_mass(const Dwarf* model)                                                                       //
  {                                                                                                                       //
     const real rscale = model->scaleLength;                                                                              //
-    return 1 / mw_sqrt(1 / mw_pow(5, 2 / 3) - 1) * rscale                                                                //
+    return 1 / mw_sqrt(1 / mw_pow(5, 2 / 3) - 1) * rscale;                                                               //
  }                                                                                                                       //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*                            NFW                                                                                        */
@@ -131,8 +131,8 @@ static real einasto_pot(const Dwarf* model, real r)                             
     real coeff = mass / (h * r);                                                                                         //
     real thing = mw_pow(r, 1.0 / n);                                                                                     //
                                                                                                                          //
-    real term1 = IncompleteGammaFunc(3.0 * n, thing);                                                                    //
-    real term2 = r * IncompleteGammaFunc(2.0 * n, thing);                                                                //
+    real term1 = UpperIncompleteGammaFunc(3.0 * n, thing);                                                                    //
+    real term2 = r * UpperIncompleteGammaFunc(2.0 * n, thing);                                                                //
     real term = 1.0 - ( term1 + term2 ) / GammaFunc(3.0 * n);                                                            //
     return coeff * term;                                                                                                 //
 }                                                                                                                        //
