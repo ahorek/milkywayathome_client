@@ -456,7 +456,7 @@ typedef struct MW_ALIGN_TYPE
  */
 typedef struct MW_ALIGN_TYPE
 {
-    real eps2;                /* (potential softening parameter)^2 */
+    real eps2[3];                /* (potential softening parameter)^2 */
     real theta;               /* accuracy parameter: 0.0 */
     real timestep;
     real timeEvolve;

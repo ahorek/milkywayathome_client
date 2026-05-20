@@ -33,7 +33,6 @@ extern "C" {
 
 int nbGenerateMixedDwarf(lua_State* luaSt);
 void registerGenerateMixedDwarf(lua_State* luaSt);
-
 void set_vars(Dwarf* comp);
 
 #ifdef __cplusplus

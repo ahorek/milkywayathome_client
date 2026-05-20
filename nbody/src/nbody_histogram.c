@@ -180,7 +180,7 @@ static void nbPrintHistogramHeader(FILE* f,
             showCriterionT(ctx->criterion),
             ctx->theta,
             showBool(ctx->useQuad),
-            mw_sqrt(ctx->eps2),
+            mw_sqrt(ctx->eps2[1]),
             barTimeError,
             barAngleError
 
