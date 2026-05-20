@@ -689,7 +689,7 @@ static int cm_correction_by_comp(real * x, real * y, real * z, real * vx, real *
     return 1;
 }
 
-static inline void set_vars(Dwarf* comp)
+void set_vars(Dwarf* comp)
 {
     /*this is only used for the nfw and sidm but it is technically valid for all the profiles. easier to have it here*/
     /* this is the pcrit * delta_crit from the nfw 1997 paper or just p0 from binney */

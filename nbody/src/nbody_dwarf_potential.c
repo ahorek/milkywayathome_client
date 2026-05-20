@@ -23,6 +23,7 @@
 #include "nbody_types.h"
 #include "nbody_potential_types.h"
 #include "nbody_mass.h"
+#include "nbody_mixeddwarf.h"
 
 /* NOTE
  * we want the term nu which is the density per mass unit. However, these return just normal density.
@@ -206,6 +207,9 @@ real get_potential(const Dwarf* model, real r)
             pot_temp = plummer_pot(model, r);
             break;
         case NFW:
+            if (model->p0 == 0.0) {
+                set_vars(model);
+            }
             pot_temp = nfw_pot(model, r );
             break;
         case General_Hernquist:
@@ -216,6 +220,9 @@ real get_potential(const Dwarf* model, real r)
             pot_temp = einasto_pot(model, r);
             break;
         case Cored:
+            if (model->p0 == 0.0) {
+                set_vars(model);
+            }
             pot_temp = cored_pot(model, r);
             break;
         case InvalidDwarf:
@@ -238,6 +245,9 @@ real get_density(const Dwarf* model, real r)
             den_temp = plummer_den(model, r);
             break;
         case NFW:
+            if (model->p0 == 0.0) {
+                set_vars(model);
+            }
             den_temp = nfw_den(model, r );
             break;
         case General_Hernquist:
@@ -248,6 +258,9 @@ real get_density(const Dwarf* model, real r)
             den_temp = einasto_den(model, r);
             break;
         case Cored:
+            if (model->p0 == 0.0) {
+                set_vars(model);
+            }
             den_temp = cored_den(model, r);
             break;
         case InvalidDwarf:
