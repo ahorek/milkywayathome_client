@@ -219,7 +219,9 @@ static real nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp,
     // Softening length
     // Suggestion for multidwarf: pass up both strong interaction radii and distance calculations and make the softening lengths in Lua (so you can do NxN)
     real cross_r_strong = (r_strong_l > r_strong_d) ? r_strong_l : r_strong_d;
-    real d_cross = (d_l > d_d) ? d_d : d_l;
+    // Picks the larger strong interaction radius between the two (where the smaller particle will begin to strongly interact with the larger)
+    real d_cross = (d_l < d_d) ? d_l : d_d;
+    // Picks the smaller average distance (corresponding to the larger density)
     real eps2_l = r_strong_l * d_l;
     real eps_l = mw_sqrt(eps2_l);
     real eps2_d = r_strong_d * d_d;
