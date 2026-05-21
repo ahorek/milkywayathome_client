@@ -316,7 +316,7 @@ function get_soft_par()
     if (UseOldSofteningLength == 1) then
         sp = calculateEps2(totalBodies, rscale_l, rscale_d, mass_l, mass_d)
     else
-        sp = calculateEps2Dwarf(comp1, totalLightBodies)
+        sp = calculateEps2Dwarf(comp1, comp2, totalLightBodies, totalBodies)
     end
     if ((manual_bodies or use_max_soft_par) and (sp > max_soft_par^2)) then --dealing with softening parameter squared
         print("Using maximum softening parameter value of " .. tostring(max_soft_par) .. " kpc")
