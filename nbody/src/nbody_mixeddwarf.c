@@ -34,10 +34,11 @@ their copyright to their programs which execute similar algorithms.
 #include "nbody_types.h"
 #include "nbody_potential_types.h"
 #include "nbody_io.h"
+#include "nbody_king_model.h"
 
 /*Note: minusfivehalves(x) raises to x^-5/2 power and minushalf(x) is x^-1/2*/
 
-
+ 
 /*      MODEL SPECIFIC FUNCTIONS       */
 static inline real potential( real r, const Dwarf* comp1, const Dwarf* comp2)
 {
@@ -215,6 +216,7 @@ static inline real max_finder(real (*profile)(real , real , const Dwarf*, const 
 
     while (mw_fabs(x3 - x0) > (tolerance * (mw_fabs(x1) + mw_fabs(x2)) ) )
     {
+        //printf("\n max finder counter: %d", counter);
         counter++;
         if (profile_x2 < profile_x1)
         {
@@ -506,26 +508,35 @@ static real dist_fun(real v, real r, const Dwarf* comp1, const Dwarf* comp2, mwb
      * psi(r1) > energy and psi(r2) < energy
      */
 
-
-    while(potential(search_range, comp1, comp2) > energy)
-    {
-        search_range = 100.0 * search_range;
-
-        if(counter > 100)
+    if (comp1->type != King && comp2->type != King) {
+        while(potential(search_range, comp1, comp2) > energy)
         {
-            search_range = 100.0 * (rscale_l + rscale_d);//default
-            break;
+            search_range = 100.0 * search_range;
+            if(counter > 100)
+            {
+                search_range = 100.0 * (rscale_l + rscale_d);//default
+                break;
+            }
+            counter++;
         }
-        counter++;
-    }
-    upperlimit_r = find_upperlimit_r(comp1, comp2, energy, search_range, r);
-    /* This lowerlimit should be good enough. In the important case where the upperlimit is small (close to the singularity in the integrand)
-     * then 5 times it is already where the integrand is close to 0 since it goes to 0 quickly.
-     */
-    lowerlimit_r = 10.0 * (upperlimit_r);
+        upperlimit_r = find_upperlimit_r(comp1, comp2, energy, search_range, r);
+        /* This lowerlimit should be good enough. In the important case where the upperlimit is small (close to the singularity in the integrand)
+        * then 5 times it is already where the integrand is close to 0 since it goes to 0 quickly.
+        */
+        lowerlimit_r = 10.0 * (upperlimit_r);
 
-    /*This calls guassian quad to integrate the function for a given energy*/
-    distribution_function = v * v * cons * gauss_quad(fun, lowerlimit_r, upperlimit_r, comp1, comp2, energy, isDark);
+        //printf("\n\t DF integration limits for (r, v)=(%lf, %lf) | (r1, r2)=(%lf, %lf)", r, v, lowerlimit_r, upperlimit_r);
+        /*This calls guassian quad to integrate the function for a given energy*/
+        distribution_function = v * v * cons * gauss_quad(fun, lowerlimit_r, upperlimit_r, comp1, comp2, energy, isDark);
+    } else if (comp1->type == King) {
+        real king_energy = energy + comp1->phi0; // phi0 in definition of relative energy is nonzero for king profile
+        real rho1 = comp1->rho1;
+        real sig = comp1->sigma;
+        
+        real king_df = rho1*minusthreehalves(2 * M_PI * sig * sig)*(mw_exp(king_energy/(sig * sig)) - 1.0);
+
+        distribution_function = v * v * king_df;
+    }
     return distribution_function;
 }
 
@@ -549,7 +560,7 @@ static inline real r_mag(dsfmt_t* dsfmtState, const Dwarf* comp, real rho_max, r
         r = (real)mwXrandom(dsfmtState, 0.0, 1.0) * bound;
         u = (real)mwXrandom(dsfmtState, 0.0, 1.0);
         val = r * r * get_density(comp, r);
-
+        //printf("\n\t(attempt %d) trying r=%lf, rho(r)=%lf", counter, r, val/(r*r));
         if(val / rho_max > u)
         {
             break;
@@ -582,16 +593,23 @@ static inline real vel_mag(real r, const Dwarf* comp1, const Dwarf* comp2, mwboo
     real v = 0.0, u = 0.0, d = 0.0;
 
     /* having the upper limit as exactly v_esc is bad since the dist fun seems to blow up there for small r. */
-    real v_esc = 0.99 * mw_sqrt( mw_fabs(2.0 * potential( r, comp1, comp2) ) );
-
+    real v_esc = 0.0;
+    if (comp1->type != King) { 
+        v_esc = 0.99 * mw_sqrt( mw_fabs(2.0 * potential( r, comp1, comp2) ) );
+    } else if (comp1->type == King) {
+        real king_M = comp1->mass;
+        real king_rt = comp1->r_t;
+        real king_Psi = potential(r, comp1, comp2) - king_M/king_rt;
+        v_esc = 0.99 * mw_sqrt( mw_fabs(2.0 * king_Psi));
+    }
     real dist_max = max_finder(dist_fun, r, comp1, comp2, isDark, 0.0, 0.5 * v_esc, v_esc, 10, 1.0e-2);
     while(1)
     {
         v = (real)mwXrandom(dsfmtState, 0.0, 1.0) * v_esc;
         u = (real)mwXrandom(dsfmtState, 0.0, 1.0);
-
+        //printf("\n\t(attempt %d) trying v=%lf", counter, v);
         d = dist_fun(v, r, comp1, comp2, isDark);
-
+        //printf("\n\t\tmax DF: %lf, calculated DF: %lf", dist_max, d);
 
         if(mw_fabs(d / dist_max) > u)
         {
@@ -716,6 +734,38 @@ static inline void set_vars(Dwarf* comp)
     comp->ps = ps;
 }
 
+static inline void set_king_params(Dwarf* comp)
+{
+    // (For king model only) For a given W0, M, r_t: calculates r0, mu, rho0, sigma, rho1, phi0.
+    // Runs ODE2ndOrderSolver to find tidal to King radius ratio, gauss_quad to integrate dimensionless mass.
+
+    real M = comp->mass;
+    real W0 = comp->W0;
+    real r_t = comp->r_t;
+
+    real Rt = ODE2ndOrderSolver(10000, 1000, W0, 0.0, kingDimless2ndDeriv, comp, 1);
+    real mu = gauss_quad(kingDimlessMass, 0.00001, Rt, comp, comp, 0.0, 0);
+
+    real r0 = r_t/Rt; // kpc
+    real rho0 = M/(r0*r0*r0*mu); // in smu/kpc^3
+    
+    // save these values into the Dwarf struct
+    comp->phi0 = -M/r_t;
+    comp->rho0 = rho0;
+    comp->sigma = r0*sqrt(4.0*M_PI*rho0/9.0);
+    comp->rho1 = rho0/((exp(W0)*erf(sqrt(W0))) - sqrt(4.0*W0/3.14159)*(1.0 + (2.0*W0/3.0)));
+    comp->r_0 = r0;
+    comp->mu = mu;
+    comp->scaleLength = r_t; // DF calculations when assigning velocities needs scaleLength
+    printf("\nKing model params: W0=%lf, M=%lf smu, rt=%lf kpc, rho0=%lf ||| mu=%lf, Rt=%lf\n", W0, comp->mass, comp->r_t, comp->rho0, mu, Rt);
+}
+
+static real king_rho_max(real v_unused, real r, const Dwarf* comp1, const Dwarf* comp2_unused, mwbool isDark_unused) {
+    // finds the maximum of r^2*rho(r) for king profile to set the upper bound in radius sampling
+    // v, comp2, isDark is unused, just there to match the required function input format for max_finder()
+    return r * r * get_density(comp1, r);
+}
+
 static inline void get_extra_nfw_mass(Dwarf* comp, real bound)
 {
     /* The mass inputted is taken to be the M200 mass (mass within radius r200).*/
@@ -801,6 +851,10 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 bound1 = 5.0 * comp1->r200;
                 get_extra_nfw_mass(comp1, bound1);
                 break;
+            case King:
+                set_king_params(comp1);
+                bound1 = comp1->r_t; // no mass past King model tidal radius
+                break;
              default:
                 /* Set unused value to make compiler happy */
                 bound1 = 0.0;
@@ -823,6 +877,9 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 bound2 = 5.0 * comp2->r200;
                 get_extra_nfw_mass(comp2, bound2);
                 break;
+            case King:
+                set_king_params(comp2);
+                bound2 = comp2->r_t; // no mass past King model tidal radius
              default:
                 /* Set unused value to make compiler happy */
                 bound2 = 0.0;
@@ -878,6 +935,10 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 rho_max_light = (rscale_l > comp1->r1) ? rscale_l : comp1->r1;
                 rho_max_light = sqr(rho_max_light) * get_density(comp1, rho_max_light);
                 break;
+            case King:
+                rho_max_light = sqr(comp1->r_t) * (comp1->rho0); // very crude overestimation, should make this more accurate later
+                printf("\nrho_max_light set for King comp1\n");
+                break;
              default:
                 /* Set unused value to make compiler happy */
                 rho_max_light = 0.0;
@@ -902,6 +963,10 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 rho_max_dark = (rscale_d > comp2->r1) ? rscale_d : comp2->r1;
                 rho_max_dark = sqr(rho_max_dark) * get_density(comp2, rho_max_dark);
                 break;
+            case King:
+                rho_max_dark = sqr(comp2->r_t) * (comp2->rho0); // very crude overestimation, should make this more accurate later
+                printf("\nrho_max_light set for King comp2\n");
+                break;
              default:
                 /* Set unused value to make compiler happy */
                 rho_max_dark = 0.0;
@@ -918,6 +983,7 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
         /*getting the radii and velocities for the bodies*/
         for (i = 0; i < nbody; i++)
         {
+            //printf("\nassigning r and v for particle i=%d", i);
             counter = 0;
             do
             {
@@ -950,7 +1016,7 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 }
 
             }while (1);
-
+            //printf("\n\t(i=%d) r found: r=%lf", i, r);
             counter = 0;
             do
             {
@@ -983,6 +1049,7 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 }
 
             }while (1);
+            //printf("\n\t(i=%d) v found: v=%lf", i, v);
             vec = get_components(prng, v);
             vx[i] = vec.x;
             vy[i] = vec.y;

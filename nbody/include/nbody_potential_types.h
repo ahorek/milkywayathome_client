@@ -143,6 +143,8 @@ typedef struct MW_ALIGN_TYPE
 #define _GEN_HERN_DWARF 2
 #define _EINASTO_DWARF 3
 #define _CORED_DWARF 4
+#define _KING_DWARF 5
+
 typedef enum
 {
     InvalidDwarf       = InvalidEnum,
@@ -150,7 +152,8 @@ typedef enum
     NFW                = _NFW_DWARF,
     General_Hernquist  = _GEN_HERN_DWARF,
     Einasto            = _EINASTO_DWARF,
-    Cored              = _CORED_DWARF
+    Cored              = _CORED_DWARF,
+    King               = _KING_DWARF
 } dwarf_t;
 
 typedef struct MW_ALIGN_TYPE
@@ -162,6 +165,8 @@ typedef struct MW_ALIGN_TYPE
     real p0; //used by nfw and cored
     real r200; // virial radius
     real ps, r1, rc; //used by cored
+    real W0, r_t, r_0, mu, rho0, rho1, sigma, phi0; // used by king
+    // int stepsPerPc; // used by king; defines ODE solver resolution, not sure if I should hard code a value instead yet
 } Dwarf;
 
 #define DWARF_TYPE "Dwarf"

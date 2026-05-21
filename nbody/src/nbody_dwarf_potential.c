@@ -23,6 +23,7 @@
 #include "nbody_types.h"
 #include "nbody_potential_types.h"
 #include "nbody_mass.h"
+#include "nbody_king_model.h"
 
 /* NOTE
  * we want the term nu which is the density per mass unit. However, these return just normal density.
@@ -211,6 +212,55 @@ static real cored_vel_disp(const Dwarf* model, real r)                          
     return mass / (6* mw_sqrt(sqr(r)+sqr(rscale)));                                                                      //
 }                                                                                                                        //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*                            KING                                                                                       */
+/* from Binney Tremaine 2nd ed. (lowered isothermeal models sec. 4.3) and original King 1966 paper                       */
+/* see nbody_king_model.c for the functions contents                                                                     */                                                                                                                      //
+                                                                                                                         //
+static real king_pot(Dwarf* model, real rEval) 
+{   
+    Dwarf localModel = *model;
+    real r = rEval;
+
+    real W0 = localModel.W0;
+    real sigma = localModel.sigma;
+    real truePot, relPot;
+
+    localModel.phi0 = -localModel.mass/localModel.r_t;
+    real stepsPerPc = 100000; //model->stepsPerPc; // ******** NOT SURE IF THIS SHOULD BE A USER INPUT YET
+
+    if (rEval <= model->r_t) {
+        relPot = ODE2ndOrderSolver(r, stepsPerPc, W0*sigma*sigma, 0.0, kingRelPot2ndDeriv, &localModel, 0);
+        truePot = localModel.phi0 - relPot;
+    } else {
+        truePot = -(model->mass)/rEval;
+    }
+    
+    return -truePot;
+}
+
+static real king_den(Dwarf* model, real rEval) 
+{
+    Dwarf localModel = *model;
+
+    real pot = -king_pot(model, rEval);
+
+    real Psi = -(localModel.mass/localModel.r_t) - pot;
+    real rhoOfPsi = kingDensityFromPsi(Psi, localModel.sigma, localModel.rho1); // msol/pc^3
+    if (rEval >= model->r_t) {
+        rhoOfPsi = 0.0; // no density past the tidal radius
+    }
+    return rhoOfPsi;
+}
+                                                                                                                         //
+static real king_vel_disp(const Dwarf* model, real r)                                                                    //
+{                                                                                                                        //
+    printf("WARNING: currently using plummer velocity dispersion for King model");                                       //
+    const real mass = model->mass;                                                                                       //
+    const real rscale = model->scaleLength;                                                                              //
+    return mass / (6* mw_sqrt(sqr(r)+sqr(rscale)));                                                                      //
+}                                                                                                                        //
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 real get_potential(const Dwarf* model, real r)
 {
@@ -233,6 +283,11 @@ real get_potential(const Dwarf* model, real r)
             break;
         case Cored:
             pot_temp = cored_pot(model, r);
+            break;
+        case King:
+            //printf("\nGetting King potential for r=%lf \n", r);
+            pot_temp = king_pot(model, r);
+            //printf("\nValid King potential found, %lf\n", pot_temp);
             break;
         case InvalidDwarf:
         default:
@@ -265,6 +320,11 @@ real get_density(const Dwarf* model, real r)
             break;
         case Cored:
             den_temp = cored_den(model, r);
+            break;
+        case King:
+            //printf("\nGetting King density... \n");
+            den_temp = king_den(model, r);
+            //printf("\nValid King density found, %lf\n", den_temp);
             break;
         case InvalidDwarf:
         default:
@@ -299,6 +359,9 @@ real get_vel_disp(const Dwarf* model) //radii calculated here are for softening 
             break;
         case Cored:
             vel_disp_temp = cored_vel_disp(model, r);
+            break;
+        case King:
+            vel_disp_temp = king_vel_disp(model, r);
             break;
         case InvalidDwarf:
         default:
