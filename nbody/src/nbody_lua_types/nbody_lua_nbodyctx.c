@@ -93,7 +93,7 @@ static int createNBodyCtx(lua_State* luaSt)
             { "timeEvolve",      LUA_TNUMBER, NULL,      TRUE,  &ctx.timeEvolve,        1 },
             { "timeBack",        LUA_TNUMBER, NULL,      FALSE, &ctx.timeBack,          1 },
             { "theta",           LUA_TNUMBER, NULL,      FALSE, &ctx.theta,             1 },
-            { "eps2",            LUA_TTABLE,  NULL,      TRUE,  &ctx.eps2,              3 },
+            { "eps2",            LUA_TNUMBER, NULL,      TRUE,  &ctx.eps2,              1 },
             { "treeRSize",       LUA_TNUMBER, NULL,      FALSE, &ctx.treeRSize,         1 },
             { "sunGCDist",       LUA_TNUMBER, NULL,      FALSE, &ctx.sunGCDist,         1 },
             { "sunVelx",         LUA_TNUMBER, NULL,      FALSE, &ctx.sunVelx,           1 },
@@ -263,18 +263,13 @@ static const luaL_reg methodsNBodyCtx[] =
     { NULL, NULL }
 };
 
-int geteps2(lua_State* luaSt, void* v) 
-{
-    return getRealArray(luaSt, v, 3);
-}
-
 static const Xet_reg_pre gettersNBodyCtx[] =
 {
     { "timestep",        getNumber,     offsetof(NBodyCtx, timestep)       },
     { "timeEvolve",      getNumber,     offsetof(NBodyCtx, timeEvolve)     },
     { "timeBack",        getNumber,     offsetof(NBodyCtx, timeBack)       },
     { "theta",           getNumber,     offsetof(NBodyCtx, theta)          },
-    { "eps2",            geteps2,       offsetof(NBodyCtx, eps2)           },
+    { "eps2",            getNumber,     offsetof(NBodyCtx, eps2)           },
     { "treeRSize",       getNumber,     offsetof(NBodyCtx, treeRSize)      },
     { "sunGCDist",       getNumber,     offsetof(NBodyCtx, sunGCDist)      },
     { "sunVelx",         getNumber,     offsetof(NBodyCtx, sunVelx)        },
@@ -327,7 +322,7 @@ static const Xet_reg_pre settersNBodyCtx[] =
     { "timeEvolve",      setNumber,     offsetof(NBodyCtx, timeEvolve)     },
     { "timeBack",        setNumber,     offsetof(NBodyCtx, timeBack)       },
     { "theta",           setNumber,     offsetof(NBodyCtx, theta)          },
-    { "eps2",            setRealArray,  offsetof(NBodyCtx, eps2)           },
+    { "eps2",            setNumber,     offsetof(NBodyCtx, eps2)           },
     { "treeRSize",       setNumber,     offsetof(NBodyCtx, treeRSize)      },
     { "sunGCDist",       setNumber,     offsetof(NBodyCtx, sunGCDist)      },
     { "sunVelx",         setNumber,     offsetof(NBodyCtx, sunVelx)        },

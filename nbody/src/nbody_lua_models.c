@@ -191,7 +191,6 @@ static real nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp,
         real eps2_l = r_strong_l * d_l;
         real eps_l = mw_sqrt(eps2_l);
 
-        real eps2_array[3] = {eps2_l, eps2_l, eps2_l};
         real eps2_array[3] = {eps2_l, 0, 0};
         mw_printf("Optimal Baryon Softening Length = %.15f kpc, Upper bound = %.15f kpc, Lower bound = %.15f kpc\n", eps_l, d_l, r_strong_l);
         return eps2_l;
@@ -270,7 +269,7 @@ static real nbCalculateEps2_OLD(real nbody, real a_b, real a_d, real M_b, real M
         eps2 = REAL_EPSILON;
     }
     mw_printf("Optimal Softening Length = %.15f kpc\n", eps);
-    return {eps2, eps2, eps2};
+    return eps2;
 }
 
 static int luaCalculateEps2_OLD(lua_State* luaSt) //read in params from lua to calc old softening length

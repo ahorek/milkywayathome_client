@@ -60,12 +60,8 @@ static inline mwvector nbGravity(const NBodyCtx* ctx, NBodyState* st, const Body
                 real drab, phii, mor3;
 
                 /* Compute gravity */
-                real eps2_array[3] = ctx->eps2;
-                int eps2_index = 1;   /* index for the cross softening length */
-                int eps2_val = q->bodyType + p->NbodyNode->bodyType; /* adds body type of each particle together */
-                if (eps2_val == -2){eps2_index = 2} /* switches to DM-DM softening if both particles are DM */
-                if (eps2_val == 2){eps2_index = 0} /* switches to LM-LM softening if both particles are Baryons */
-                drSq += eps2_array[eps2_index];   /* use defined softening */
+
+                drSq += ctx->eps2;   /* use standard softening */
                 drab = mw_sqrt(drSq);
                 phii = Mass(q) / drab;
                 mor3 = phii / drSq;
@@ -216,15 +212,14 @@ static mwvector nbGravity_Exact(const NBodyCtx* ctx, NBodyState* st, const Body*
     int i;
     const int nbody = st->nbody;
     mwvector a = ZERO_VECTOR;
-    real eps2_array[3] = ctx->eps2;
+    const real eps2 = ctx->eps2;
 
     for (i = 0; i < nbody; ++i)
     {
         const Body* b = &st->bodytab[i];
-        int eps2_index = b->NbodyNode->bodyType + p->NbodyNode->bodyType; /* finds the particle types of each body */
-        eps2_index = (eps2_index-2)/(-2); /* changes from particle type to index (0 for LM, 1 for cross, 2 for DM) */
+
         mwvector dr = mw_subv(Pos(b), Pos(p));
-        real drSq = mw_sqrv(dr) + eps2_array[eps2_index];
+        real drSq = mw_sqrv(dr) + eps2;
 
         real drab = mw_sqrt(drSq);
         real phii = Mass(b) / drab;
