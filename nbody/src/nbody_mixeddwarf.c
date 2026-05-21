@@ -63,7 +63,7 @@ static inline real density( real r, const Dwarf* comp1, const Dwarf* comp2)
 
 
 /*      GENERAL PURPOSE DERIVATIVE, INTEGRATION, MAX FINDING, ROOT FINDING, AND ARRAY SHUFFLER FUNCTIONS        */
-static inline real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
+inline real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
 {
     /*yes, this does in fact use a 5-point stencil*/
     const real h = 0.001;

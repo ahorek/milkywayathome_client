@@ -44,19 +44,6 @@
 
 static const real pi = 3.1415926535;
 
-static inline real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
-{
-    /*yes, this does in fact use a 5-point stencil*/
-    const real h = 0.001;
-    real p1 =   1.0 * (*func)(comp1, (x - 2.0 * h));
-    real p2 = - 8.0 * (*func)(comp1, (x - h) );
-    real p3 = - 1.0 * (*func)(comp1, (x + 2.0 * h));
-    real p4 =   8.0 * (*func)(comp1, (x + h));
-    real denom = inv( 12.0 * h);
-    real deriv = (p1 + p2 + p3 + p4) * denom;
-    return deriv;
-}
-
 
 /* For using a combination of light and dark models to generate timestep */
 static real plummerTimestepIntegral(real smalla, real biga, real Md, real step)
@@ -172,34 +159,45 @@ static int luaCalculateTimestep(lua_State* luaSt)
     return 1;
 }
 
-static real nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int nbody, unsigned int total) //new softening length is dwarf specific and uses velocity dispersion approximation
+static real nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody) //new softening length is dwarf specific and uses velocity dispersion approximation
 {
 
-    real dm_nbody = total - nbody;
-    if (dm_nbody == 0)
+    int dm_nbody = nbody - lm_nbody;
+    if (dm_nbody == 0 || lm_nbody ==0)
         {
+        if (dm_nbody == 0) 
+        {
+            Dwarf* comp = light_comp;
+            int bodies = lm_nbody;
+        }
+        if (lm_nbody == 0) 
+        {
+            Dwarf* comp = dark_comp;
+            int bodies = dm_nbody;
+
+        }
         // Separate code for 1-component systems
-        real m_l = light_comp->mass / nbody;
-        real rho_0_l = get_density(light_comp, light_comp->scaleLength/10); //central density
-        real d_l = 2* mw_pow(3*m_l/(4*pi*rho_0_l), 1.0/3.0);
+        real m = comp->mass / bodies;
+        real rho_0 = get_density(comp, comp->scaleLength/10); //central density
+        real d = 2* mw_pow(3*m/(4*pi*rho_0), 1.0/3.0);
 
-        real light_hmr = get_hmr(light_comp);
-        real light_m = sqr(2*light_hmr)*first_derivative(get_potential, 2*light_hmr, light_comp)*-1;
-        real light_v_disp = light_m / (2*light_hmr);
-        real r_strong_l = 2 * m_l / light_v_disp;
+        real radius = get_vel_disp_radius(comp);
+        real m_encl = sqr(2*radius)*first_derivative(get_potential, 2*radius, comp)*-1;
+        real v2 = m_encl / (2*radius);
+        real r_strong = 2 * m / v2;
 
-        real eps2_l = r_strong_l * d_l;
-        real eps_l = mw_sqrt(eps2_l);
+        real eps2 = r_strong * d;
+        real eps = mw_sqrt(eps2);
 
-        real eps2_array[3] = {eps2_l, 0, 0};
-        mw_printf("Optimal Baryon Softening Length = %.15f kpc, Upper bound = %.15f kpc, Lower bound = %.15f kpc\n", eps_l, d_l, r_strong_l);
-        return eps2_l;
+        real eps2_array[3] = {eps2, eps2, eps2};
+        mw_printf("Optimal Baryon Softening Length = %.15f kpc, Upper bound = %.15f kpc, Lower bound = %.15f kpc\n", eps, d, r_strong);
+        return eps2;
         }
 
 
     // Average distance between stars
     
-    real m_l = light_comp->mass / nbody;
+    real m_l = light_comp->mass / lm_nbody;
     real rho_0_l = get_density(light_comp, light_comp->scaleLength/10); //central density
     real d_l = 2* mw_pow(3*m_l/(4*pi*rho_0_l), 1.0/3.0);
 
@@ -208,20 +206,20 @@ static real nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp,
     real d_d = 2* mw_pow(3*m_d/(4*pi*rho_0_d), 1.0/3.0);
 
     // Strong interaction radius
-    real light_hmr = get_hmr(light_comp);
-    real dark_hmr = get_hmr(dark_comp);
+    real radius_l = get_vel_disp_radius(light_comp);
+    real radius_d = get_vel_disp_radius(dark_comp);
 
-    real light_m = sqr(2*light_hmr)*first_derivative(get_potential, 2*light_hmr, light_comp)*-1 + sqr(light_hmr)*first_derivative(get_potential, light_hmr, dark_comp)*-1;
-    real dark_m = sqr(2*dark_hmr)*first_derivative(get_potential, 2*dark_hmr, dark_comp)*-1 + sqr(dark_hmr)*first_derivative(get_potential, dark_hmr, dark_comp)*-1;
-    real light_v_disp = light_m / (2*light_hmr);
-    real dark_v_disp = dark_m / (2*dark_hmr);
-    real r_strong_l = 2 * m_l / light_v_disp;
-    real r_strong_d = 2 * m_d / dark_v_disp;
+    real m_encl_l = sqr(2*radius_l)*first_derivative(get_potential, 2*radius_l, light_comp)*-1 + sqr(radius_l)*first_derivative(get_potential, radius_l, dark_comp)*-1;
+    real m_encl_d = sqr(2*radius_d)*first_derivative(get_potential, 2*radius_d, dark_comp)*-1 + sqr(radius_d)*first_derivative(get_potential, radius_d, dark_comp)*-1;
+    real v2_l = m_encl_l / (2*radius_l);
+    real v2_d = m_encl_d / (2*radius_d);
+    real r_strong_l = 2 * m_l / v2_l;
+    real r_strong_d = 2 * m_d / v2_d;
 
     // Softening length
     // Suggestion for multidwarf: pass up both strong interaction radii and distance calculations and make the softening lengths in Lua (so you can do NxN)
     real cross_r_strong = (r_strong_l > r_strong_d) ? r_strong_l : r_strong_d;
-    real d_cross = (d_l > d_d) ? d_l : d_d;
+    real d_cross = (d_l > d_d) ? d_d : d_l;
     real eps2_l = r_strong_l * d_l;
     real eps_l = mw_sqrt(eps2_l);
     real eps2_d = r_strong_d * d_d;
@@ -240,10 +238,10 @@ static int luaCalculateEps2Dwarf(lua_State* luaSt) //read in params from lua to 
 {
     const Dwarf* model_1 = (const Dwarf*) mw_checknamedudata(luaSt, 1, DWARF_TYPE);
     const Dwarf* model_2 = (const Dwarf*) mw_checknamedudata(luaSt, 2, DWARF_TYPE);
-    unsigned int nbody = (unsigned int) luaL_checkinteger(luaSt, 3);
-    unsigned int total = (unsigned int) luaL_checkinteger(luaSt, 4);
+    unsigned int lm_nbody = (unsigned int) luaL_checkinteger(luaSt, 3);
+    unsigned int nbody = (unsigned int) luaL_checkinteger(luaSt, 4);
     
-    lua_pushnumber(luaSt, nbCalculateEps2_NEW(model_1, model_2, nbody, total));
+    lua_pushnumber(luaSt, nbCalculateEps2_NEW(model_1, model_2, lm_nbody, nbody));
     return 1;
 }
 
