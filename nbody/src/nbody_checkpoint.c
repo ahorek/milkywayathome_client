@@ -539,7 +539,7 @@ static int nbStandardCheckpointRead(NBodyCtx* ctx, NBodyState* st, const char* f
     fread(extractedSt, sizeOfData, 1, f);
     mwFreeA(extractedSt); 
 
-    supposedCheckpointSize = sizeof(NBodyCheckpointHeader) + 2*bodySize + likelihoodSize + traceSize + ShiftLMCSize + LMCPosVelSize + sizeOfData + sizeof(size_t)+4;
+    supposedCheckpointSize = sizeof(NBodyCheckpointHeader) + 2*bodySize + likelihoodSize + traceSize + ShiftLMCSize + (ShiftLMCSize ? LMCPosVelSize : 0) + sizeOfData + sizeof(size_t) + sizeof(tail);
     if (abs(supposedCheckpointSize - size) > .001)
     {
         mw_printf("Expected checkpoint file size ("ZU") is incorrect for expected number of bodies "
