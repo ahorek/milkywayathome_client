@@ -165,7 +165,7 @@ static inline real orbitingBarDensity(const Disk* disk, mwvector pos, real time)
     const real c = 1.0;               // Prolate softening length
 
     // Calculate current bar angle
-    const real curAngle = (-1.0 * disk->patternSpeed * time) + disk->startAngle;
+    const real curAngle = disk->startAngle - disk->patternSpeed * time;
 
     // Calculate cylindrical radius and angle using atan2 for robustness
     const real px = pos.x;

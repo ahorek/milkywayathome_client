@@ -944,7 +944,7 @@ MainStruct* nbCreateHistogram(const NBodyCtx* ctx,        /* Simulation context 
             betaIndex   = inRange ? (unsigned int) betaIdxF   : betaBins;
 
             /* Check if the position is within the bounds of the histogram */
-            if (lambdaIndex < lambdaBins && betaIndex < betaBins)
+            if (inRange)
             {   
                 Histindex = lambdaIndex * betaBins + betaIndex;
                 use_betabody[ub_counter] = Histindex;//if body is in hist, mark which hist bin
