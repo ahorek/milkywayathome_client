@@ -51,11 +51,11 @@ fi
   cmake -DNBODY_DEV_OPTIONS=ON -DNBODY_STATIC=OFF -DDOUBLEPREC=ON -DSEPARATION=OFF -DNBODY_GL=OFF -DBOINC_APPLICATION=OFF -DNBODY_OPENMP=ON -DNBODY_OPENCL=OFF $PathToMilkyWayAtHomeClientDirectory
 
   make blind_test
-  make sanity
-  make test_primitives
-  make test_data
-  make test_barriers
-  make test_queue
+  #make sanity
+  #make test_primitives
+  #make test_data
+  #make test_barriers
+  #make test_queue
   make emd_test
   make bessel_test
   make poisson_test

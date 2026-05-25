@@ -68,7 +68,19 @@ static real nfw_den(const Dwarf* model, real r)                                 
     const real rscale = model->scaleLength;                                                                              //
     const real p0 = model->p0;                                                                                           //
     const real rcut = model->rcut;                                                                                       //
+    const real rcut = model->rcut;                                                                                       //
     real R = r / rscale;                                                                                                 //
+    if (rcut != 0.0) {                                                                                                   //
+        const real rdecay = model->rdecay;                                                                               //
+        const real pcut = model->pcut;                                                                                   //
+        const real delta = model->delta;                                                                                 //
+        if (r > rcut) {                                                                                                  //
+            return pcut * mw_pow(r / rcut, delta) * mw_exp(-(r - rcut) / rdecay);                                        //
+        }                                                                                                                //
+        else {                                                                                                           //
+            return p0 * inv(R) * inv(sqr(1.0 + R));                                                                      //
+        }                                                                                                                //
+    }                                                                                                                    //
     if (rcut != 0.0) {                                                                                                   //
         const real rdecay = model->rdecay;                                                                               //
         const real pcut = model->pcut;                                                                                   //
@@ -170,7 +182,7 @@ static real einasto_pot(const Dwarf* model, real r)                             
                                                                                                                          //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*                             CORED                                                                                     */
-/* this potential and density are cored profiles to be used with SIDM.                                                   */
+/* this potential and density are cored NFW profiles to be used with SIDM.                                               */
 static real cored_den(const Dwarf* model, real r)                                                                        //
 {                                                                                                                        //
     const real r1 = model->r1;                                                                                           //

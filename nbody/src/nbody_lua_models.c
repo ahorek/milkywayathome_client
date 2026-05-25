@@ -44,6 +44,19 @@
 
 static const real pi = 3.1415926535;
 
+static inline real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
+{
+    /*yes, this does in fact use a 5-point stencil*/
+    const real h = 0.001;
+    real p1 =   1.0 * (*func)(comp1, (x - 2.0 * h));
+    real p2 = - 8.0 * (*func)(comp1, (x - h) );
+    real p3 = - 1.0 * (*func)(comp1, (x + 2.0 * h));
+    real p4 =   8.0 * (*func)(comp1, (x + h));
+    real denom = inv( 12.0 * h);
+    real deriv = (p1 + p2 + p3 + p4) * denom;
+    return deriv;
+}
+
 
 /* For using a combination of light and dark models to generate timestep */
 static real plummerTimestepIntegral(real smalla, real biga, real Md, real step)
