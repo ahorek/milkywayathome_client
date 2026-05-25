@@ -67,8 +67,7 @@ static real nfw_den(const Dwarf* model, real r)                                 
 {                                                                                                                        //
     const real rscale = model->scaleLength;                                                                              //
     const real p0 = model->p0;                                                                                           //
-    const real rcut = model->rcut;                                                                                       //
-    const real rcut = model->rcut;                                                                                       //
+    const real rcut = model->rcut;                                                                                       //                                                                                       //
     real R = r / rscale;                                                                                                 //
     if (rcut != 0.0) {                                                                                                   //
         const real rdecay = model->rdecay;                                                                               //

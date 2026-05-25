@@ -167,7 +167,7 @@ static void nbPrintHistogramHeader(FILE* f,
             "# Criterion = %s\n"
             "# Theta = %f\n"
             "# Quadrupole Moments = %s\n"
-            "# Eps = %f\n"
+            "# Eps = {%f, %f, %f}\n"
             "# Bar Time Error = %f\n"
             "# Bar Angle Error = %f rad\n"
             "#\n",
@@ -180,7 +180,7 @@ static void nbPrintHistogramHeader(FILE* f,
             showCriterionT(ctx->criterion),
             ctx->theta,
             showBool(ctx->useQuad),
-            mw_sqrt(ctx->eps2),
+            mw_sqrt(ctx->eps2[0]), mw_sqrt(ctx->eps2[1]), mw_sqrt(ctx->eps2[2]),
             barTimeError,
             barAngleError
 

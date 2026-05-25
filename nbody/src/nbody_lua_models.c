@@ -172,21 +172,23 @@ static int luaCalculateTimestep(lua_State* luaSt)
     return 1;
 }
 
-static real nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody) //new softening length is dwarf specific and uses velocity dispersion approximation
+static real* nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody) //new softening length is dwarf specific and uses velocity dispersion approximation
 {
 
     int dm_nbody = nbody - lm_nbody;
     if (dm_nbody == 0 || lm_nbody ==0)
         {
+        Dwarf* comp = NULL;
+        int bodies = 0;
         if (dm_nbody == 0) 
         {
-            Dwarf* comp = light_comp;
-            int bodies = lm_nbody;
+            comp = light_comp;
+            bodies = lm_nbody;
         }
         if (lm_nbody == 0) 
         {
-            Dwarf* comp = dark_comp;
-            int bodies = dm_nbody;
+            comp = dark_comp;
+            bodies = dm_nbody;
 
         }
         // Separate code for 1-component systems
