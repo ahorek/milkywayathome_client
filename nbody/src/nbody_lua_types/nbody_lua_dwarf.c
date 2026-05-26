@@ -135,7 +135,7 @@ static int createKingDwarf(lua_State* luaSt)
     static const MWNamedArg argTable[] =
         {
             { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
-            { "r_t",         LUA_TNUMBER, NULL, TRUE, &h.r_t,         1 },
+            { "scaleLength", LUA_TNUMBER, NULL, TRUE, &h.scaleLength, 1 },
 			{ "W0", 		 LUA_TNUMBER, NULL, TRUE, &h.W0,          1 },
             END_MW_NAMED_ARG
         };

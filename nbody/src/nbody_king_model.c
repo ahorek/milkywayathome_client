@@ -8,7 +8,7 @@
 // Generic function that numerically solves 2nd order ODEs of the form y'' = f(x, y(x), y'(x)), where y' is dy/dx
 // Uses 4th order Runge-Kutta numerical method, function input is of the form of ODE2ndDeriv
 // The last parameter returnXWhen0 is a special case boolean where the function will instead return the x value where the otherwise positive y(x) function hits zero/negative
-real ODE2ndOrderSolver(real xEval, int stepsPerx, real yInit, real yPrimeInit, ODE2ndDeriv f, void* params, int returnXWhen0) {
+real ODE2ndOrderSolver(real xEval, int stepsPerx, real yInit, real yPrimeInit, ODE2ndDeriv f, Dwarf* params, int returnXWhen0) {
     real nSteps = floor(stepsPerx * xEval);
     real stepRes = stepsPerx*xEval - nSteps;
     real deltax = xEval/nSteps;
@@ -40,7 +40,6 @@ real ODE2ndOrderSolver(real xEval, int stepsPerx, real yInit, real yPrimeInit, O
         *zCurr = *zCurr + (1.0/6.0)*(l1 + 2.0*l2 + 2.0*l3 + l4);
 
         if ((*yCurr <= 0.0 || isnan(*yCurr) || !isfinite(*yCurr)) && returnXWhen0 == 1) {
-            //printf("\nValue for y is less than zero, stopping ODE solver and returning x\n");
             stepRes = 0.0;
             *yCurr = x;
             break;
@@ -49,7 +48,7 @@ real ODE2ndOrderSolver(real xEval, int stepsPerx, real yInit, real yPrimeInit, O
     }
 
     // run the iteration one more time if there is a fractional step at the end
-    if (stepRes != 0.0) {
+    if (stepRes > 0.0) {
         deltax = stepRes/stepsPerx; // smaller than regular deltax
         l1 = deltax * f(x, y, z, params);
         k1 = deltax * z;
@@ -67,8 +66,8 @@ real ODE2ndOrderSolver(real xEval, int stepsPerx, real yInit, real yPrimeInit, O
 
 
 real kingDimlessRho(real W, real W0) {
-    real rho = exp(W)*erf(sqrt(W)) - sqrt(4.0*W/3.14159)*(1.0 + (2.0/3.0)*W);
-    real rho0 = exp(W0)*erf(sqrt(W0)) - sqrt(4.0*W0/3.14159)*(1.0 + (2.0/3.0)*W0);
+    real rho = mw_exp(W)*mw_erf(sqrt(W)) - sqrt(4.0*W/M_PI)*(1.0 + (2.0/3.0)*W);
+    real rho0 = mw_exp(W0)*mw_erf(sqrt(W0)) - sqrt(4.0*W0/M_PI)*(1.0 + (2.0/3.0)*W0);
     return rho/rho0;
 }
 
@@ -82,23 +81,21 @@ real kingDimless2ndDeriv(real R, real W, real dWdR, Dwarf *model) {
 
 // This function is formatted in such a way that gauss_quad() will accept it, the integrand for mu parameter
 // parameters are radius, Dwarf (used), Dwarf (unused), energy (unused), isDark (unused)
-real kingDimlessMass(real R, const Dwarf* model, const Dwarf* unusedModel, real unusedEnergy, int unusedIsDark) {
+real kingDimlessMass(real R, Dwarf* model, Dwarf* unusedModel, real unusedEnergy, mwbool unusedIsDark) {
     real W_R = ODE2ndOrderSolver(R, 1000, model->W0, 0.0, kingDimless2ndDeriv, model, 0);
-    return kingDimlessRho(W_R, model->W0) * 4.0 * 3.14159 * R * R;
+    return kingDimlessRho(W_R, model->W0) * 4.0 * M_PI * R * R;
 }
 
 // Equation 4.111 from Binney & Tremaine 2nd ed.
 real kingDensityFromPsi(real psi, real sig, real rho1) {
-    real erfTerm = exp(psi/(sig*sig)) * mw_erf(sqrt(psi/(sig*sig)));
-    return rho1 * (erfTerm - sqrt(4.0*psi/(3.14159*sig*sig))*(1.0 + (2.0*psi)/(3.0*sig*sig)));
+    real erfTerm = mw_exp(psi/(sig*sig)) * mw_erf(sqrt(psi/(sig*sig)));
+    return rho1 * (erfTerm - mw_sqrt(4.0*psi/(M_PI*sig*sig))*(1.0 + (2.0*psi)/(3.0*sig*sig)));
 }
 
 // Equation 4.112 from Binney & Tremaine 2nd ed.
 real kingRelPot2ndDeriv(real r, real psi, real dPsidr, Dwarf *model) {
     real rho1 = model->rho1;
     real sigma = model->sigma;
-    //printf("\tpsi=%lf, rho1=%lf, sigma=%lf\n", psi, rho1, sigma);
-    //real rhs = -4.0*3.14159*0.004300917*kingDensityFromPsi(psi, sigma, rho1);
-    real rhs = -4.0*3.14159*kingDensityFromPsi(psi, sigma, rho1);
+    real rhs = -4.0*M_PI*kingDensityFromPsi(psi, sigma, rho1);
     return rhs + (-2.0/r)*dPsidr;
 }

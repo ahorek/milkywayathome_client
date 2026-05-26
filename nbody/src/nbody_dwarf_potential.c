@@ -24,6 +24,7 @@
 #include "nbody_potential_types.h"
 #include "nbody_mass.h"
 #include "nbody_king_model.h"
+#include "nbody_mixeddwarf.h"
 
 /* NOTE
  * we want the term nu which is the density per mass unit. However, these return just normal density.
@@ -216,37 +217,31 @@ static real cored_vel_disp(const Dwarf* model, real r)                          
 /* from Binney Tremaine 2nd ed. (lowered isothermeal models sec. 4.3) and original King 1966 paper                       */
 /* see nbody_king_model.c for the functions contents                                                                     */                                                                                                                      //
                                                                                                                          //
-static real king_pot(Dwarf* model, real rEval) 
+static real king_pot(Dwarf* model, real r) 
 {   
-    Dwarf localModel = *model;
-    real r = rEval;
-
-    real W0 = localModel.W0;
-    real sigma = localModel.sigma;
+    real W0 = model->W0;
+    real sigma = model->sigma;
     real truePot, relPot;
 
-    localModel.phi0 = -localModel.mass/localModel.r_t;
-    real stepsPerPc = 100000; //model->stepsPerPc; // ******** NOT SURE IF THIS SHOULD BE A USER INPUT YET
+    real stepsPerKpc = 100000; // resolution for the RK4 solver
 
-    if (rEval <= model->r_t) {
-        relPot = ODE2ndOrderSolver(r, stepsPerPc, W0*sigma*sigma, 0.0, kingRelPot2ndDeriv, &localModel, 0);
-        truePot = localModel.phi0 - relPot;
+    if (r <= model->r_t) {
+        relPot = ODE2ndOrderSolver(r, stepsPerKpc, W0*sigma*sigma, 0.0, kingRelPot2ndDeriv, model, 0);
+        truePot = model->phi0 - relPot;
     } else {
-        truePot = -(model->mass)/rEval;
+        truePot = -(model->mass)/r;
     }
     
     return -truePot;
 }
 
-static real king_den(Dwarf* model, real rEval) 
+static real king_den(Dwarf* model, real r) 
 {
-    Dwarf localModel = *model;
+    real pot = -king_pot(model, r);
 
-    real pot = -king_pot(model, rEval);
-
-    real Psi = -(localModel.mass/localModel.r_t) - pot;
-    real rhoOfPsi = kingDensityFromPsi(Psi, localModel.sigma, localModel.rho1); // msol/pc^3
-    if (rEval >= model->r_t) {
+    real Psi = model->phi0 - pot;
+    real rhoOfPsi = kingDensityFromPsi(Psi, model->sigma, model->rho1);
+    if (r >= model->r_t) {
         rhoOfPsi = 0.0; // no density past the tidal radius
     }
     return rhoOfPsi;
@@ -285,9 +280,14 @@ real get_potential(const Dwarf* model, real r)
             pot_temp = cored_pot(model, r);
             break;
         case King:
-            //printf("\nGetting King potential for r=%lf \n", r);
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wfloat-equal"
+            if (model->r_0 == 0.0) {
+            #pragma GCC diagnostic pop
+                set_king_params(model);
+            }
+
             pot_temp = king_pot(model, r);
-            //printf("\nValid King potential found, %lf\n", pot_temp);
             break;
         case InvalidDwarf:
         default:
@@ -322,9 +322,14 @@ real get_density(const Dwarf* model, real r)
             den_temp = cored_den(model, r);
             break;
         case King:
-            //printf("\nGetting King density... \n");
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wfloat-equal"
+            if (model->r_0 == 0.0) {
+            #pragma GCC diagnostic pop
+                set_king_params(model);
+            }
+            
             den_temp = king_den(model, r);
-            //printf("\nValid King density found, %lf\n", den_temp);
             break;
         case InvalidDwarf:
         default:
