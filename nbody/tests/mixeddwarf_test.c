@@ -41,7 +41,6 @@
 #define MASS_RATIO "0.2"                      /* Mass ratio */ 
 
 #define KING_MASS "0.449866"                  /* Mass for king profile only in SMU*/
-#define KING_RADIUS_RATIO "1.0"               /* King only radius ratio (no DM)*/
 #define KING_MASS_RATIO "1.0"                 /* King only mass ratio (no DM)*/
 
 /* KL divergence thresholds */
@@ -170,7 +169,7 @@ int test_stability(TestContext* tctx) {
     tctx->nbody_dark = tctx->nbody - tctx->nbody_baryon;
     // Calculate the mass per particle for each component
     tctx->mass_per_particle_baryon = tctx->comp1->mass / tctx->nbody_baryon;
-    tctx->mass_per_particle_dark = (tctx->comp2->mass > 0.0) ? tctx->comp2->mass / tctx->nbody_dark : 0.0;
+    tctx->mass_per_particle_dark = (tctx->nbody_dark > 0.0) ? tctx->comp2->mass / tctx->nbody_dark : 0.0;
     // Set bounds for calulating KL divergence
 	real baryon_range_limit = 0.8 * get_sampling_bound_for_component(tctx->comp1, tctx->comp2);
 	if (tctx->comp1->type == King) {
@@ -185,14 +184,14 @@ int test_stability(TestContext* tctx) {
     tctx->baryon_bin_width = baryon_range_limit / rice_rule(tctx->nbody_baryon);
     printf("Baryon bin width: %f\n", tctx->baryon_bin_width);
     fflush(stdout);
-    tctx->dark_bin_width = (tctx->comp2->mass > 0.0) ? dark_range_limit / rice_rule(tctx->nbody_dark): 0.0;
+    tctx->dark_bin_width = (tctx->nbody_dark > 0.0) ? dark_range_limit / rice_rule(tctx->nbody_dark): 0.0;
     printf("Dark matter bin width: %f\n", tctx->dark_bin_width);
     fflush(stdout);
     // Calculate the number of bins for each component depending on the model type (+1 to include the last bin)
     tctx->num_bins_baryon = (int)((baryon_range_limit - tctx->baryon_bin_width) / tctx->baryon_bin_width) + 1;
     printf("Baryon number of bins: %d\n", tctx->num_bins_baryon);
     fflush(stdout);
-    tctx->num_bins_dark = (tctx->comp2->mass > 0.0) ? (int)((dark_range_limit - tctx->dark_bin_width) / tctx->dark_bin_width) + 1 : 0;
+    tctx->num_bins_dark = (tctx->nbody_dark > 0.0) ? (int)((dark_range_limit - tctx->dark_bin_width) / tctx->dark_bin_width) + 1 : 0;
     printf("Dark matter number of bins: %d\n", tctx->num_bins_dark);
     printf("mass_per_particle_baryon: %f\n", tctx->mass_per_particle_baryon);
     printf("mass_per_particle_dark: %f\n", tctx->mass_per_particle_dark);
@@ -373,7 +372,7 @@ int test_stability(TestContext* tctx) {
 
     // Kullback-Leibler divergence for each component for the initial timestep
     real initial_kl_divergence_baryon = kl_divergence(tctx->baryon_simulation_probability, tctx->baryon_theoretical_probability, tctx->num_bins_baryon);
-    real initial_kl_divergence_dark = (tctx->comp2->mass > 0.0) ? kl_divergence(tctx->dark_simulation_probability, tctx->dark_theoretical_probability, tctx->num_bins_dark) : 0.0;
+    real initial_kl_divergence_dark = (tctx->nbody_dark > 0.0) ? kl_divergence(tctx->dark_simulation_probability, tctx->dark_theoretical_probability, tctx->num_bins_dark) : 0.0;
     printf("Initial KL divergence for baryon component: %f\n", initial_kl_divergence_baryon);
     printf("Initial KL divergence for dark matter component: %f\n", initial_kl_divergence_dark);
     fflush(stdout);
@@ -547,7 +546,7 @@ int test_stability(TestContext* tctx) {
 
 	// Kullback-Leibler divergence for each component
 	real kl_divergence_baryon = kl_divergence(simulation_probability_density_baryon, tctx->baryon_theoretical_probability, tctx->num_bins_baryon);
-	real kl_divergence_dark = (tctx->comp2->mass > 0.0) ? kl_divergence(simulation_probability_density_dark, tctx->dark_theoretical_probability, tctx->num_bins_dark): 0.0;
+	real kl_divergence_dark = (tctx->nbody_dark > 0.0) ? kl_divergence(simulation_probability_density_dark, tctx->dark_theoretical_probability, tctx->num_bins_dark): 0.0;
 
 	printf("KL divergence for baryon component: %f\n", kl_divergence_baryon);
 	printf("KL divergence for dark matter component: %f\n", kl_divergence_dark);
@@ -801,9 +800,9 @@ int run_nbody_simulation(const char* dwarf_potential_type_lua, TestContext* tctx
 		EVOLUTION_TIME,
 		EVOLUTION_RATIO,
 		BARYON_SCALE_RADIUS,
-		KING_RADIUS_RATIO,
+		SCALE_RADIUS_RATIO,
 		KING_MASS,
-		KING_MASS_RATIO
+		KING_MASS_RATIO //"1.0"
 	};
 
 
@@ -869,9 +868,9 @@ int main() {
     int total_failed = 0;
 
     // Arrays to store failed models and their failed tests
-    const char* failed_models[5];
-    const char* failed_tests[5][3];
-    int num_failed_tests[5];
+    const char* failed_models[7];
+    const char* failed_tests[7][3];
+    int num_failed_tests[7];
     int num_failures = 0;
 
     // List of dwarf models to test

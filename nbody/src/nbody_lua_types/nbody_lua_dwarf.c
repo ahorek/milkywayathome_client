@@ -67,7 +67,7 @@ static int createPlummerDwarf(lua_State* luaSt)
 
     h.type = Plummer;
     oneTableArgument(luaSt, argTable);
-    if (h.mass <= 0.0)
+    if (h.mass < 0.0)
         luaL_error(luaSt, "Plummer dwarf mass must be positive");
     if (h.scaleLength <= 0.0)
         luaL_error(luaSt, "Plummer dwarf scaleLength must be positive");
@@ -89,7 +89,7 @@ static int createNFWDwarf(lua_State* luaSt)
     h.type = NFW;
     h.rcut = 0.0;
     oneTableArgument(luaSt, argTable);
-    if (h.mass <= 0.0)
+    if (h.mass < 0.0)
         luaL_error(luaSt, "NFW dwarf mass must be positive");
     if (h.scaleLength <= 0.0)
         luaL_error(luaSt, "NFW dwarf scaleLength must be positive");
@@ -110,7 +110,7 @@ static int createGen_HernDwarf(lua_State* luaSt)
 
     h.type = General_Hernquist;
     oneTableArgument(luaSt, argTable);
-    if (h.mass <= 0.0)
+    if (h.mass < 0.0)
         luaL_error(luaSt, "General Hernquist dwarf mass must be positive");
     if (h.scaleLength <= 0.0)
         luaL_error(luaSt, "General Hernquist dwarf scaleLength must be positive");
@@ -130,7 +130,7 @@ static int createEinastoDwarf(lua_State* luaSt)
 
     h.type = Einasto;
     oneTableArgument(luaSt, argTable);
-    if (h.mass <= 0.0)
+    if (h.mass < 0.0)
         luaL_error(luaSt, "Einasto dwarf mass must be positive");
     if (h.scaleLength <= 0.0)
         luaL_error(luaSt, "Einasto dwarf scaleLength must be positive");
@@ -156,7 +156,7 @@ static int createCoredDwarf(lua_State* luaSt)
 	h.r1 = h.scaleLength;
 	h.rcut = 0.0;
     oneTableArgument(luaSt, argTable);
-    if (h.mass <= 0.0)
+    if (h.mass < 0.0)
         luaL_error(luaSt, "Cored dwarf mass must be positive");
     if (h.scaleLength <= 0.0)
         luaL_error(luaSt, "Cored dwarf scaleLength must be positive");
@@ -183,6 +183,13 @@ static int createKingDwarf(lua_State* luaSt)
         };
 
     h.type = King;
+    oneTableArgument(luaSt, argTable);
+    if (h.mass < 0.0)
+        luaL_error(luaSt, "King model mass must be positive");
+    if (h.scaleLength <= 0.0)
+        luaL_error(luaSt, "King model scaleLength must be positive");
+    if (h.W0 <= 0.0)
+        luaL_error(luaSt, "King model W0 must be positive");
     return createDwarf(luaSt, argTable, &h);
 }
 

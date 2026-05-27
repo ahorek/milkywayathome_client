@@ -64,7 +64,7 @@ static inline real density( real r, const Dwarf* comp1, const Dwarf* comp2)
 
 
 /*      GENERAL PURPOSE DERIVATIVE, INTEGRATION, MAX FINDING, ROOT FINDING, AND ARRAY SHUFFLER FUNCTIONS        */
-inline real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
+real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
 {
     /*yes, this does in fact use a 5-point stencil*/
     const real h = 0.001;
@@ -803,46 +803,13 @@ void set_king_params(Dwarf* comp)
     // save these values into the Dwarf struct
     comp->phi0 = -M/r_t;
     comp->rho0 = rho0;
-    comp->sigma = r0*sqrt(4.0*M_PI*rho0/9.0);
-    comp->rho1 = rho0/((exp(W0)*erf(sqrt(W0))) - sqrt(4.0*W0/3.14159)*(1.0 + (2.0*W0/3.0)));
+    comp->sigma = r0*mw_sqrt(4.0*M_PI*rho0/9.0);
+    comp->rho1 = rho0/((mw_exp(W0)*mw_erf(mw_sqrt(W0))) - sqrt(4.0*W0/M_PI)*(1.0 + (2.0*W0/3.0)));
     comp->r_0 = r0;
     comp->mu = mu;
     comp->r_t = r_t;
 
-    //printf("\nKing model params: W0=%lf, M=%lf smu, rt=%lf kpc, rho0=%lf ||| mu=%lf, Rt=%lf\n", W0, comp->mass, comp->r_t, comp->rho0, mu, Rt);
-}
-
-static real king_rho_max(real r, real unused1, const Dwarf* comp, const Dwarf* unused_comp, mwbool unused2) 
-{
-    // finds the maximum of r^2*rho(r) for king profile to set the upper bound in radius sampling
-    // unused1, unused_comp, unused2 are all unused, just there to match the required function input format for max_finder()
-    return r * r * get_density(comp, r);
-}
-
-void set_king_params(Dwarf* comp)
-{
-    // (For king model only) For a given W0, M, r_t: calculates r0, mu, rho0, sigma, rho1, phi0.
-    // Runs ODE2ndOrderSolver to find tidal to King radius ratio, gauss_quad to integrate dimensionless mass.
-    real M = comp->mass;
-    real W0 = comp->W0;
-    real r_t = comp->scaleLength;
-
-    real Rt = ODE2ndOrderSolver(10000, 1000, W0, 0.0, kingDimless2ndDeriv, comp, 1);
-    real mu = gauss_quad(kingDimlessMass, 0.00001, Rt, comp, comp, 0.0, FALSE);
-
-    real r0 = r_t/Rt;
-    real rho0 = M/(r0*r0*r0*mu);
-    
-    // save these values into the Dwarf struct
-    comp->phi0 = -M/r_t;
-    comp->rho0 = rho0;
-    comp->sigma = r0*sqrt(4.0*M_PI*rho0/9.0);
-    comp->rho1 = rho0/((exp(W0)*erf(sqrt(W0))) - sqrt(4.0*W0/3.14159)*(1.0 + (2.0*W0/3.0)));
-    comp->r_0 = r0;
-    comp->mu = mu;
-    comp->r_t = r_t;
-
-    //printf("\nKing model params: W0=%lf, M=%lf smu, rt=%lf kpc, rho0=%lf ||| mu=%lf, Rt=%lf\n", W0, comp->mass, comp->r_t, comp->rho0, mu, Rt);
+    printf("\nKing model params: W0=%lf, M=%lf smu, rt=%lf kpc, rho0=%lf ||| mu=%lf, Rt=%lf\n", W0, comp->mass, comp->r_t, comp->rho0, mu, Rt);
 }
 
 static inline void recalculate_comp_mass(Dwarf* comp, real bound)
@@ -927,6 +894,7 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
     * 183.
     */
         unsigned int i = 0;
+        unsigned int nbody_dark = nbody - nbody_baryon;
         int table = 0;
         Body b = EMPTY_BODY;
         real r = 0.0, v = 0.0;
@@ -986,14 +954,7 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
             case King:
                 bound1 = comp1->r_t; // no mass past King model tidal radius
                 // Current version will not properly assign velocities for a two component model where at least one is King model.
-                if (comp1->mass > 0.0 && comp2->mass > 0.0) {
-                    luaL_error(luaSt, "Current version does not support two component models with King profile.");
-                }
-                break;
-            case King:
-                bound1 = comp1->r_t; // no mass past King model tidal radius
-                // Current version will not properly assign velocities for a two component model where at least one is King model.
-                if (comp1->mass > 0.0 && comp2->mass > 0.0) {
+                if (nbody_baryon > 0 && nbody_dark > 0) {
                     luaL_error(luaSt, "Current version does not support two component models with King profile.");
                 }
                 break;
@@ -1032,7 +993,7 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
             case King:
                 bound2 = comp2->r_t; // no mass past King model tidal radius
                 // Current version will not properly assign velocities for a two component model where at least one is King model.
-                if (comp1->mass > 0.0 && comp2->mass > 0.0) {
+                if (nbody_baryon > 0 && nbody_dark > 0) {
                     luaL_error(luaSt, "Current version does not support two component models with King profile.");
                 }
              default:
@@ -1047,7 +1008,6 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
 
 
     //---------------------------------------------------------------------------------------------------
-        unsigned int nbody_dark = nbody - nbody_baryon;
         real mass_light_particle = 0.0;
         real mass_dark_particle = 0.0;
 
