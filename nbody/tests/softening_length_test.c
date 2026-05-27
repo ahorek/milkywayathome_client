@@ -25,9 +25,16 @@ int main() {
     real eps_d;
     real eps[3];
     real* eps_array[3];
+    unsigned int lm_nbody = 10000;
+    unsigned int nbody = 40000;
+    Dwarf* light_comp;
+    Dwarf* dark_comp;
     int failed = 0;
 
-    const char* params[] = {"2.0", "0.0", "0.2", "0.2", "12", "0.2"};
+    light_comp->mass = 12;
+    light_comp->scaleLength = 0.2;
+    dark_comp->mass = 48;
+    dark_comp->scaleLength = 0.8;
 
     //Plummer-Plummer
     eps_l = 0.00000810512565372;
@@ -38,8 +45,8 @@ int main() {
     eps[1] = eps_cross;
     eps[2] = eps_d;
 
-    light_comp = Dwarf.plummer{mass = 12, scaleLength = .2};
-    dark_comp = Dwarf.plummer{mass = 48, scaleLength = .8};
+    light_comp->type = 0;
+    dark_comp->type = 0;
 
     eps_array = nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody); 
 
@@ -59,8 +66,7 @@ int main() {
     eps[1] = eps_cross;
     eps[2] = eps_d;
 
-    light_comp = Dwarf.plummer{mass = 12, scaleLength = .2};
-    dark_comp = Dwarf.general_hernquist{mass = 48, scaleLength = .8};
+    dark_comp->type = 2;
 
     eps_array = nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody); 
 
@@ -80,8 +86,7 @@ int main() {
     eps[1] = eps_cross;
     eps[2] = eps_d;
 
-    light_comp = Dwarf.plummer{mass = 12, scaleLength = .2};
-    dark_comp = Dwarf.general_nfw{mass = 48, scaleLength = .8};
+    dark_comp->type = 1;
 
     eps_array = nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody); 
 
@@ -101,8 +106,9 @@ int main() {
     eps[1] = eps_cross;
     eps[2] = eps_d;
 
-    light_comp = Dwarf.plummer{mass = 12, scaleLength = .2};
-    dark_comp = Dwarf.cored{mass = 48, scaleLength = .8, r1 = 0.7, rc = 0.6};
+    dark_comp->type = 4;
+    dark_comp->r1 = 0.7;
+    dark_comp->rc = 0.6;
 
     eps_array = nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody); 
 
@@ -122,8 +128,7 @@ int main() {
     eps[1] = eps_cross;
     eps[2] = eps_d;
 
-    light_comp = Dwarf.plummer{mass = 12, scaleLength = .2};
-    dark_comp = Dwarf.cored{mass = 48, scaleLength = .8, r1 = 0.7, rc = 0.6, rcut = 4.5};
+    dark_comp->rcut = 4.5;
 
     eps_array = nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody); 
 
@@ -143,8 +148,9 @@ int main() {
     eps[1] = eps_cross;
     eps[2] = eps_d;
 
-    light_comp = Dwarf.plummer{mass = 12, scaleLength = .2};
-    dark_comp = Dwarf.NFW{mass = 48, scaleLength = .8, rcut = 4.5};
+    dark_comp->type = 1;
+    dark_comp->r1 = NULL;
+    dark_comp->rc = NULL;
 
     eps_array = nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody); 
 
