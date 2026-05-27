@@ -27,7 +27,7 @@ function makeContext()
    return NBodyCtx.create{
       timestep   = calculateTimestep(dwarfMass, dwarfRadius),
       timeEvolve = 3.945,
-      eps2       = calculateEps2Dwarf(dwarf, nbody),
+      eps2       = calculateEps2Dwarf(dwarf, dwarf, nbody, nbody), --assuming this is a single component model, can't actually find what parameters are being used
       b           = 53.6,
       r           = 28.5,
       vx          = -154,

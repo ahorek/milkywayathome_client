@@ -48,9 +48,11 @@ static void nbPrintSimInfoHeader(FILE* f, const NBodyCtx* ctx, const NBodyState*
     fprintf(f,
             "simple_output = %d\n"
             "hasMilkyway  = %d\n"
+            "hasLMC       = %d\n"
             "centerOfMass = %f, %f, %f,   centerOfMomentum = %f, %f, %f,\n",
             ctx->SimpleOutput,
             (ctx->potentialType == EXTERNAL_POTENTIAL_DEFAULT),
+            ctx->LMC,
             X(cmPos), Y(cmPos), Z(cmPos),
             X(cmVel), Y(cmVel), Z(cmVel)
         );

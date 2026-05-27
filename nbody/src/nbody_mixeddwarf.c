@@ -30,6 +30,7 @@ their copyright to their programs which execute similar algorithms.
 #include "milkyway_lua.h"
 #include "nbody_lua_types.h"
 #include "nbody_dwarf_potential.h"
+#include "nbody_mass.h"
 #include "nbody_mixeddwarf.h"
 #include "nbody_types.h"
 #include "nbody_potential_types.h"
@@ -63,7 +64,7 @@ static inline real density( real r, const Dwarf* comp1, const Dwarf* comp2)
 
 
 /*      GENERAL PURPOSE DERIVATIVE, INTEGRATION, MAX FINDING, ROOT FINDING, AND ARRAY SHUFFLER FUNCTIONS        */
-static inline real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
+inline real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
 {
     /*yes, this does in fact use a 5-point stencil*/
     const real h = 0.001;
@@ -602,7 +603,7 @@ static inline real vel_mag(real r, const Dwarf* comp1, const Dwarf* comp2, mwboo
     real v_esc = 0.0;
     if (comp1->type != King) { 
         v_esc = 0.99 * mw_sqrt( mw_fabs(2.0 * potential( r, comp1, comp2) ) );
-    } else if (comp1->type == King) {
+    } else {
         real king_M = comp1->mass;
         real king_rt = comp1->r_t;
         real king_Psi = potential(r, comp1, comp2) - king_M/king_rt;
@@ -710,7 +711,7 @@ static int cm_correction_by_comp(real * x, real * y, real * z, real * vx, real *
     return 1;
 }
 
-static inline void set_vars(Dwarf* comp)
+void set_vars(Dwarf* comp)
 {
     /*this is only used for the nfw and sidm but it is technically valid for all the profiles. easier to have it here*/
     /* this is the pcrit * delta_crit from the nfw 1997 paper or just p0 from binney */
@@ -723,19 +724,59 @@ static inline void set_vars(Dwarf* comp)
     real term = mw_log(1.0 + c) - c / (1.0 + c);
     real p0 = 200.0 * cube(c) * pcrit / (3.0 * term); //rho_0 as defined in Navarro et. al. 1997
     real ps = 0.0;
-        if(comp->type == Cored)
-        {       
-                ps = p0; //characteristic density of the NFW portion of the cored profile 
-                real r1 = comp->r1;
-                real rc = comp->rc;
+    real rcut = comp->rcut;
+    real rdecay = 0.0;
+    real pcut = 0.0;
+    real delta = 0.0;
+    real m_nfw_cut = 0.0;
+    real gamma1 = 0.0;
+    real psi_nfw_cut = 0.0;
+    real psi_cut_cut = 0.0; 
+    real m_nfw_r1 = 0.0;
+    real m_iso_r1 = 0.0;
+    real psi_nfw_r1 = 0.0;
+    real psi_iso_r1 = 0.0;
 
-                real p0_ps = (rscale + rscale * sqr(r1 / rc)) / (r1 * sqr(1.0 + r1 / rscale)); //Ratio of p0 to ps
+    if (rcut != 0.0) {
+        rdecay = 0.3 * rcut;
+        pcut = p0 * inv(rcut / rscale) * inv(sqr(1.0 + rcut / rscale));
+        delta = (rcut / rdecay) - (1.0 + 3.0 * (rcut / rscale)) / (1.0 + (rcut / rscale));
+        m_nfw_cut = 4.0 * M_PI * p0 * cube(rscale) * (mw_log((rscale + rcut) / rscale) - rcut / (rscale + rcut));
+        gamma1 = UpperIncompleteGammaFunc(delta + 3, rcut / rdecay);
+        psi_nfw_cut = 4.0 * M_PI * p0 * cube(rscale) * mw_log(1.0 + rcut / rscale) * inv(rcut);
+        psi_cut_cut = 4.0 * M_PI * pcut * mw_pow(rcut, -delta) * mw_exp(rcut / rdecay) * mw_pow(rdecay, delta + 3) * (UpperIncompleteGammaFunc(delta + 2, rcut / rdecay) * inv(rdecay));
+    }
+    if(comp->type == Cored)
+    {       
+        ps = p0; //characteristic density of the NFW portion of the cored profile 
+        real r1 = comp->r1;
+        real rc = comp->rc;
 
-                p0 = ps * p0_ps; //central density of the cored profile
-        }
+        real p0_ps = (rscale + rscale * sqr(r1 / rc)) / (r1 * sqr(1.0 + r1 / rscale)); //Ratio of p0 to ps
+
+        p0 = ps * p0_ps; //central density of the cored profile
+
+        m_nfw_r1 = 4.0 * M_PI * ps * cube(rscale) * (mw_log((rscale + r1) / rscale) - r1 / (rscale + r1));
+        m_iso_r1 = 4.0 * M_PI * p0 * sqr(rc) * (r1 - rc * mw_atan(r1 / rc));
+        psi_nfw_r1 = 4.0 * M_PI * ps * cube(rscale) * mw_log(1.0 + r1 / rscale) * inv(r1);
+        psi_iso_r1 = -4.0 * M_PI * p0 * sqr(rc) * (mw_log(sqr(rc) + sqr(r1)) / 2.0 + rc * mw_atan(r1 / rc) / r1);
+
+    }
+
     comp->r200 = r200;
     comp->p0 = p0;
     comp->ps = ps;
+    comp->rdecay = rdecay;
+    comp->pcut = pcut;
+    comp->delta = delta;
+    comp->m_nfw_cut = m_nfw_cut;
+    comp->gamma1 = gamma1;
+    comp->psi_nfw_cut = psi_nfw_cut;
+    comp->psi_cut_cut = psi_cut_cut;
+    comp->m_nfw_r1 = m_nfw_r1;
+    comp->m_iso_r1 = m_iso_r1;
+    comp->psi_nfw_r1 = psi_nfw_r1;
+    comp->psi_iso_r1 = psi_iso_r1;
 }
 
 static real king_rho_max(real r, real unused1, const Dwarf* comp, const Dwarf* unused_comp, mwbool unused2) 
@@ -771,8 +812,43 @@ void set_king_params(Dwarf* comp)
     //printf("\nKing model params: W0=%lf, M=%lf smu, rt=%lf kpc, rho0=%lf ||| mu=%lf, Rt=%lf\n", W0, comp->mass, comp->r_t, comp->rho0, mu, Rt);
 }
 
-static inline void get_extra_nfw_mass(Dwarf* comp, real bound)
+static real king_rho_max(real r, real unused1, const Dwarf* comp, const Dwarf* unused_comp, mwbool unused2) 
 {
+    // finds the maximum of r^2*rho(r) for king profile to set the upper bound in radius sampling
+    // unused1, unused_comp, unused2 are all unused, just there to match the required function input format for max_finder()
+    return r * r * get_density(comp, r);
+}
+
+void set_king_params(Dwarf* comp)
+{
+    // (For king model only) For a given W0, M, r_t: calculates r0, mu, rho0, sigma, rho1, phi0.
+    // Runs ODE2ndOrderSolver to find tidal to King radius ratio, gauss_quad to integrate dimensionless mass.
+    real M = comp->mass;
+    real W0 = comp->W0;
+    real r_t = comp->scaleLength;
+
+    real Rt = ODE2ndOrderSolver(10000, 1000, W0, 0.0, kingDimless2ndDeriv, comp, 1);
+    real mu = gauss_quad(kingDimlessMass, 0.00001, Rt, comp, comp, 0.0, FALSE);
+
+    real r0 = r_t/Rt;
+    real rho0 = M/(r0*r0*r0*mu);
+    
+    // save these values into the Dwarf struct
+    comp->phi0 = -M/r_t;
+    comp->rho0 = rho0;
+    comp->sigma = r0*sqrt(4.0*M_PI*rho0/9.0);
+    comp->rho1 = rho0/((exp(W0)*erf(sqrt(W0))) - sqrt(4.0*W0/3.14159)*(1.0 + (2.0*W0/3.0)));
+    comp->r_0 = r0;
+    comp->mu = mu;
+    comp->r_t = r_t;
+
+    //printf("\nKing model params: W0=%lf, M=%lf smu, rt=%lf kpc, rho0=%lf ||| mu=%lf, Rt=%lf\n", W0, comp->mass, comp->r_t, comp->rho0, mu, Rt);
+}
+
+static inline void recalculate_comp_mass(Dwarf* comp, real bound)
+{
+    /* This function recalculates the mass of the component if the bound is changed */
+    /* This is only used for the NFW and Cored profiles right now since the mass goes to infinity */
     /* The mass inputted is taken to be the M200 mass (mass within radius r200).*/
     /* If the sampling boundary goes above or below r200, this function resets the mass of the component.*/
         real m = 0.0;
@@ -781,28 +857,61 @@ static inline void get_extra_nfw_mass(Dwarf* comp, real bound)
 
         if(comp->type == Cored)
         {
-                const real r1 = comp->r1;
-                const real p0 = comp->p0;
-                const real rc = comp->rc;
-                const real ps = comp->ps;
-                const real C1 = 0;
-                const real C3 = C1 + 4 * M_PI * (
-            ps * cube(rs) * (
-                mw_log((1 + r1 / rs)) - r1 / (rs + r1)
-            )
-            - p0 * sqr(rc) * (
-                r1 - rc * mw_atan(r1 / rc)
-            )
-        );
+            const real r1 = comp->r1;
+            const real p0 = comp->p0;
+            const real rc = comp->rc;
+            const real ps = comp->ps;
+            const real rcut = comp->rcut;
 
-                if(r <= r1)
-                        m = 4.0 * M_PI * p0 * sqr(rc) * (r - rc * mw_atan(r / rc)) - C1;
-                else
-                        m = 4.0 * M_PI * ps * cube(rs) * (mw_log( (rs + r) / rs) - r / (rs + r)) - C3;                                                                                                                                          
+            if (rcut != 0.0 && r > rcut)                                                                                         
+            {                                                                                                                    
+                const real pcut = comp->pcut;                                                                                   
+                const real delta = comp->delta;                                                                                 
+                const real rdecay = comp->rdecay;   
+                const real gamma1 = comp->gamma1;     
+                const real m_nfw_r1 = comp->m_nfw_r1;
+                const real m_iso_r1 = comp->m_iso_r1;
+                const real m_nfw_cut = comp->m_nfw_cut;                                                                          
+                m = 4.0 * M_PI * pcut * mw_pow(rcut, -delta) * mw_exp(rcut / rdecay) * mw_pow(rdecay, delta + 3) * (gamma1 - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) + m_nfw_cut + m_iso_r1 - m_nfw_r1;                                           
+            }                                                                                                                    
+            else if (r <= r1)                                                                                                    
+            {                                                                                                                    
+                const real p0 = comp->p0;                                                                                       
+                const real rc = comp->rc;                                                                                       
+                m = 4.0 * M_PI * p0 * sqr(rc) * (r - rc * mw_atan(r / rc));                                                                                 
+            }                                                                                                                    
+            else                                                                                                                 
+            {                                                                                                                    
+                const real ps = comp->ps;                                                                                       
+                const real rs = comp->scaleLength; 
+                const real m_nfw_r1 = comp->m_nfw_r1;
+                const real m_iso_r1 = comp->m_iso_r1;                                                                            
+                m = 4.0 * M_PI * ps * cube(rs) * (mw_log(1.0 + r / rs) - r / (rs + r)) + m_iso_r1 - m_nfw_r1;                                                               
+            }                                                                                                                                                     
         }
-        else
+        else if(comp->type == NFW)
         {
-                m = 4.0 * M_PI * comp->p0 * cube(rs) * (mw_log( (rs + r) / rs) - r / (rs + r));
+            const real p0 = comp->p0;
+            const real rcut = comp->rcut;
+            if (rcut != 0.0) {
+                if (r > rcut)
+                {
+                    const real rdecay = comp->rdecay;
+                    const real delta = comp->delta;
+                    const real pcut = comp->pcut;
+                    const real gamma1 = comp->gamma1;
+                    const real m_nfw_cut = comp->m_nfw_cut;
+                    m = 4.0 * M_PI * pcut * mw_pow(rcut, -delta) * mw_exp(rcut / rdecay) * mw_pow(rdecay, delta + 3) * (gamma1 - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) +  m_nfw_cut;
+                }
+                else
+                {
+                    m = 4.0 * M_PI * p0 * cube(rs) * (mw_log((rs + r) / rs) - r / (rs + r));
+                }
+            }
+            else
+            {
+                m = 4.0 * M_PI * p0 * cube(rs) * (mw_log((rs + r) / rs) - r / (rs + r));
+            }
         }
     comp->mass = m;
 }
@@ -830,7 +939,7 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
         real * vz = mwCalloc(nbody, sizeof(real));
         real * masses = mwCalloc(nbody, sizeof(real));
 
-
+ 
         mwvector vec = ZERO_VECTOR;
 
         if (comp1->type == King) {
@@ -853,15 +962,33 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 bound1 =  50.0 * (rscale_l + rscale_d);
                 break;
             case NFW:
-                bound1 = 5.0 * comp1->r200;
-                get_extra_nfw_mass(comp1, bound1);
+                if (comp1->rcut != 0.0) {
+                    bound1 = comp1->rcut + 15.0 * comp1->rdecay;
+
+                }
+                else {
+                    bound1 = 5.0 * comp1->r200;
+                }
+                recalculate_comp_mass(comp1, bound1);
                 break;
             case General_Hernquist:
                 bound1 =  50.0 * (rscale_l + rscale_d);
                 break;
             case Cored:
-                bound1 = 5.0 * comp1->r200;
-                get_extra_nfw_mass(comp1, bound1);
+                if (comp1->rcut != 0.0) {
+                    bound1 = comp1->rcut + 15.0 * comp1->rdecay;
+                }
+                else {
+                    bound1 = 5.0 * comp1->r200;
+                }
+                recalculate_comp_mass(comp1, bound1);
+                break;
+            case King:
+                bound1 = comp1->r_t; // no mass past King model tidal radius
+                // Current version will not properly assign velocities for a two component model where at least one is King model.
+                if (comp1->mass > 0.0 && comp2->mass > 0.0) {
+                    luaL_error(luaSt, "Current version does not support two component models with King profile.");
+                }
                 break;
             case King:
                 bound1 = comp1->r_t; // no mass past King model tidal radius
@@ -882,15 +1009,25 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 bound2 =  50.0 * (rscale_l + rscale_d);
                 break;
             case NFW:
-                bound2 = 5.0 * comp2->r200;
-                get_extra_nfw_mass(comp2, bound2);
+                if (comp2->rcut != 0.0) {
+                    bound2 = comp2->rcut + 15.0 * comp2->rdecay;
+                }
+                else {
+                    bound2 = 5.0 * comp2->r200;
+                }
+                recalculate_comp_mass(comp2, bound2);
                 break;
             case General_Hernquist:
                 bound2 =  50.0 * (rscale_l + rscale_d);
                 break;
             case Cored:
-                bound2 = 5.0 * comp2->r200;
-                get_extra_nfw_mass(comp2, bound2);
+                if (comp2->rcut != 0.0) {
+                    bound2 = comp2->rcut + 15.0 * comp2->rdecay;
+                }
+                else {
+                    bound2 = 5.0 * comp2->r200;
+                }
+                recalculate_comp_mass(comp2, bound2);
                 break;
             case King:
                 bound2 = comp2->r_t; // no mass past King model tidal radius

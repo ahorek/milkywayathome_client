@@ -138,9 +138,9 @@ The type of run is set by setting one of the following flags to `true`:
 ### Double Component Model
 
 - **Plummer:** `{mass, scaleLength}`
-- **NFW:** `{mass, scaleLength}`
+- **NFW:** `{mass, scaleLength[, rcut]}`  # rcut is an optional cutoff radius; ignored if not set
 - **General Hernquist:** `{mass, scaleLength}`
-- **Cored:** `{mass, scaleLength, r1, rc}`
+- **Cored:** `{mass, scaleLength, r1, rc[, rcut]}` # rcut is an optional cutoff radius; ignored if not set
 
 The double component mixed dwarf code can be used as a single component dwarf generator. 
 Set the number of baryons equal to the total number of particles and set the mass ratio to 1.0.
@@ -186,6 +186,10 @@ Unit Conversions:
 
 Tests
 ---
+  After building the client run
+  ```
+  $ ./build_test_env
+  ```
   Tests can be run by running:
   ```
   $ make test
@@ -200,7 +204,7 @@ Tests
   ```
   $ make test_${n}
   ```
-  Currently n = 100, 1024, 10000 are available.
+  Currently n = 100, 1024, 10000 are available, but only n = 10000 are used.
 
   Single tests can be run with:
   ```
@@ -210,7 +214,7 @@ Tests
   ```
   $ ctest -R <Test_Name> -VV
   ```
-  If only 25 tests are running instead of 57 tests, you are missing libraries (check Step 0 for compiling N-body)
+  If only 21  tests are running instead of 53 tests, you are missing libraries (check Step 0 for compiling N-body)
 
 Separation
 ---

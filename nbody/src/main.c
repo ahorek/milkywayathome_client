@@ -533,9 +533,10 @@ static void nbSetDefaultFlags(NBodyFlags* nbf)
     }
 }
 
-static void freeNBodyFlags(NBodyFlags* nbf __attribute__((unused)))
+static void freeNBodyFlags(NBodyFlags* nbf)
 {
-    /* These values come from argv, not malloc, do don't free them.
+    // These values come from argv, not malloc, do don't free them.
+    // EDIT: I think these are copied values from mwFixArgv and SHOULD be freed. I'm putting this back in; try taking it out if there are problems
     free(nbf->inputFile);
     free(nbf->outFileName);
     free(nbf->checkpointFileName);
@@ -545,7 +546,7 @@ static void freeNBodyFlags(NBodyFlags* nbf __attribute__((unused)))
     free(nbf->forwardedArgs);
     free(nbf->graphicsBin);
     free(nbf->visArgs);
-    */
+    
 }
 
 static int nbSetNumThreads(int numThreads)
