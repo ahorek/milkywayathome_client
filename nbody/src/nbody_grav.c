@@ -230,7 +230,7 @@ static mwvector nbGravity_Exact(const NBodyCtx* ctx, NBodyState* st, const Body*
         int eps2_index = b->bodynode.type + p->bodynode.type; /* finds the particle types of each body */
         eps2_index = (eps2_index-2)/(-2); /* changes from particle type to index (0 for LM, 1 for cross, 2 for DM) */
         mwvector dr = mw_subv(Pos(b), Pos(p));
-        real drSq = mw_sqrv(dr) + ctx->eps2[eps2_index];
+        real drSq = mw_sqrv(dr) + eps2_array[eps2_index];
 
         real drab = mw_sqrt(drSq);
         real phii = Mass(b) / drab;

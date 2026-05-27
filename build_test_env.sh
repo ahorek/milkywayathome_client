@@ -48,7 +48,7 @@ if $includeGPUtesting; then
   make gpu_advanceModels
 fi
 
-  cmake -DNBODY_DEV_OPTIONS=ON -DNBODY_STATIC=OFF -DDOUBLEPREC=ON -DSEPARATION=OFF -DNBODY_GL=OFF -DBOINC_APPLICATION=OFF -DNBODY_OPENMP=ON -DNBODY_OPENCL=OFF $PathToMilkyWayAtHomeClientDirectory
+  cmake -DCMAKE_BUILD_TYPE=Release -DNBODY_DEV_OPTIONS=ON -DNBODY_STATIC=OFF -DDOUBLEPREC=ON -DSEPARATION=OFF -DNBODY_GL=OFF -DBOINC_APPLICATION=OFF -DNBODY_OPENMP=ON -DNBODY_OPENCL=OFF $PathToMilkyWayAtHomeClientDirectory
 
   make blind_test
   #make sanity
@@ -66,6 +66,7 @@ fi
   make propermotion_test
   make EMD_Range_test
   make momentum_test
+  make softening_length_test
   make mixeddwarf_test
   
   make all

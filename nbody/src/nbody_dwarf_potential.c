@@ -69,7 +69,10 @@ static real nfw_den(const Dwarf* model, real r)                                 
     const real p0 = model->p0;                                                                                           //
     const real rcut = model->rcut;                                                                                       //                                                                                       //
     real R = r / rscale;                                                                                                 //
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
     if (rcut != 0.0) {                                                                                                   //
+#pragma GCC diagnostic pop
         const real rdecay = model->rdecay;                                                                               //
         const real pcut = model->pcut;                                                                                   //
         const real delta = model->delta;                                                                                 //
@@ -80,7 +83,10 @@ static real nfw_den(const Dwarf* model, real r)                                 
             return p0 * inv(R) * inv(sqr(1.0 + R));                                                                      //
         }                                                                                                                //
     }                                                                                                                    //
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
     if (rcut != 0.0) {                                                                                                   //
+#pragma GCC diagnostic pop
         const real rdecay = model->rdecay;                                                                               //
         const real pcut = model->pcut;                                                                                   //
         const real delta = model->delta;                                                                                 //
@@ -101,7 +107,10 @@ static real nfw_pot(const Dwarf* model, real r)                                 
     const real p0 = model->p0;                                                                                           //
     const real rcut = model->rcut;                                                                                       //
     real R = r / rscale;                                                                                                 //
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
     if (rcut != 0.0) {                                                                                                   //
+#pragma GCC diagnostic pop
         const real rdecay = model->rdecay;                                                                               //
         const real pcut = model->pcut;                                                                                   //
         const real delta = model->delta;                                                                                 //
@@ -187,6 +196,8 @@ static real cored_den(const Dwarf* model, real r)                               
     const real r1 = model->r1;                                                                                           //
     const real rcut = model->rcut;                                                                                       //
                                                                                                                          //
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"                                                                                                                         
     if (rcut != 0.0 && r > rcut)                                                                                         //
     {                                                                                                                    //
         const real pcut = model->pcut;                                                                                   //
@@ -206,6 +217,7 @@ static real cored_den(const Dwarf* model, real r)                               
         const real rs = model->scaleLength;                                                                              //
         return ps / ((r / rs) * sqr(1.0 + r / rs));                                                                      //
     }                                                                                                                    //
+#pragma GCC diagnostic pop
 }                                                                                                                        //
                                                                                                                          //
 static real cored_pot(const Dwarf* model, real r)                                                                        //
@@ -220,6 +232,8 @@ static real cored_pot(const Dwarf* model, real r)                               
     const real m_nfw_r1 = model->m_nfw_r1;                                                                               //
     const real m_nfw_cut = model->m_nfw_cut;                                                                             //
                                                                                                                          //
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
     if (rcut != 0.0 && r > rcut)                                                                                         //
     {                                                                                                                    //
         const real pcut = model->pcut;                                                                                   //
@@ -267,6 +281,7 @@ static real cored_pot(const Dwarf* model, real r)                               
         }                                                                                                                //
         return psi;                                                                                                      //
     }                                                                                                                    //
+#pragma GCC diagnostic pop
 }                                                                                                                        //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -280,10 +295,10 @@ real get_potential(const Dwarf* model, real r)
             pot_temp = plummer_pot(model, r);
             break;
         case NFW:
-            #pragma GCC diagnostic push
-            #pragma GCC diagnostic ignored "-Wfloat-equal"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
             if (model->p0 == 0.0) {
-            #pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
                 set_vars(model);
             }
             pot_temp = nfw_pot(model, r );
@@ -296,10 +311,10 @@ real get_potential(const Dwarf* model, real r)
             pot_temp = einasto_pot(model, r);
             break;
         case Cored:
-            #pragma GCC diagnostic push
-            #pragma GCC diagnostic ignored "-Wfloat-equal"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
             if (model->p0 == 0.0) {
-            #pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
                 set_vars(model);
             }
             pot_temp = cored_pot(model, r);
@@ -324,10 +339,10 @@ real get_density(const Dwarf* model, real r)
             den_temp = plummer_den(model, r);
             break;
         case NFW:
-            #pragma GCC diagnostic push
-            #pragma GCC diagnostic ignored "-Wfloat-equal"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic "-Wfloat-equal"
             if (model->p0 == 0.0) {
-            #pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
                 set_vars(model);
             }
             den_temp = nfw_den(model, r );
@@ -340,10 +355,10 @@ real get_density(const Dwarf* model, real r)
             den_temp = einasto_den(model, r);
             break;
         case Cored:
-            #pragma GCC diagnostic push
-            #pragma GCC diagnostic ignored "-Wfloat-equal"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic "-Wfloat-equal"
             if (model->p0 == 0.0) {
-            #pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
                 set_vars(model);
             }
             den_temp = cored_den(model, r);

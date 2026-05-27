@@ -63,7 +63,7 @@ static inline real density( real r, const Dwarf* comp1, const Dwarf* comp2)
 
 
 /*      GENERAL PURPOSE DERIVATIVE, INTEGRATION, MAX FINDING, ROOT FINDING, AND ARRAY SHUFFLER FUNCTIONS        */
-inline real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
+real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
 {
     /*yes, this does in fact use a 5-point stencil*/
     const real h = 0.001;
@@ -767,6 +767,8 @@ static inline void recalculate_comp_mass(Dwarf* comp, real bound)
         real r = bound;
         real rs = comp->scaleLength;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
         if(comp->type == Cored)
         {
             const real r1 = comp->r1;
@@ -775,7 +777,7 @@ static inline void recalculate_comp_mass(Dwarf* comp, real bound)
             const real ps = comp->ps;
             const real rcut = comp->rcut;
 
-            if (rcut != 0.0 && r > rcut)                                                                                         
+            if (rcut != 0.0 && r > rcut)
             {                                                                                                                    
                 const real pcut = comp->pcut;                                                                                   
                 const real delta = comp->delta;                                                                                 
@@ -826,6 +828,7 @@ static inline void recalculate_comp_mass(Dwarf* comp, real bound)
             }
         }
     comp->mass = m;
+#pragma GCC diagnostic pop
 }
 
 /*      DWARF GENERATION        */
@@ -888,6 +891,10 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 }
                 recalculate_comp_mass(comp1, bound1);
                 break;
+            case Einasto: //I don't know what goes here, just putting this here to suppress compiler warning
+                break;
+            case InvalidDwarf:
+                break;
              default:
                 /* Set unused value to make compiler happy */
                 bound1 = 0.0;
@@ -900,7 +907,10 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 bound2 =  50.0 * (rscale_l + rscale_d);
                 break;
             case NFW:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
                 if (comp2->rcut != 0.0) {
+#pragma GCC diagnostic pop
                     bound2 = comp2->rcut + 15.0 * comp2->rdecay;
                 }
                 else {
@@ -912,13 +922,20 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 bound2 =  50.0 * (rscale_l + rscale_d);
                 break;
             case Cored:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
                 if (comp2->rcut != 0.0) {
+#pragma GCC diagnostic pop
                     bound2 = comp2->rcut + 15.0 * comp2->rdecay;
                 }
                 else {
                     bound2 = 5.0 * comp2->r200;
                 }
                 recalculate_comp_mass(comp2, bound2);
+                break;
+            case Einasto: //I don't know what goes here, just putting this here to suppress compiler warning
+                break;
+            case InvalidDwarf:
                 break;
              default:
                 /* Set unused value to make compiler happy */
@@ -975,6 +992,10 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 rho_max_light = (rscale_l > comp1->r1) ? rscale_l : comp1->r1;
                 rho_max_light = sqr(rho_max_light) * get_density(comp1, rho_max_light);
                 break;
+            case Einasto: //I don't know what goes here, just putting this here to suppress compiler warning
+                break;
+            case InvalidDwarf:
+                break;
              default:
                 /* Set unused value to make compiler happy */
                 rho_max_light = 0.0;
@@ -998,6 +1019,10 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
             case Cored:
                 rho_max_dark = (rscale_d > comp2->r1) ? rscale_d : comp2->r1;
                 rho_max_dark = sqr(rho_max_dark) * get_density(comp2, rho_max_dark);
+                break;
+            case Einasto: //I don't know what goes here, just putting this here to suppress compiler warning
+                break;
+            case InvalidDwarf:
                 break;
              default:
                 /* Set unused value to make compiler happy */

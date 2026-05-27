@@ -44,21 +44,6 @@
 
 static const real pi = 3.1415926535;
 
-static inline real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
-{
-    /*yes, this does in fact use a 5-point stencil*/
-    const real h = 0.001;
-    real p1 =   1.0 * (*func)(comp1, (x - 2.0 * h));
-    real p2 = - 8.0 * (*func)(comp1, (x - h) );
-    real p3 = - 1.0 * (*func)(comp1, (x + 2.0 * h));
-    real p4 =   8.0 * (*func)(comp1, (x + h));
-    real denom = inv( 12.0 * h);
-    real deriv = (p1 + p2 + p3 + p4) * denom;
-    return deriv;
-}
-
-
-/* For using a combination of light and dark models to generate timestep */
 static real plummerTimestepIntegral(real smalla, real biga, real Md, real step)
 {                                                                                                                           
     /* Calculate the enclosed mass of the big sphere within the little sphere's scale length */
@@ -172,7 +157,7 @@ static int luaCalculateTimestep(lua_State* luaSt)
     return 1;
 }
 
-static real* nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody) //new softening length is dwarf specific and uses velocity dispersion approximation
+real* nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody) //new softening length is dwarf specific and uses velocity dispersion approximation
 {
 
     int dm_nbody = nbody - lm_nbody;
@@ -228,7 +213,7 @@ static real* nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp
     real radius_d = get_vel_disp_radius(dark_comp);
 
     real m_encl_l = sqr(2*radius_l)*first_derivative(get_potential, 2*radius_l, light_comp)*-1 + sqr(radius_l)*first_derivative(get_potential, radius_l, dark_comp)*-1;
-    real m_encl_d = sqr(2*radius_d)*first_derivative(get_potential, 2*radius_d, dark_comp)*-1 + sqr(radius_d)*first_derivative(get_potential, radius_d, dark_comp)*-1;
+    real m_encl_d = sqr(2*radius_d)*first_derivative(get_potential, 2*radius_d, dark_comp)*-1 + sqr(radius_d)*first_derivative(get_potential, radius_d, light_comp)*-1;
     real v2_l = m_encl_l / (2*radius_l);
     real v2_d = m_encl_d / (2*radius_d);
     real r_strong_l = 2 * m_l / v2_l;
