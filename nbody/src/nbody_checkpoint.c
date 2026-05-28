@@ -520,7 +520,8 @@ static int nbStandardCheckpointRead(NBodyCtx* ctx, NBodyState* st, const char* f
         size = ftell(f);
         fseek(f, 0, SEEK_SET);
     }
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
     fread(&cpHdr, sizeof(NBodyCheckpointHeader), 1, f);
     nbReadCheckpointHeader(&cpHdr, ctx, st);
     st->nShiftLMC = cpHdr.nShiftLMC;
@@ -540,7 +541,7 @@ static int nbStandardCheckpointRead(NBodyCtx* ctx, NBodyState* st, const char* f
     mwFreeA(extractedSt); 
 
     supposedCheckpointSize = sizeof(NBodyCheckpointHeader) + 2*bodySize + likelihoodSize + traceSize + ShiftLMCSize + (ShiftLMCSize ? LMCPosVelSize : 0) + sizeOfData + sizeof(size_t) + sizeof(tail);
-    if (abs(supposedCheckpointSize - size) > .001)
+    if (mw_abs(supposedCheckpointSize - size) > .001)
     {
         mw_printf("Expected checkpoint file size ("ZU") is incorrect for expected number of bodies "
                   "(%u bodies, real size "ZU")\n",
@@ -586,6 +587,7 @@ static int nbStandardCheckpointRead(NBodyCtx* ctx, NBodyState* st, const char* f
         fread(&st->LMCpos, sizeof(mwvector), 1, f);
         fread(&st->LMCvel, sizeof(mwvector), 1, f);
     }
+#pragma GCC diagnostic pop
 
     char tailBuf[sizeof(tail)];
     fread(tailBuf, sizeof(tail), 1, f);

@@ -55,7 +55,7 @@ function randomNBodyCtx(prng)
       timestep      = prng:random(1.0e-5, 1.0e-4),
       timeEvolve    = prng:random(0, 10),
       theta         = prng:random(0, 1),
-      eps2          = prng:random(1.0e-9, 1.0e-3),
+      eps2          = {prng:random(1.0e-9, 1.0e-3), prng:random(1.0e-9, 1.0e-3), prng:random(1.0e-9, 1.0e-3)},
       b             = prng:random(40.0,60.0),
       r             = prng:random(10.0,30.0),
       vx            = prng:random(-200.0,200.0),
