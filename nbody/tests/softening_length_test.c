@@ -149,8 +149,8 @@ int main() {
     eps[2] = eps_d;
 
     dark_comp->type = 1;
-    dark_comp->r1 = NULL;
-    dark_comp->rc = NULL;
+    dark_comp->r1 = 0.0;
+    dark_comp->rc = 0.0;
 
     eps_array = nbCalculateEps2_NEW(light_comp, dark_comp, lm_nbody, nbody); 
 
