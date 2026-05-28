@@ -83,20 +83,6 @@ static real nfw_den(const Dwarf* model, real r)                                 
             return p0 * inv(R) * inv(sqr(1.0 + R));                                                                      //
         }                                                                                                                //
     }                                                                                                                    //
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"
-    if (rcut != 0.0) {                                                                                                   //
-#pragma GCC diagnostic pop
-        const real rdecay = model->rdecay;                                                                               //
-        const real pcut = model->pcut;                                                                                   //
-        const real delta = model->delta;                                                                                 //
-        if (r > rcut) {                                                                                                  //
-            return pcut * mw_pow(r / rcut, delta) * mw_exp(-(r - rcut) / rdecay);                                        //
-        }                                                                                                                //
-        else {                                                                                                           //
-            return p0 * inv(R) * inv(sqr(1.0 + R));                                                                      //
-        }                                                                                                                //
-    }                                                                                                                    //
     /* at r = 0 the density goes to inf. however, the sampling is guarded against r = 0 anyway.*/                        //
     return p0 * inv(R) * inv(sqr(1.0 + R));                                                                              //
 }                                                                                                                        //
@@ -340,7 +326,7 @@ real get_density(const Dwarf* model, real r)
             break;
         case NFW:
 #pragma GCC diagnostic push
-#pragma GCC diagnostic "-Wfloat-equal"
+#pragma GCC diagnostic ignored "-Wfloat-equal"
             if (model->p0 == 0.0) {
 #pragma GCC diagnostic pop
                 set_vars(model);
@@ -356,7 +342,7 @@ real get_density(const Dwarf* model, real r)
             break;
         case Cored:
 #pragma GCC diagnostic push
-#pragma GCC diagnostic "-Wfloat-equal"
+#pragma GCC diagnostic ignored "-Wfloat-equal"
             if (model->p0 == 0.0) {
 #pragma GCC diagnostic pop
                 set_vars(model);
