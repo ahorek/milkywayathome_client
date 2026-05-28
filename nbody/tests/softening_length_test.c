@@ -24,7 +24,7 @@ int main() {
     real eps_cross;
     real eps_d;
     real eps[3];
-    real* eps_array[3];
+    real* eps_array;
     unsigned int lm_nbody = 10000;
     unsigned int nbody = 40000;
     Dwarf* light_comp;
@@ -48,7 +48,7 @@ int main() {
     light_comp->type = 0;
     dark_comp->type = 0;
 
-    eps_array = nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody); 
+    eps_array = nbCalculateEps2_NEW(light_comp, dark_comp, lm_nbody, nbody); 
 
     if (!check_result(eps_array, eps)) {
         mw_printf("Test failed for Plummer-Plummer model\n");
@@ -68,7 +68,7 @@ int main() {
 
     dark_comp->type = 2;
 
-    eps_array = nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody); 
+    eps_array = nbCalculateEps2_NEW(light_comp, dark_comp, lm_nbody, nbody); 
 
     if (!check_result(eps_array, eps)) {
         mw_printf("Test failed for Plummer-Hernquist model\n");
@@ -88,7 +88,7 @@ int main() {
 
     dark_comp->type = 1;
 
-    eps_array = nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody); 
+    eps_array = nbCalculateEps2_NEW(light_comp, dark_comp, lm_nbody, nbody); 
 
     if (!check_result(eps_array, eps)) {
         mw_printf("Test failed for Plummer-NFW model\n");
@@ -110,7 +110,7 @@ int main() {
     dark_comp->r1 = 0.7;
     dark_comp->rc = 0.6;
 
-    eps_array = nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody); 
+    eps_array = nbCalculateEps2_NEW(light_comp, dark_comp, lm_nbody, nbody); 
 
     if (!check_result(eps_array, eps)) {
         mw_printf("Test failed for Plummer-cored model\n");
@@ -130,7 +130,7 @@ int main() {
 
     dark_comp->rcut = 4.5;
 
-    eps_array = nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody); 
+    eps_array = nbCalculateEps2_NEW(light_comp, dark_comp, lm_nbody, nbody); 
 
     if (!check_result(eps_array, eps)) {
         mw_printf("Test failed for Plummer-cutoff-cored model\n");
@@ -152,7 +152,7 @@ int main() {
     dark_comp->r1 = NULL;
     dark_comp->rc = NULL;
 
-    eps_array = nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody); 
+    eps_array = nbCalculateEps2_NEW(light_comp, dark_comp, lm_nbody, nbody); 
 
     if (!check_result(eps_array, eps)) {
         mw_printf("Test failed for Plummer-cutoff-NFW model\n");
