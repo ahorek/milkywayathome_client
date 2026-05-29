@@ -3,7 +3,7 @@
 #include "milkyway_lua.h"
 #include "nbody_potential_types.h"
 #include "nbody_king_model.h"
-
+/*NOTE: These functions use mw_erf which needs further testing to determine whether there are differences between different OS.*/
 
 // Generic function that numerically solves 2nd order ODEs of the form y'' = f(x, y(x), y'(x)), where y' is dy/dx
 // Uses 4th order Runge-Kutta numerical method, function input is of the form of ODE2ndDeriv
@@ -66,8 +66,8 @@ real ODE2ndOrderSolver(real xEval, int stepsPerx, real yInit, real yPrimeInit, O
 
 
 real kingDimlessRho(real W, real W0) {
-    real rho = mw_exp(W)*mw_erf(sqrt(W)) - sqrt(4.0*W/M_PI)*(1.0 + (2.0/3.0)*W);
-    real rho0 = mw_exp(W0)*mw_erf(sqrt(W0)) - sqrt(4.0*W0/M_PI)*(1.0 + (2.0/3.0)*W0);
+    real rho = mw_exp(W)*mw_erf(mw_sqrt(W)) - mw_sqrt(4.0*W/M_PI)*(1.0 + (2.0/3.0)*W);
+    real rho0 = mw_exp(W0)*mw_erf(mw_sqrt(W0)) - mw_sqrt(4.0*W0/M_PI)*(1.0 + (2.0/3.0)*W0);
     return rho/rho0;
 }
 
@@ -88,7 +88,7 @@ real kingDimlessMass(real R, Dwarf* model, Dwarf* unusedModel, real unusedEnergy
 
 // Equation 4.111 from Binney & Tremaine 2nd ed.
 real kingDensityFromPsi(real psi, real sig, real rho1) {
-    real erfTerm = mw_exp(psi/(sig*sig)) * mw_erf(sqrt(psi/(sig*sig)));
+    real erfTerm = mw_exp(psi/(sig*sig)) * mw_erf(mw_sqrt(psi/(sig*sig)));
     return rho1 * (erfTerm - mw_sqrt(4.0*psi/(M_PI*sig*sig))*(1.0 + (2.0*psi)/(3.0*sig*sig)));
 }
 

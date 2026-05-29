@@ -177,8 +177,8 @@ end
 
 --component 1 and 2 for 2 component model. comp 1 should always be updated even for 1 component, as it is used to 
 --calculate dwarf-based softening length
-comp1 = Dwarf.plummer{mass = mass_l, scaleLength = rscale_l} -- Dwarf Options: plummer, nfw, general_hernquist, cored, one component king
-comp2 = Dwarf.plummer{mass = mass_d, scaleLength = rscale_d} -- Dwarf Options: plummer, nfw, general_hernquist, cored, one component king
+comp1 = Dwarf.plummer{mass = mass_l, scaleLength = rscale_l} -- Dwarf Options: plummer, nfw, general_hernquist, cored, king
+comp2 = Dwarf.plummer{mass = mass_d, scaleLength = rscale_d} -- Dwarf Options: plummer, nfw, general_hernquist, cored, king
 
 
 
@@ -225,7 +225,7 @@ use_pm_comp          = true  -- calculate proper motion, use in likelihood
     -- L = {Lx, Ly, Lz} (angular momentum vector)
     -- LErr = {Err_Lx, Err_Ly, Err_Lz} (uncertainty in angular momentum vector)
 -- These are in units of kpc^2/Gyr (no mass included)
-use_momentum         = false  -- calculate angular momentum, use in likelihood
+use_momentum         = true  -- calculate angular momentum, use in likelihood
 
 -- number of additional forward evolutions to do to calibrate the rotation of the bar
 -- numCalibrationRuns + 1 additional forward evolutions will be done

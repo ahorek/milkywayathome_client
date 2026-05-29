@@ -787,7 +787,7 @@ int run_nbody_simulation(const char* dwarf_potential_type_lua, TestContext* tctx
     memset(tctx, 0, sizeof(TestContext));
     int failed = 0;
 
-	char* default_params[] = {
+	const char* default_params[] = {
 		EVOLUTION_TIME,
 		EVOLUTION_RATIO,
 		BARYON_SCALE_RADIUS,
@@ -796,17 +796,17 @@ int run_nbody_simulation(const char* dwarf_potential_type_lua, TestContext* tctx
 		MASS_RATIO
 	};
 
-	char* king_params[] = {
+	const char* king_params[] = {
 		EVOLUTION_TIME,
 		EVOLUTION_RATIO,
 		BARYON_SCALE_RADIUS,
 		SCALE_RADIUS_RATIO,
 		KING_MASS,
-		KING_MASS_RATIO //"1.0"
+		KING_MASS_RATIO
 	};
 
 
-	char** dwarf_params;
+	const char** dwarf_params;
 
 	// Use strcmp for string comparison, returns 0 when they are exact match
 	if (strcmp(dwarf_potential_type_lua, "king_only.lua") != 0) {

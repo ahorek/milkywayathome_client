@@ -57,7 +57,7 @@ static int createDwarf(lua_State* luaSt, const MWNamedArg* argTable, Dwarf* h)
 
 static int createPlummerDwarf(lua_State* luaSt)
 {
-    static Dwarf h = EMPTY_DWARF;
+    Dwarf h = EMPTY_DWARF;
     static const MWNamedArg argTable[] =
         {
             { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
@@ -68,7 +68,7 @@ static int createPlummerDwarf(lua_State* luaSt)
     h.type = Plummer;
     oneTableArgument(luaSt, argTable);
     if (h.mass < 0.0)
-        luaL_error(luaSt, "Plummer dwarf mass must be positive");
+        luaL_error(luaSt, "Plummer dwarf mass must be non-negative");
     if (h.scaleLength <= 0.0)
         luaL_error(luaSt, "Plummer dwarf scaleLength must be positive");
     return createDwarf(luaSt, argTable, &h);
@@ -76,7 +76,7 @@ static int createPlummerDwarf(lua_State* luaSt)
 
 static int createNFWDwarf(lua_State* luaSt)
 {
-    static Dwarf h = EMPTY_DWARF;
+    Dwarf h = EMPTY_DWARF;
     static const MWNamedArg argTable[] =
         {
             { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
@@ -90,7 +90,7 @@ static int createNFWDwarf(lua_State* luaSt)
     h.rcut = 0.0;
     oneTableArgument(luaSt, argTable);
     if (h.mass < 0.0)
-        luaL_error(luaSt, "NFW dwarf mass must be positive");
+        luaL_error(luaSt, "NFW dwarf mass must be non-negative");
     if (h.scaleLength <= 0.0)
         luaL_error(luaSt, "NFW dwarf scaleLength must be positive");
     if (h.rcut < 0.0)
@@ -100,7 +100,7 @@ static int createNFWDwarf(lua_State* luaSt)
 
 static int createGen_HernDwarf(lua_State* luaSt)
 {
-    static Dwarf h = EMPTY_DWARF;
+    Dwarf h = EMPTY_DWARF;
     static const MWNamedArg argTable[] =
         {
             { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
@@ -111,7 +111,7 @@ static int createGen_HernDwarf(lua_State* luaSt)
     h.type = General_Hernquist;
     oneTableArgument(luaSt, argTable);
     if (h.mass < 0.0)
-        luaL_error(luaSt, "General Hernquist dwarf mass must be positive");
+        luaL_error(luaSt, "General Hernquist dwarf mass must be non-negative");
     if (h.scaleLength <= 0.0)
         luaL_error(luaSt, "General Hernquist dwarf scaleLength must be positive");
     return createDwarf(luaSt, argTable, &h);
@@ -119,7 +119,7 @@ static int createGen_HernDwarf(lua_State* luaSt)
 
 static int createEinastoDwarf(lua_State* luaSt)
 {
-    static Dwarf h = EMPTY_DWARF;
+    Dwarf h = EMPTY_DWARF;
     static const MWNamedArg argTable[] =
         {
             { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
@@ -131,7 +131,7 @@ static int createEinastoDwarf(lua_State* luaSt)
     h.type = Einasto;
     oneTableArgument(luaSt, argTable);
     if (h.mass < 0.0)
-        luaL_error(luaSt, "Einasto dwarf mass must be positive");
+        luaL_error(luaSt, "Einasto dwarf mass must be non-negative");
     if (h.scaleLength <= 0.0)
         luaL_error(luaSt, "Einasto dwarf scaleLength must be positive");
     if (h.n <= 0.0)
@@ -141,7 +141,7 @@ static int createEinastoDwarf(lua_State* luaSt)
 
 static int createCoredDwarf(lua_State* luaSt)
 {
-    static Dwarf h = EMPTY_DWARF;
+    Dwarf h = EMPTY_DWARF;
     static const MWNamedArg argTable[] =
         {
             { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
@@ -157,7 +157,7 @@ static int createCoredDwarf(lua_State* luaSt)
 	h.rcut = 0.0;
     oneTableArgument(luaSt, argTable);
     if (h.mass < 0.0)
-        luaL_error(luaSt, "Cored dwarf mass must be positive");
+        luaL_error(luaSt, "Cored dwarf mass must be non-negative");
     if (h.scaleLength <= 0.0)
         luaL_error(luaSt, "Cored dwarf scaleLength must be positive");
     if (h.r1 <= 0.0)
@@ -173,7 +173,7 @@ static int createCoredDwarf(lua_State* luaSt)
 
 static int createKingDwarf(lua_State* luaSt)
 {
-    static Dwarf h = EMPTY_DWARF;
+    Dwarf h = EMPTY_DWARF;
     static const MWNamedArg argTable[] =
         {
             { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
@@ -185,7 +185,7 @@ static int createKingDwarf(lua_State* luaSt)
     h.type = King;
     oneTableArgument(luaSt, argTable);
     if (h.mass < 0.0)
-        luaL_error(luaSt, "King model mass must be positive");
+        luaL_error(luaSt, "King model mass must be non-negative");
     if (h.scaleLength <= 0.0)
         luaL_error(luaSt, "King model scaleLength must be positive");
     if (h.W0 <= 0.0)

@@ -260,7 +260,7 @@ static real cored_pot(const Dwarf* model, real r)                               
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*                            KING                                                                                       */
 /* Model is computed numerically, theory from Galactic Dynamics Binney & Tremaine 2nd ed.                                */
-/* (lowered isothermeal models sec. 4.3). See nbody_king_model.c for the full function content                           */                                                                                                                      //
+/* (lowered isothermal models sec. 4.3). See nbody_king_model.c for the full function content                           */                                                                                                                      //
                                                                                                                          //
 static real king_pot(Dwarf* model, real r)                                                                               //
 {                                                                                                                        //
@@ -309,7 +309,7 @@ real get_potential(const Dwarf* model, real r)
             #pragma GCC diagnostic ignored "-Wfloat-equal"
             if (model->p0 == 0.0) {
             #pragma GCC diagnostic pop
-                set_vars(model);
+                set_model_params(model);
             }
             pot_temp = nfw_pot(model, r );
             break;
@@ -325,7 +325,7 @@ real get_potential(const Dwarf* model, real r)
             #pragma GCC diagnostic ignored "-Wfloat-equal"
             if (model->p0 == 0.0) {
             #pragma GCC diagnostic pop
-                set_vars(model);
+                set_model_params(model);
             }
             pot_temp = cored_pot(model, r);
             break;
@@ -334,7 +334,7 @@ real get_potential(const Dwarf* model, real r)
             #pragma GCC diagnostic ignored "-Wfloat-equal"
             if (model->r_0 == 0.0) {
             #pragma GCC diagnostic pop
-                set_king_params(model);
+                set_model_params(model);
             }
 
             pot_temp = king_pot(model, r);
@@ -363,7 +363,7 @@ real get_density(const Dwarf* model, real r)
             #pragma GCC diagnostic ignored "-Wfloat-equal"
             if (model->p0 == 0.0) {
             #pragma GCC diagnostic pop
-                set_vars(model);
+                set_model_params(model);
             }
             den_temp = nfw_den(model, r );
             break;
@@ -379,7 +379,7 @@ real get_density(const Dwarf* model, real r)
             #pragma GCC diagnostic ignored "-Wfloat-equal"
             if (model->p0 == 0.0) {
             #pragma GCC diagnostic pop
-                set_vars(model);
+                set_model_params(model);
             }
             den_temp = cored_den(model, r);
             break;
@@ -388,7 +388,7 @@ real get_density(const Dwarf* model, real r)
             #pragma GCC diagnostic ignored "-Wfloat-equal"
             if (model->r_0 == 0.0) {
             #pragma GCC diagnostic pop
-                set_king_params(model);
+                set_model_params(model);
             }
             
             den_temp = king_den(model, r);
@@ -435,7 +435,7 @@ real get_vel_disp_radius(const Dwarf* model)
             #pragma GCC diagnostic ignored "-Wfloat-equal"
             if (model->r_0 == 0.0) {
             #pragma GCC diagnostic pop
-                set_king_params(model);
+                set_model_params(model);
             }
             hmr_temp = model->r_0;
             break;
