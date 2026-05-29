@@ -65,6 +65,7 @@ static inline real density( real r, const Dwarf* comp1, const Dwarf* comp2)
 
 /*      GENERAL PURPOSE DERIVATIVE, INTEGRATION, MAX FINDING, ROOT FINDING, AND ARRAY SHUFFLER FUNCTIONS        */
 real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
+real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
 {
     /*yes, this does in fact use a 5-point stencil*/
     const real h = 0.001;
@@ -837,6 +838,8 @@ static inline void recalculate_comp_mass(Dwarf* comp, real bound)
         real r = bound;
         real rs = comp->scaleLength;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
         if(comp->type == Cored)
         {
             const real r1 = comp->r1;
@@ -845,7 +848,7 @@ static inline void recalculate_comp_mass(Dwarf* comp, real bound)
             const real ps = comp->ps;
             const real rcut = comp->rcut;
 
-            if (rcut != 0.0 && r > rcut)                                                                                         
+            if (rcut != 0.0 && r > rcut)
             {                                                                                                                    
                 const real pcut = comp->pcut;                                                                                   
                 const real delta = comp->delta;                                                                                 
@@ -896,6 +899,7 @@ static inline void recalculate_comp_mass(Dwarf* comp, real bound)
             }
         }
     comp->mass = m;
+#pragma GCC diagnostic pop
 }
 
 /*      DWARF GENERATION        */
@@ -967,6 +971,10 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                     luaL_error(luaSt, "Current version does not support two component models with King profile.");
                 }
                 break;
+            case Einasto: //I don't know what goes here, just putting this here to suppress compiler warning
+                break;
+            case InvalidDwarf:
+                break;
              default:
                 /* Set unused value to make compiler happy */
                 bound1 = 0.0;
@@ -979,7 +987,10 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 bound2 =  50.0 * (rscale_l + rscale_d);
                 break;
             case NFW:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
                 if (comp2->rcut != 0.0) {
+#pragma GCC diagnostic pop
                     bound2 = comp2->rcut + 15.0 * comp2->rdecay;
                 }
                 else {
@@ -991,7 +1002,10 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 bound2 =  50.0 * (rscale_l + rscale_d);
                 break;
             case Cored:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
                 if (comp2->rcut != 0.0) {
+#pragma GCC diagnostic pop
                     bound2 = comp2->rcut + 15.0 * comp2->rdecay;
                 }
                 else {
@@ -1005,6 +1019,10 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 if (nbody_baryon > 0 && nbody_dark > 0) {
                     luaL_error(luaSt, "Current version does not support two component models with King profile.");
                 }
+            case Einasto: //I don't know what goes here, just putting this here to suppress compiler warning
+                break;
+            case InvalidDwarf:
+                break;
              default:
                 /* Set unused value to make compiler happy */
                 bound2 = 0.0;
@@ -1062,6 +1080,10 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
             case King:
                 rho_max_light = max_finder(king_rho_max, 0.0, comp1, comp1, FALSE, 0.0, 0.5*comp1->r_t, comp1->r_t, 50, 1.0e-4);
                 break;
+            case Einasto: //I don't know what goes here, just putting this here to suppress compiler warning
+                break;
+            case InvalidDwarf:
+                break;
              default:
                 /* Set unused value to make compiler happy */
                 rho_max_light = 0.0;
@@ -1088,6 +1110,10 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                 break;
             case King:
                 rho_max_dark = max_finder(king_rho_max, 0.0, comp2, comp2, TRUE, 0.0, 0.5*comp2->r_t, comp2->r_t, 50, 1.0e-4);
+                break;
+            case Einasto: //I don't know what goes here, just putting this here to suppress compiler warning
+                break;
+            case InvalidDwarf:
                 break;
              default:
                 /* Set unused value to make compiler happy */

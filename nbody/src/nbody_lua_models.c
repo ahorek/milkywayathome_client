@@ -44,8 +44,6 @@
 
 static const real pi = 3.1415926535;
 
-
-/* For using a combination of light and dark models to generate timestep */
 static real plummerTimestepIntegral(real smalla, real biga, real Md, real step)
 {                                                                                                                           
     /* Calculate the enclosed mass of the big sphere within the little sphere's scale length */
@@ -159,7 +157,7 @@ static int luaCalculateTimestep(lua_State* luaSt)
     return 1;
 }
 
-static real nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody) //new softening length is dwarf specific and uses velocity dispersion approximation
+real* nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp, unsigned int lm_nbody, unsigned int nbody) //new softening length is dwarf specific and uses velocity dispersion approximation
 {
 
     int dm_nbody = nbody - lm_nbody;
@@ -191,9 +189,12 @@ static real nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp,
         real eps2 = r_strong * d;
         real eps = mw_sqrt(eps2);
 
-        real eps2_array[3] = {eps2, eps2, eps2};
+        real* eps2_array = (real*)mwMalloc(sizeof(real) * 3);
+        eps2_array[0] = eps2;
+        eps2_array[1] = eps2;
+        eps2_array[2] = eps2;
         mw_printf("Optimal Baryon Softening Length = %.15f kpc, Upper bound = %.15f kpc, Lower bound = %.15f kpc\n", eps, d, r_strong);
-        return eps2;
+        return eps2_array;
         }
 
 
@@ -212,7 +213,7 @@ static real nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp,
     real radius_d = get_vel_disp_radius(dark_comp);
 
     real m_encl_l = sqr(2*radius_l)*first_derivative(get_potential, 2*radius_l, light_comp)*-1 + sqr(radius_l)*first_derivative(get_potential, radius_l, dark_comp)*-1;
-    real m_encl_d = sqr(2*radius_d)*first_derivative(get_potential, 2*radius_d, dark_comp)*-1 + sqr(radius_d)*first_derivative(get_potential, radius_d, dark_comp)*-1;
+    real m_encl_d = sqr(2*radius_d)*first_derivative(get_potential, 2*radius_d, dark_comp)*-1 + sqr(radius_d)*first_derivative(get_potential, radius_d, light_comp)*-1;
     real v2_l = m_encl_l / (2*radius_l);
     real v2_d = m_encl_d / (2*radius_d);
     real r_strong_l = 2 * m_l / v2_l;
@@ -234,8 +235,11 @@ static real nbCalculateEps2_NEW(const Dwarf* light_comp, const Dwarf* dark_comp,
     mw_printf("Optimal Baryon Softening Length = %.15f kpc, Upper bound = %.15f kpc, Lower bound = %.15f kpc\n", eps_l, d_l, r_strong_l);
     mw_printf("Optimal Dark Matter Softening Length = %.15f kpc, Upper bound = %.15f kpc, Lower bound = %.15f kpc\n", eps_d, d_d, r_strong_d);
     mw_printf("Optimal Dark Matter-Baryon Softening Length = %.15f kpc, Upper bound = %.15f kpc, Lower bound = %.15f kpc\n", eps_cross, d_cross, cross_r_strong);
-    real eps2_array[3] = {eps2_l, eps2_cross, eps2_d};
-    return eps2_cross;
+    real* eps2_array = (real*)mwMalloc(sizeof(real) * 3);
+    eps2_array[0] = eps2_l;
+    eps2_array[1] = eps2_cross;
+    eps2_array[2] = eps2_d;
+    return eps2_array;
 }
 
 static int luaCalculateEps2Dwarf(lua_State* luaSt) //read in params from lua to calc new softening length
@@ -245,8 +249,15 @@ static int luaCalculateEps2Dwarf(lua_State* luaSt) //read in params from lua to 
     unsigned int lm_nbody = (unsigned int) luaL_checkinteger(luaSt, 3);
     unsigned int nbody = (unsigned int) luaL_checkinteger(luaSt, 4);
     
-    lua_pushnumber(luaSt, nbCalculateEps2_NEW(model_1, model_2, lm_nbody, nbody));
-    return 1;
+    real* array_ptr = nbCalculateEps2_NEW(model_1, model_2, lm_nbody, nbody);
+    real eps2_l = array_ptr[0];
+    real eps2_cross = array_ptr[1];
+    real eps2_d = array_ptr[2];
+    free(array_ptr);
+    lua_pushnumber(luaSt, eps2_l);
+    lua_pushnumber(luaSt, eps2_cross);
+    lua_pushnumber(luaSt, eps2_d); // Return softening lengths for baryon-baryon, baryon-dark, and dark-dark interactions, respectively
+    return 3;
 }
 
 __attribute__((unused)) static real nbCalculateEps2(real nbody, real a_b, real a_d, real M_b, real M_d) /* Eric's softening lenth, had some issues and is no longer used*/
@@ -302,8 +313,11 @@ static int luaCalculateEps2_OLD(lua_State* luaSt) //read in params from lua to c
     {
         return luaL_argerror(luaSt, 0, "Expected 2 or 5 arguments");
     }
-    lua_pushnumber(luaSt, nbCalculateEps2_OLD((real) nbody, a_b, a_d, M_b, M_d));
-    return 1;
+    real eps2 = nbCalculateEps2_OLD(nbody, a_b, a_d, M_b, M_d);
+    lua_pushnumber(luaSt, eps2);
+    lua_pushnumber(luaSt, eps2);
+    lua_pushnumber(luaSt, eps2); // Return same softening length for all interactions
+    return 3;
 }
 
 

@@ -57,7 +57,8 @@ static int createDwarf(lua_State* luaSt, const MWNamedArg* argTable, Dwarf* h)
 
 static int createPlummerDwarf(lua_State* luaSt)
 {
-    Dwarf h = EMPTY_DWARF;
+    static Dwarf h;
+    h = (Dwarf)EMPTY_DWARF;
     static const MWNamedArg argTable[] =
         {
             { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
@@ -76,7 +77,8 @@ static int createPlummerDwarf(lua_State* luaSt)
 
 static int createNFWDwarf(lua_State* luaSt)
 {
-    Dwarf h = EMPTY_DWARF;
+    static Dwarf h;
+    h = (Dwarf)EMPTY_DWARF;
     static const MWNamedArg argTable[] =
         {
             { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
@@ -100,7 +102,8 @@ static int createNFWDwarf(lua_State* luaSt)
 
 static int createGen_HernDwarf(lua_State* luaSt)
 {
-    Dwarf h = EMPTY_DWARF;
+    static Dwarf h;
+    h = (Dwarf)EMPTY_DWARF;
     static const MWNamedArg argTable[] =
         {
             { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
@@ -119,7 +122,8 @@ static int createGen_HernDwarf(lua_State* luaSt)
 
 static int createEinastoDwarf(lua_State* luaSt)
 {
-    Dwarf h = EMPTY_DWARF;
+    static Dwarf h;
+    h = (Dwarf)EMPTY_DWARF;
     static const MWNamedArg argTable[] =
         {
             { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
@@ -141,7 +145,8 @@ static int createEinastoDwarf(lua_State* luaSt)
 
 static int createCoredDwarf(lua_State* luaSt)
 {
-    Dwarf h = EMPTY_DWARF;
+    static Dwarf h;
+    h = (Dwarf)EMPTY_DWARF;
     static const MWNamedArg argTable[] =
         {
             { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
@@ -166,8 +171,10 @@ static int createCoredDwarf(lua_State* luaSt)
         luaL_error(luaSt, "Cored dwarf rc must be positive");
     if (h.rcut < 0.0)
         luaL_error(luaSt, "Cored dwarf rcut must be non-negative");
-    if (h.rcut != 0.0 && h.rcut < h.r1)
+    if ((mw_abs(h.rcut) > 0.00001) && (h.rcut < h.r1))
+        {
         luaL_error(luaSt, "Cored dwarf rcut must be no less than r1");
+        }
     return createDwarf(luaSt, argTable, &h);
 }
 

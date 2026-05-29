@@ -528,6 +528,7 @@ int nbMain(const NBodyFlags* nbf)
             //grab the best likelihood time
             real forwardTime = st->bestLikelihood_time;
             //reset the state for the next run
+            destroyNBodyState(st);
             *st = (NBodyState)EMPTY_NBODYSTATE;
             cloneNBodyState(st, &initialState);
             //set previous forward time for the next run
