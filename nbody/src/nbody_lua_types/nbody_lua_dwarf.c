@@ -180,7 +180,8 @@ static int createCoredDwarf(lua_State* luaSt)
 
 static int createKingDwarf(lua_State* luaSt)
 {
-    Dwarf h = EMPTY_DWARF;
+    static Dwarf h;
+    h = (Dwarf)EMPTY_DWARF;
     static const MWNamedArg argTable[] =
         {
             { "mass",        LUA_TNUMBER, NULL, TRUE, &h.mass,        1 },
