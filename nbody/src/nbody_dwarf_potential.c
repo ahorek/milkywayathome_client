@@ -23,6 +23,7 @@
 #include "nbody_types.h"
 #include "nbody_potential_types.h"
 #include "nbody_mass.h"
+#include "nbody_king_model.h"
 #include "nbody_mixeddwarf.h"
 
 /* NOTE
@@ -270,6 +271,42 @@ static real cored_pot(const Dwarf* model, real r)                               
 #pragma GCC diagnostic pop
 }                                                                                                                        //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*                            KING                                                                                       */
+/* Model is computed numerically, theory from Galactic Dynamics Binney & Tremaine 2nd ed.                                */
+/* (lowered isothermal models sec. 4.3). See nbody_king_model.c for the full function content                           */                                                                                                                      //
+                                                                                                                         //
+static real king_pot(Dwarf* model, real r)                                                                               //
+{                                                                                                                        //
+    real W0 = model->W0;                                                                                                 //
+    real sigma = model->sigma;                                                                                           //
+    real truePot, relPot;                                                                                                //
+                                                                                                                         //
+    real stepsPerKpc = 100000; // resolution for the RK4 solver                                                          //
+                                                                                                                         //
+    if (r <= model->r_t) {                                                                                               //
+        relPot = ODE2ndOrderSolver(r, stepsPerKpc, W0*sigma*sigma, 0.0, kingRelPot2ndDeriv, model, 0);                   //
+        truePot = model->phi0 - relPot;                                                                                  //
+    } else {                                                                                                             //
+        truePot = -(model->mass)/r;                                                                                      //
+    }                                                                                                                    //
+                                                                                                                         //
+    return -truePot;                                                                                                     //
+}                                                                                                                        //
+                                                                                                                         //
+static real king_den(Dwarf* model, real r)                                                                               //
+{                                                                                                                        //
+    real pot = -king_pot(model, r);                                                                                      //
+                                                                                                                         //
+    real Psi = model->phi0 - pot;                                                                                        //
+    real rhoOfPsi = kingDensityFromPsi(Psi, model->sigma, model->rho1);                                                  //
+    if (r >= model->r_t) {                                                                                               //
+        rhoOfPsi = 0.0; // no density past the tidal radius                                                              //
+    }                                                                                                                    //
+    return rhoOfPsi;                                                                                                     //
+}                                                                                                                        //
+                                                                                                                         //                                                                                                                      //
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 real get_potential(const Dwarf* model, real r)
 {
@@ -285,7 +322,7 @@ real get_potential(const Dwarf* model, real r)
 #pragma GCC diagnostic ignored "-Wfloat-equal"
             if (model->p0 == 0.0) {
 #pragma GCC diagnostic pop
-                set_vars(model);
+                set_model_params(model);
             }
             pot_temp = nfw_pot(model, r );
             break;
@@ -301,9 +338,19 @@ real get_potential(const Dwarf* model, real r)
 #pragma GCC diagnostic ignored "-Wfloat-equal"
             if (model->p0 == 0.0) {
 #pragma GCC diagnostic pop
-                set_vars(model);
+                set_model_params(model);
             }
             pot_temp = cored_pot(model, r);
+            break;
+        case King:
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wfloat-equal"
+            if (model->r_0 == 0.0) {
+            #pragma GCC diagnostic pop
+                set_model_params(model);
+            }
+
+            pot_temp = king_pot(model, r);
             break;
         case InvalidDwarf:
         default:
@@ -329,7 +376,7 @@ real get_density(const Dwarf* model, real r)
 #pragma GCC diagnostic ignored "-Wfloat-equal"
             if (model->p0 == 0.0) {
 #pragma GCC diagnostic pop
-                set_vars(model);
+                set_model_params(model);
             }
             den_temp = nfw_den(model, r );
             break;
@@ -345,9 +392,19 @@ real get_density(const Dwarf* model, real r)
 #pragma GCC diagnostic ignored "-Wfloat-equal"
             if (model->p0 == 0.0) {
 #pragma GCC diagnostic pop
-                set_vars(model);
+                set_model_params(model);
             }
             den_temp = cored_den(model, r);
+            break;
+        case King:
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wfloat-equal"
+            if (model->r_0 == 0.0) {
+            #pragma GCC diagnostic pop
+                set_model_params(model);
+            }
+            
+            den_temp = king_den(model, r);
             break;
         case InvalidDwarf:
         default:
@@ -384,6 +441,16 @@ real get_vel_disp_radius(const Dwarf* model)
         case Cored:
         // This is also the point of maximum density, but it should be sufficient for softening length calculations
             hmr_temp = (model->scaleLength > model->r1) ? model->scaleLength : model->r1;
+            break;
+        case King:
+        // This is the radius at half of the central surface brightness, aka the King/Core radius r0
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wfloat-equal"
+            if (model->r_0 == 0.0) {
+            #pragma GCC diagnostic pop
+                set_model_params(model);
+            }
+            hmr_temp = model->r_0;
             break;
         case InvalidDwarf:
         default:
