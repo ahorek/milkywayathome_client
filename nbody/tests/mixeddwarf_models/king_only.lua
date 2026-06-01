@@ -333,7 +333,7 @@ function makeContext()
       timeEvolve  = evolveTime,
       timeBack    = revOrbTime,
       timestep    = get_timestep(),
-      eps2        = 2.5e-7, -- 0.5 pc softening 
+      eps2        = {2.5e-7, 2.5e-7, 2.5e-7}, -- 0.5 pc softening 
       b           = orbit_parameter_b,
       r           = orbit_parameter_r,
       vx          = orbit_parameter_vx,
