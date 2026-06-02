@@ -719,6 +719,7 @@ void set_model_params(Dwarf* comp)
     switch(comp->type) {
         case NFW:
         case Cored:
+        {
             /*this is only used for the nfw and sidm but it is technically valid for all the profiles. easier to have it here*/
             /* this is the pcrit * delta_crit from the nfw 1997 paper or just p0 from binney */
             //as defined in Binney and Tremaine 2nd ed:
@@ -784,7 +785,9 @@ void set_model_params(Dwarf* comp)
             comp->psi_nfw_r1 = psi_nfw_r1;
             comp->psi_iso_r1 = psi_iso_r1;
             break;
+        }
         case King:
+        {
             /*NOTE: This uses mw_erf which needs further testing to determine whether there are differences between different OS.*/
             // (For king model only) For a given W0, M, r_t: calculates r0, mu, rho0, sigma, rho1, phi0.
             // Runs ODE2ndOrderSolver to find tidal to King radius ratio, gauss_quad to integrate dimensionless mass.
@@ -809,6 +812,7 @@ void set_model_params(Dwarf* comp)
 
             printf("\nKing model params: W0=%lf, M=%lf smu, rt=%lf kpc, rho0=%lf ||| mu=%lf, Rt=%lf\n", W0, comp->mass, comp->r_t, comp->rho0, mu, Rt);
             break;
+        }
         case Plummer:
             break;
         case General_Hernquist:

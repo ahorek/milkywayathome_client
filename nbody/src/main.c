@@ -533,7 +533,7 @@ static void nbSetDefaultFlags(NBodyFlags* nbf)
     }
 }
 
-static void freeNBodyFlags(NBodyFlags* nbf)
+static void freeNBodyFlags(NBodyFlags* nbf __attribute__((unused)))
 {
     // These values come from argv, not malloc, do don't free them.
     // EDIT: I think these are copied values from mwFixArgv and SHOULD be freed. I'm putting this back in; try taking it out if there are problems
