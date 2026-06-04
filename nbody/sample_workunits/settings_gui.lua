@@ -253,16 +253,18 @@ end
 function get_soft_par()
     --softening parameter only calculated based on dwarf,
     --so if manual bodies is turned on the calculated s.p. may be too large
-    sp = calculateEps2(totalBodies, rscale_l, rscale_d, mass_l, mass_d, UseOldSofteningLength)
-
-    if ((manual_bodies or use_max_soft_par) and (sp > max_soft_par^2)) then --dealing with s.p. squared
+    if (UseOldSofteningLength == 1) then
+        sp_l, sp_cross, sp_d = calculateEps2(totalBodies, rscale_l, rscale_d, mass_l, mass_d)
+    else
+        sp_l, sp_cross, sp_d = calculateEps2Dwarf(comp1, comp2, totalLightBodies, totalBodies)
+    end
+    if ((manual_bodies or use_max_soft_par) and (sp_cross > max_soft_par^2)) then --dealing with softening parameter squared
         print("Using maximum softening parameter value of " .. tostring(max_soft_par) .. " kpc")
         return max_soft_par^2
     else
-        return sp
+        return {sp_l, sp_cross, sp_d}
     end
 end
-
 -- A lot of this is hard-coded to the default values.
 -- This is because lite users don't need to optimize histograms, 
 -- and having all the options for histogram optimization in the 
