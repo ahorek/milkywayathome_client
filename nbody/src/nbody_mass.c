@@ -545,15 +545,24 @@ real nbCostComponent(const NBodyHistogram* data, const NBodyHistogram* histogram
     unsigned int betaBins = data->betaBins;
     unsigned int nbins = lambdaBins * betaBins;
     real n = (real) histogram->totalSimulated;
-    real nSim_uncut = (real) histogram->totalNum;   /* Total simulated before dropping bins */
+    real nSim = (real) histogram->totalNum;   /* Total simulated before dropping bins */
     real nData = (real) data->totalNum;
     real nDataVariance = 0.0;
     real histMass = histogram->massPerParticle;
     real dataMass = data->massPerParticle;
     real p; /* probability of observing an event */
-    real rawCount;
-    real nSim = nSim_uncut;
-    
+    real num = 0.0;
+    real denom = 0.0;
+    real CostComponent = 0.0;
+    HistogramParams params = data->params; /* Use the data histogram params for EMD ranges */
+    real EMDStart = 0.0;
+    real EMDEnd = 0.0;
+    unsigned int simRangeCount;
+    unsigned int dataRangeCount;
+    unsigned int totalRangeCount; // Total counts in all EMD Ranges, used for weighting the likelihood
+    unsigned int i;
+    unsigned int j;
+
     if (data->lambdaBins != histogram->lambdaBins || data->betaBins != histogram->betaBins)
     {
         return NAN;
@@ -573,44 +582,86 @@ real nbCostComponent(const NBodyHistogram* data, const NBodyHistogram* histogram
         /*In order to calculate likelihood the masses are necessary*/
         return NAN;
     }
-    
-    
-    /*
-     * Correcting for bins in the comparison histogram that are not 
-     * included in the comparison. Also calculating data errors.
-     */
-    for (unsigned int i = 0; i < nbins; ++i)
+
+    //Cost component is calculated over each range that we calculate EMD for. Each range is weighted by the % of counts in that range in the data histogram.
+    //This will ensure the mass is correct for each seperate region, not just that the total mass matches.
+
+    if(params.nRange == 0 && histogram->params.nRange < 2) // If no ranges are defined, use full histogram
     {
-        if(!data->data[i].useBin)
+        // mw_printf("No EMD Ranges defined, using full histogram\n");
+        params.nRange = 2;
+        params.EMDRange[0] = data->data[0].lambda;
+        params.EMDRange[1] = data->data[nbins - 1].lambda;
+    }
+    else if(histogram->params.nRange >= 2) // If values are given through lua, use those
+    {
+        params.nRange = histogram->params.nRange;
+        for(i = 0; i < histogram->params.nRange; i++)
         {
-            rawCount = mw_round(histogram->data[i].variable * nSim_uncut);
-            nSim -= rawCount;
-        }
-        /*WARNING: These are NOT the errors in the normalized counts, but rather the errors in the
-          counts divided by the total number of bodies within the histogram. There IS a difference!*/
-        else
-        {
-            nDataVariance += sqr(data->data[i].err*nData);
+            params.EMDRange[i] = histogram->params.EMDRange[i];
         }
     }
-    
-    /* this is the newest version of the cost function
-     * it uses a combination of the binomial error for sim 
-     * and the poisson error for the data
-     */
-    p = ( nSim / n) ;
 
-    /*Print statements for debugging likelihood*/
-//    mw_printf("dataMass = %.15f\n",dataMass);
-//    mw_printf("nData    = %.15f\n",nData);
-//    mw_printf("histMass = %.15f\n",histMass);
-//    mw_printf("nSim     = %.15f\n",nSim);
-//    mw_printf("p        = %.15f\n",p);
-//    mw_printf("Sim_Mass = %.15f\n",histMass*nSim);
+    if(params.nRange % 2 != 0)
+    {
+        params.nRange -= 1; //Make sure nRange is even
+    }
 
-    real num = - sqr(dataMass * nData - histMass * nSim);
-    real denom = 2.0 * (sqr(dataMass) * nDataVariance + sqr(histMass) * nSim * p * (1.0 - p));
-    real CostComponent = num / denom; //this is the log of the cost component
+    for(i = 0; i < params.nRange; i = i + 2)
+    {
+        /*Renormalize simulated hist to given EMD Range*/
+        EMDStart = params.EMDRange[i];
+        EMDEnd = params.EMDRange[i+1];
+        // mw_printf("Using EMD Range: {%f,%f}\n", EMDStart, EMDEnd);
+        if(EMDStart > EMDEnd)
+        {
+            mw_printf("Error reading EMD calculation ranges: EMDStart > EMDEnd \n");
+            return NAN;
+        }
+        simRangeCount = 0;
+        for(j = 0; j < nbins; j++) /*Sum up total counts of bins in emd range*/
+        {
+            if(histogram->data[j].lambda >= EMDStart && histogram->data[j].lambda <= EMDEnd && data->data[j].useBin)
+            {
+                simRangeCount += mw_round(histogram->data[j].variable * nSim);
+            }
+        }
+
+        /*Repeat for the input data hist*/
+        dataRangeCount = 0;
+        for(j = 0; j < nbins; j++) /*Sum up total counts of bins in emd range*/
+        {
+            if(data->data[j].lambda >= EMDStart && data->data[j].lambda <= EMDEnd && data->data[j].useBin)
+            {
+                dataRangeCount += mw_round(data->data[j].variable * nData);
+                /*WARNING: These are NOT the errors in the normalized counts, but rather the errors in the
+                counts divided by the total number of bodies within the histogram. There IS a difference!*/
+                nDataVariance += sqr(data->data[j].err*nData);
+            }
+        }
+        totalRangeCount += dataRangeCount;
+
+        /* this is the newest version of the cost function
+         * it uses a combination of the binomial error for sim 
+         * and the poisson error for the data
+         */
+        p = ( simRangeCount / n) ;
+
+        /*Print statements for debugging likelihood*/
+//      mw_printf("dataMass      = %.15f\n",dataMass);
+//      mw_printf("nData         = %.15f\n",nData);
+//      mw_printf("histMass      = %.15f\n",histMass);
+//      mw_printf("simRangeCount = %.15f\n",simRangeCount);
+//      mw_printf("p             = %.15f\n",p);
+//      mw_printf("Sim_Mass      = %.15f\n",histMass*simRangeCount);
+
+        num = - sqr(dataMass * dataRangeCount - histMass * simRangeCount);
+        denom = 2.0 * (sqr(dataMass) * nDataVariance + sqr(histMass) * simRangeCount * p * (1.0 - p));
+        CostComponent += (num / denom) * dataRangeCount; //this is the log of the cost component times the number of counts in the data histogram for this range, which is used for weighting.
+    }
+
+    //finish weighting the cost component
+    CostComponent /= totalRangeCount;
 
     /* the cost component is negative. Returning a postive value */
     return -CostComponent;
