@@ -557,11 +557,11 @@ real nbCostComponent(const NBodyHistogram* data, const NBodyHistogram* histogram
     HistogramParams params = data->params; /* Use the data histogram params for EMD ranges */
     real EMDStart = 0.0;
     real EMDEnd = 0.0;
-    unsigned int simRangeCount;
-    unsigned int dataRangeCount;
-    unsigned int totalRangeCount; // Total counts in all EMD Ranges, used for weighting the likelihood
-    unsigned int i;
-    unsigned int j;
+    unsigned int simRangeCount = 0;
+    unsigned int dataRangeCount = 0;
+    unsigned int totalRangeCount = 0; // Total counts in all EMD Ranges, used for weighting the likelihood
+    unsigned int i = 0;
+    unsigned int j = 0;
 
     if (data->lambdaBins != histogram->lambdaBins || data->betaBins != histogram->betaBins)
     {
@@ -584,7 +584,7 @@ real nbCostComponent(const NBodyHistogram* data, const NBodyHistogram* histogram
     }
 
     //Cost component is calculated over each range that we calculate EMD for. Each range is weighted by the % of counts in that range in the data histogram.
-    //This will ensure the mass is correct for each seperate region, not just that the total mass matches.
+    //This will ensure the mass is correct for each separate region, not just that the total mass matches.
 
     if(params.nRange == 0 && histogram->params.nRange < 2) // If no ranges are defined, use full histogram
     {
@@ -648,12 +648,12 @@ real nbCostComponent(const NBodyHistogram* data, const NBodyHistogram* histogram
         p = ( simRangeCount / n) ;
 
         /*Print statements for debugging likelihood*/
-//      mw_printf("dataMass      = %.15f\n",dataMass);
-//      mw_printf("nData         = %.15f\n",nData);
-//      mw_printf("histMass      = %.15f\n",histMass);
-//      mw_printf("simRangeCount = %.15f\n",simRangeCount);
-//      mw_printf("p             = %.15f\n",p);
-//      mw_printf("Sim_Mass      = %.15f\n",histMass*simRangeCount);
+        //mw_printf("dataMass      = %.15f\n",dataMass);
+        //mw_printf("nData         = %.15f\n",nData);
+        //mw_printf("histMass      = %.15f\n",histMass);
+        //mw_printf("simRangeCount = %.15f\n",simRangeCount);
+        //mw_printf("p             = %.15f\n",p);
+        //mw_printf("Sim_Mass      = %.15f\n",histMass*simRangeCount);
 
         num = - sqr(dataMass * dataRangeCount - histMass * simRangeCount);
         denom = 2.0 * (sqr(dataMass) * nDataVariance + sqr(histMass) * simRangeCount * p * (1.0 - p));
