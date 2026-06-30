@@ -908,7 +908,8 @@ static inline void recalculate_comp_mass(Dwarf* comp, real bound)
 /*      DWARF GENERATION        */
 int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody, unsigned int nbody_baryon,
                                      Dwarf* comp1,  Dwarf* comp2,
-                                    mwbool __attribute__((unused)) ignore, mwvector rShift, mwvector vShift)
+                                    mwbool __attribute__((unused)) ignore, mwvector rShift, mwvector vShift,
+                                    real sampling_bound1, real sampling_bound2)
 {
     /* generatePlummer: generate Plummer model initial conditions for test
     * runs, scaled to units such that M = -4E = G = 1 (Henon, Heggie,
@@ -937,99 +938,110 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
         real rscale_d = comp2->scaleLength; //comp2[1]; /*scale radius of the dark component*/
         set_model_params(comp1);
         set_model_params(comp2);
-        real bound1 = 0.0;
-        real bound2 = 0.0;
-
-        switch(comp1->type)
+        real bound1 = sampling_bound1;
+        real bound2 = sampling_bound2;
+        
+        if (bound1 == 0.0) {
+            switch(comp1->type)
+            {
+                case Plummer:
+                    bound1 =  50.0 * (rscale_l + rscale_d);
+                    break;
+                case NFW:
+                    if (comp1->rcut != 0.0) {
+                        bound1 = comp1->rcut + 15.0 * comp1->rdecay;
+                        recalculate_comp_mass(comp1, bound1);
+                    }
+                    else {
+                        bound1 = comp1->r200;
+                    }
+                    break;
+                case General_Hernquist:
+                    bound1 =  50.0 * (rscale_l + rscale_d);
+                    break;
+                case Cored:
+                    if (comp1->rcut != 0.0) {
+                        bound1 = comp1->rcut + 15.0 * comp1->rdecay;
+                    }
+                    else {
+                        bound1 = comp1->r200;
+                    }
+                    recalculate_comp_mass(comp1, bound1);
+                    break;
+                case King:
+                    bound1 = comp1->r_t; // no mass past King model tidal radius
+                    // Current version will not properly assign velocities for a two component model where at least one is King model.
+                    if (nbody_baryon > 0 && nbody_dark > 0) {
+                        luaL_error(luaSt, "Current version does not support two component models with King profile.");
+                    }
+                    break;
+                case Einasto: //I don't know what goes here, just putting this here to suppress compiler warning
+                    break;
+                case InvalidDwarf:
+                    break;
+                default:
+                    /* Set unused value to make compiler happy */
+                    bound1 = 0.0;
+                    break;
+            }
+        }
+        else if (comp1->type == NFW || comp1->type == Cored)
         {
-            case Plummer:
-                bound1 =  50.0 * (rscale_l + rscale_d);
-                break;
-            case NFW:
-                if (comp1->rcut != 0.0) {
-                    bound1 = comp1->rcut + 15.0 * comp1->rdecay;
-
-                }
-                else {
-                    bound1 = 5.0 * comp1->r200;
-                }
-                recalculate_comp_mass(comp1, bound1);
-                break;
-            case General_Hernquist:
-                bound1 =  50.0 * (rscale_l + rscale_d);
-                break;
-            case Cored:
-                if (comp1->rcut != 0.0) {
-                    bound1 = comp1->rcut + 15.0 * comp1->rdecay;
-                }
-                else {
-                    bound1 = 5.0 * comp1->r200;
-                }
-                recalculate_comp_mass(comp1, bound1);
-                break;
-            case King:
-                bound1 = comp1->r_t; // no mass past King model tidal radius
-                // Current version will not properly assign velocities for a two component model where at least one is King model.
-                if (nbody_baryon > 0 && nbody_dark > 0) {
-                    luaL_error(luaSt, "Current version does not support two component models with King profile.");
-                }
-                break;
-            case Einasto: //I don't know what goes here, just putting this here to suppress compiler warning
-                break;
-            case InvalidDwarf:
-                break;
-             default:
-                /* Set unused value to make compiler happy */
-                bound1 = 0.0;
-                break;
+            recalculate_comp_mass(comp1, bound1);
         }
 
-        switch(comp2->type)
+        if (bound2 == 0.0) {
+            switch(comp2->type)
+            {
+                case Plummer:
+                    bound2 =  50.0 * (rscale_l + rscale_d);
+                    break;
+                case NFW:
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wfloat-equal"
+                    if (comp2->rcut != 0.0) {
+    #pragma GCC diagnostic pop
+                        bound2 = comp2->rcut + 15.0 * comp2->rdecay;
+                        recalculate_comp_mass(comp2, bound2);
+                    }
+                    else {
+                        bound2 = comp2->r200;
+                    }
+                    break;
+                case General_Hernquist:
+                    bound2 =  50.0 * (rscale_l + rscale_d);
+                    break;
+                case Cored:
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wfloat-equal"
+                    if (comp2->rcut != 0.0) {
+    #pragma GCC diagnostic pop
+                        bound2 = comp2->rcut + 15.0 * comp2->rdecay;
+                    }
+                    else {
+                        bound2 = comp2->r200;
+                    }
+                    recalculate_comp_mass(comp2, bound2);
+                    break;
+                case King:
+                    bound2 = comp2->r_t; // no mass past King model tidal radius
+                    // Current version will not properly assign velocities for a two component model where at least one is King model.
+                    if (nbody_baryon > 0 && nbody_dark > 0) {
+                        luaL_error(luaSt, "Current version does not support two component models with King profile.");
+                    }
+                case Einasto: //I don't know what goes here, just putting this here to suppress compiler warning
+                    break;
+                case InvalidDwarf:
+                    break;
+                default:
+                    /* Set unused value to make compiler happy */
+                    bound2 = 0.0;
+                    break;
+            }
+        }
+        else if (comp2->type == NFW || comp2->type == Cored)
         {
-            case Plummer:
-                bound2 =  50.0 * (rscale_l + rscale_d);
-                break;
-            case NFW:
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"
-                if (comp2->rcut != 0.0) {
-#pragma GCC diagnostic pop
-                    bound2 = comp2->rcut + 15.0 * comp2->rdecay;
-                }
-                else {
-                    bound2 = 5.0 * comp2->r200;
-                }
-                recalculate_comp_mass(comp2, bound2);
-                break;
-            case General_Hernquist:
-                bound2 =  50.0 * (rscale_l + rscale_d);
-                break;
-            case Cored:
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"
-                if (comp2->rcut != 0.0) {
-#pragma GCC diagnostic pop
-                    bound2 = comp2->rcut + 15.0 * comp2->rdecay;
-                }
-                else {
-                    bound2 = 5.0 * comp2->r200;
-                }
-                recalculate_comp_mass(comp2, bound2);
-                break;
-            case King:
-                bound2 = comp2->r_t; // no mass past King model tidal radius
-                // Current version will not properly assign velocities for a two component model where at least one is King model.
-                if (nbody_baryon > 0 && nbody_dark > 0) {
-                    luaL_error(luaSt, "Current version does not support two component models with King profile.");
-                }
-            case Einasto: //I don't know what goes here, just putting this here to suppress compiler warning
-                break;
-            case InvalidDwarf:
-                break;
-             default:
-                /* Set unused value to make compiler happy */
-                bound2 = 0.0;
-                break;
+            recalculate_comp_mass(comp2, bound2);
         }
 
         real mass_l   = comp1->mass; //comp1[0]; /*mass of the light component*/
@@ -1267,6 +1279,7 @@ int nbGenerateMixedDwarf(lua_State* luaSt)
         static real nbody_baryonf = -1.0;
         static Dwarf* comp1 = NULL;
         static Dwarf* comp2 = NULL;
+        static real samplingBounds[2] = {0.0, 0.0};
         static const MWNamedArg argTable[] =
         {
             { "nbody",                LUA_TNUMBER,     NULL,                    TRUE,    &nbodyf,            1 },
@@ -1277,6 +1290,7 @@ int nbGenerateMixedDwarf(lua_State* luaSt)
             { "velocity",             LUA_TUSERDATA,   MWVECTOR_TYPE,           TRUE,    &velocity,          1 },
             { "ignore",               LUA_TBOOLEAN,    NULL,                    FALSE,   &ignore,            1 },
             { "prng",                 LUA_TUSERDATA,   DSFMT_TYPE,              TRUE,    &prng,              1 },
+            { "samplingBounds",       LUA_TTABLE,      REAL_TYPE,               FALSE,   &samplingBounds,    2 },
             END_MW_NAMED_ARG
 
         };
@@ -1284,6 +1298,9 @@ int nbGenerateMixedDwarf(lua_State* luaSt)
         if (lua_gettop(luaSt) != 1)
             return luaL_argerror(luaSt, 1, "Expected 1 arguments");
 
+        /* Reset samplingBounds to default dynamic values if omitted. */
+        samplingBounds[0] = 0.0;
+        samplingBounds[1] = 0.0;
         handleNamedArgumentTable(luaSt, argTable, 1);
 
         if (nbody_baryonf < 0){
@@ -1291,7 +1308,8 @@ int nbGenerateMixedDwarf(lua_State* luaSt)
         }
 
         return nbGenerateMixedDwarfCore(luaSt, prng, (unsigned int) nbodyf, (unsigned int) nbody_baryonf, comp1, comp2, ignore,
-                                                                 *position, *velocity);
+                                                                 *position, *velocity,
+                                                                 samplingBounds[0], samplingBounds[1]);
 }
 
 

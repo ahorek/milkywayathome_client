@@ -239,7 +239,7 @@ numCalibrationRuns = 0
 -- -- -- -- -- -- These options only work if you compile nbody with  -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- -- -- -- -- -- the -DNBODY_DEV_OPTIONS set to on -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- - -- -- -- -- -- -- --  
 
-useMultiOutputs       = false     -- -- WRITE MULTIPLE OUTPUTS                                                            -- --
+useMultiOutputs       = false       -- -- WRITE MULTIPLE OUTPUTS                                                           -- --
 freqOfOutputs         = 100         -- -- FREQUENCY OF WRITING OUTPUTS                                                     -- --
 
 timestep_control      = false       -- -- control number of steps                                                          -- --
@@ -248,8 +248,20 @@ Ntime_steps           = 3000        -- -- number of timesteps to run            
 use_max_soft_par      = false       -- -- limit the softening parameter value to a max value                               -- --
 max_soft_par          = 0.8         -- -- kpc, if switch above is turned on, use this as the max softening parameter       -- --
 
-generateInitialOutput = false       -- -- save initial dwarf galaxy state to initial.out before evolution                   -- --
+generateInitialOutput = false       -- -- save initial dwarf galaxy state to initial.out before evolution                  -- --
+
+useManualSamplingBounds = false     -- -- manually set radial sampling bounds for Monte Carlo sampling (mixeddwarf only)   -- --
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+
+-- -- -- -- -- -- -- -- --  Manual Sampling Bounds -- -- -- -- -- -- -- -- -- -- -- --
+-- Only used if useManualSamplingBounds is true                                  -- --
+-- If set to 0.0, will use default sampling bounds from nbody_mixeddwarf.c       -- -- 
+-- NOTE 1: Only works when using mixeddwarf (not single component models)        -- -- 
+-- NOTE 2: Only useful/works with NFW and Cored profiles                         -- --
+
+bound1 = 0.0         -- -- kpc, radial sampling bound for component 1            -- --
+bound2 = 0.0         -- -- kpc, radial sampling bound for component 2            -- -- 
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
         
         
 -- -- -- -- -- -- -- -- -- CHECK TIMESTEPS -- -- -- -- -- -- -- -- 
@@ -325,6 +337,17 @@ function get_soft_par()
     end
 end
 
+function get_sampling_bounds()
+    -- Passing in radial sampling bounds if useManualSamplingBounds is true
+    -- Else will be set to default values in nbody_mixeddwarf.c
+
+    if(useManualSamplingBounds) then
+        return {bound1, bound2}
+    else
+        return {0.0, 0.0}
+    end
+end
+
 
 function makeContext()
    return NBodyCtx.create{
@@ -377,7 +400,8 @@ function makeContext()
       LMCscale2     = LMC_cutoff,
       LMCDynaFric   = LMC_DynamicalFriction,
       coulomb_log   = CoulombLogarithm,
-      calibrationRuns = numCalibrationRuns
+      calibrationRuns = numCalibrationRuns,
+      samplingBounds = get_sampling_bounds()
    }
 end
 
@@ -444,14 +468,15 @@ function makeBodies(ctx, potential)
     if(ModelComponents == 2) then         
 
         firstModel = predefinedModels.mixeddwarf{
-            nbody         = totalBodies,
-            nbody_baryon  = totalLightBodies,
-            prng          = prng,
-            position      = finalPosition,
-            velocity      = finalVelocity,
-            comp1         = comp1,
-            comp2         = comp2,
-            ignore        = true
+            nbody            = totalBodies,
+            nbody_baryon     = totalLightBodies,
+            prng             = prng,
+            position         = finalPosition,
+            velocity         = finalVelocity,
+            comp1            = comp1,
+            comp2            = comp2,
+            ignore           = true,
+            samplingBounds   = get_sampling_bounds()
         }
         
     elseif(ModelComponents == 1) then
