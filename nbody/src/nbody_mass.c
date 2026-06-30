@@ -657,11 +657,8 @@ real nbCostComponent(const NBodyHistogram* data, const NBodyHistogram* histogram
 
         num = - sqr(dataMass * dataRangeCount - histMass * simRangeCount);
         denom = 2.0 * (sqr(dataMass) * nDataVariance + sqr(histMass) * simRangeCount * p * (1.0 - p));
-        CostComponent += (num / denom) * dataRangeCount; //this is the log of the cost component times the number of counts in the data histogram for this range, which is used for weighting.
+        CostComponent += num / denom; 
     }
-
-    //finish weighting the cost component
-    CostComponent /= totalRangeCount;
 
     /* the cost component is negative. Returning a postive value */
     return -CostComponent;
