@@ -720,7 +720,6 @@ void set_model_params(Dwarf* comp)
         case NFW:
         case Cored:
         {
-            /*this is only used for the nfw and sidm but it is technically valid for all the profiles. easier to have it here*/
             /* this is the pcrit * delta_crit from the nfw 1997 paper or just p0 from binney */
             //as defined in Binney and Tremaine 2nd ed:
             //the r200 is now used for all potentials to provide the bounds for density sampling
@@ -736,7 +735,7 @@ void set_model_params(Dwarf* comp)
             real pcut = 0.0;
             real delta = 0.0;
             real m_nfw_cut = 0.0;
-            real gamma1 = 0.0;
+            real const_gamma_func = 0.0;
             real psi_nfw_cut = 0.0;
             real psi_cut_cut = 0.0; 
             real m_nfw_r1 = 0.0;
@@ -749,7 +748,7 @@ void set_model_params(Dwarf* comp)
                 pcut = p0 * inv(rcut / rscale) * inv(sqr(1.0 + rcut / rscale));
                 delta = (rcut / rdecay) - (1.0 + 3.0 * (rcut / rscale)) / (1.0 + (rcut / rscale));
                 m_nfw_cut = 4.0 * M_PI * p0 * cube(rscale) * (mw_log((rscale + rcut) / rscale) - rcut / (rscale + rcut));
-                gamma1 = UpperIncompleteGammaFunc(delta + 3, rcut / rdecay);
+                const_gamma_func = UpperIncompleteGammaFunc(delta + 3, rcut / rdecay);
                 psi_nfw_cut = 4.0 * M_PI * p0 * cube(rscale) * mw_log(1.0 + rcut / rscale) * inv(rcut);
                 psi_cut_cut = 4.0 * M_PI * pcut * mw_pow(rcut, -delta) * mw_exp(rcut / rdecay) * mw_pow(rdecay, delta + 3) * (UpperIncompleteGammaFunc(delta + 2, rcut / rdecay) * inv(rdecay));
             }
@@ -777,7 +776,7 @@ void set_model_params(Dwarf* comp)
             comp->pcut = pcut;
             comp->delta = delta;
             comp->m_nfw_cut = m_nfw_cut;
-            comp->gamma1 = gamma1;
+            comp->const_gamma_func = const_gamma_func;
             comp->psi_nfw_cut = psi_nfw_cut;
             comp->psi_cut_cut = psi_cut_cut;
             comp->m_nfw_r1 = m_nfw_r1;
@@ -818,7 +817,34 @@ void set_model_params(Dwarf* comp)
         case General_Hernquist:
             break;
         case Einasto:
-            break;
+            real M = comp->mass;
+            real rs = comp->scaleLength; // half mass radius
+            real n = comp->n; // Einasto index
+            
+            real d = 0.0; // dimenstionless constant that depends on n and gurantees that rs is the half mass radius  
+            real h = 0.0; //scale length     
+            real const_gamma_func = 0.0;       
+            
+            // Referenced Baes 2022
+            if (n > 1.0) {                                                                                                       
+                d = 3.0 * n - 1.0 / 3.0                       
+                    + 8.0 / (1215.0 * n)                               
+                    + 184.0 / (229635.0 * sqr(n))                               
+                    + 1048.0 / (31000725.0 * cube(n))                            
+                    - 17557576.0 / (1242974068875.0 * mw_pow(n, 4.0));                      
+            }                   
+            else {                                                
+                const real a1 = -0.4977745;
+                const real a2 =  2.894682; 
+                const real a3 = -2.369477;
+                const real a4 =  1.852409;
+                d = mw_pow(inv(mw_cbrt(2.0)) + a1*n + a2*sqr(n) + a3*cube(n) + a4*mw_pow(n, 4.0), inv(n));                  
+            }                                                                                                          
+
+            comp->h = rs / mw_pow(d, n);  
+            comp->d = d;
+            comp->const_gamma_func = GammaFunc(3.0 * n);    
+
         default:
             break;
     }
@@ -833,10 +859,9 @@ static real king_rho_max(real r, real unused1, const Dwarf* comp, const Dwarf* u
 
 static inline void recalculate_comp_mass(Dwarf* comp, real bound)
 {
-    /* This function recalculates the mass of the component if the bound is changed */
-    /* This is only used for the NFW and Cored profiles right now since the mass goes to infinity */
-    /* The mass inputted is taken to be the M200 mass (mass within radius r200).*/
-    /* If the sampling boundary goes above or below r200, this function resets the mass of the component.*/
+    /* This function recalculates the mass of the component if the sampling bound is changed */
+    /* Needed for Cored profile since inputted mass is the M200 if the profile was an NFW */
+
         real m = 0.0;
         real r = bound;
         real rs = comp->scaleLength;
@@ -856,11 +881,11 @@ static inline void recalculate_comp_mass(Dwarf* comp, real bound)
                 const real pcut = comp->pcut;                                                                                   
                 const real delta = comp->delta;                                                                                 
                 const real rdecay = comp->rdecay;   
-                const real gamma1 = comp->gamma1;     
+                const real const_gamma_func = comp->const_gamma_func;     
                 const real m_nfw_r1 = comp->m_nfw_r1;
                 const real m_iso_r1 = comp->m_iso_r1;
                 const real m_nfw_cut = comp->m_nfw_cut;                                                                          
-                m = 4.0 * M_PI * pcut * mw_pow(rcut, -delta) * mw_exp(rcut / rdecay) * mw_pow(rdecay, delta + 3) * (gamma1 - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) + m_nfw_cut + m_iso_r1 - m_nfw_r1;                                           
+                m = 4.0 * M_PI * pcut * mw_pow(rcut, -delta) * mw_exp(rcut / rdecay) * mw_pow(rdecay, delta + 3) * (const_gamma_func - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) + m_nfw_cut + m_iso_r1 - m_nfw_r1;                                           
             }                                                                                                                    
             else if (r <= r1)                                                                                                    
             {                                                                                                                    
@@ -887,9 +912,9 @@ static inline void recalculate_comp_mass(Dwarf* comp, real bound)
                     const real rdecay = comp->rdecay;
                     const real delta = comp->delta;
                     const real pcut = comp->pcut;
-                    const real gamma1 = comp->gamma1;
+                    const real const_gamma_func = comp->const_gamma_func;
                     const real m_nfw_cut = comp->m_nfw_cut;
-                    m = 4.0 * M_PI * pcut * mw_pow(rcut, -delta) * mw_exp(rcut / rdecay) * mw_pow(rdecay, delta + 3) * (gamma1 - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) +  m_nfw_cut;
+                    m = 4.0 * M_PI * pcut * mw_pow(rcut, -delta) * mw_exp(rcut / rdecay) * mw_pow(rdecay, delta + 3) * (const_gamma_func - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) +  m_nfw_cut;
                 }
                 else
                 {
@@ -900,6 +925,34 @@ static inline void recalculate_comp_mass(Dwarf* comp, real bound)
             {
                 m = 4.0 * M_PI * p0 * cube(rs) * (mw_log((rs + r) / rs) - r / (rs + r));
             }
+        }
+        else if (comp->type == Plummer)
+        {
+            a = comp->scaleLength;
+            M = comp->mass;
+            m = M * cube(r) * mw_pow(sqr(r) + sqr(a), -3.0/2.0);
+        }
+        else if (comp->type == General_Hernquist)
+        {
+            a = comp->scaleLength;
+            M = comp->mass;
+            m = M * sqr(r) / sqr(r + a);
+        }
+        else if (comp->type == King)
+        {
+            m = 0.0;
+        }
+        else if (comp->type == Einasto)
+        {
+            real M = comp->mass;
+            real rs = comp->scaleLength;
+            real n = comp->n;
+            real d = comp->d;
+            real const_gamma_func = comp->const_gamma_func;
+            
+            real s = mw_pow(d, n) * r / rs;
+            real s_term = mw_pow(s, inv(n));
+            m = M * (1 - (UpperIncompleteGammaFunc(3.0 * n, s_term) / const_gamma_func));
         }
     comp->mass = m;
 #pragma GCC diagnostic pop
