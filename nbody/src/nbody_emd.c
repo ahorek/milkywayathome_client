@@ -1430,7 +1430,7 @@ real nbMatchEMD(const MainStruct* data, const MainStruct* histogram)
         emd = mw_round(emd);
         emd *= 1.0e-9;
 
-        if (emd > 50.0)
+        if (emd > (EMDEnd - EMDStart))
         {
         /* emd's max value is 50 */
         return NAN;
@@ -1439,14 +1439,10 @@ real nbMatchEMD(const MainStruct* data, const MainStruct* histogram)
         /* This calculates the likelihood as the combination of the
         * probability distribution and (1.0 - emd / max_dist) */
 
-        EMDComponent = 1.0 - emd / 50.0; 
+        EMDComponent = 1.0 - emd / (EMDEnd - EMDStart);
         /* the 300 is there to add weight to the EMD component */
-        /* multiplied by range counts for weighting the different regions*/
-        likelihood += 300.0 * mw_log(EMDComponent) * rangeCount;
+        likelihood += 300.0 * mw_log(EMDComponent);
     }     
-    
-    /* finish weighting*/
-    likelihood /= totalRangeCount;
 
     /* the emd is a negative. returning a positive value */
     return -likelihood;
