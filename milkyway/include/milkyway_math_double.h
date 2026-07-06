@@ -26,6 +26,7 @@
 #define _MILKYWAY_MATH_DOUBLE_H_
 
 #include "milkyway_extra.h"
+#include "milkyway_math_funcs.h"
 
 #if !DOUBLEPREC
 #error Double not enabled for double math
@@ -92,7 +93,7 @@ typedef MW_ALIGN_TYPE_V(32) double double4[4];
 #define mw_sinpi(x) mw_sin(M_PI * (x))
 #define mw_tanpi(x) (mw_tan(M_PI * (x)))
 #define mw_erfc erfc
-#define mw_erf erf
+#define mw_erf(x) cr_erf(x)
 
 #if HAVE_EXP2
   #define mw_exp2 exp2
