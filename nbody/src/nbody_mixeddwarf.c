@@ -66,29 +66,49 @@ static inline real density( real r, const Dwarf* comp1, const Dwarf* comp2)
 /*      GENERAL PURPOSE DERIVATIVE, INTEGRATION, MAX FINDING, ROOT FINDING, AND ARRAY SHUFFLER FUNCTIONS        */
 real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
 {
-    /*yes, this does in fact use a 5-point stencil*/
+    /* centered 5-point stencil when it stays in-domain; near the origin, switch to a forward stencil so probes never go negative.*/
     const real h = 0.001;
-    real p1 =   1.0 * (*func)(comp1, (x - 2.0 * h));
-    real p2 = - 8.0 * (*func)(comp1, (x - h) );
-    real p3 = - 1.0 * (*func)(comp1, (x + 2.0 * h));
-    real p4 =   8.0 * (*func)(comp1, (x + h));
-    real denom = inv( 12.0 * h);
-    real deriv = (p1 + p2 + p3 + p4) * denom;
-    return deriv;
+
+    if (x >= 2.0 * h)
+    {
+        real p1 =   1.0 * (*func)(comp1, (x - 2.0 * h));
+        real p2 = - 8.0 * (*func)(comp1, (x - h) );
+        real p3 = - 1.0 * (*func)(comp1, (x + 2.0 * h));
+        real p4 =   8.0 * (*func)(comp1, (x + h));
+        return (p1 + p2 + p3 + p4) * inv(12.0 * h);
+    }
+
+    /* Forward 5-point first derivative, O(h^4) */
+    real f0 = (*func)(comp1, x);
+    real f1 = (*func)(comp1, x + h);
+    real f2 = (*func)(comp1, x + 2.0 * h);
+    real f3 = (*func)(comp1, x + 3.0 * h);
+    real f4 = (*func)(comp1, x + 4.0 * h);
+    return (-25.0 * f0 + 48.0 * f1 - 36.0 * f2 + 16.0 * f3 - 3.0 * f4) * inv(12.0 * h);
 }
 
 static inline real second_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
 {
-    /*yes, this also uses a five point stencil*/
+    /* Same domain handling as first_derivative: centered away from 0, forward near 0. */
     const real h = 0.001;
-    real p1 = - 1.0 * (*func)(comp1, (x + 2.0 * h));
-    real p2 =  16.0 * (*func)(comp1, (x + h));
-    real p3 = -30.0 * (*func)(comp1, (x));
-    real p4 =  16.0 * (*func)(comp1, (x - h));
-    real p5 = - 1.0 * (*func)(comp1, (x - 2.0 * h));
-    real denom = inv( 12.0 * h * h);
-    real deriv = (p1 + p2 + p3 + p4 + p5) * denom;
-    return deriv;
+
+    if (x >= 2.0 * h)
+    {
+        real p1 = - 1.0 * (*func)(comp1, (x + 2.0 * h));
+        real p2 =  16.0 * (*func)(comp1, (x + h));
+        real p3 = -30.0 * (*func)(comp1, (x));
+        real p4 =  16.0 * (*func)(comp1, (x - h));
+        real p5 = - 1.0 * (*func)(comp1, (x - 2.0 * h));
+        return (p1 + p2 + p3 + p4 + p5) * inv(12.0 * h * h);
+    }
+
+    /* Forward 5-point second derivative, O(h^3) */
+    real f0 = (*func)(comp1, x);
+    real f1 = (*func)(comp1, x + h);
+    real f2 = (*func)(comp1, x + 2.0 * h);
+    real f3 = (*func)(comp1, x + 3.0 * h);
+    real f4 = (*func)(comp1, x + 4.0 * h);
+    return (35.0 * f0 - 104.0 * f1 + 114.0 * f2 - 56.0 * f3 + 11.0 * f4) * inv(12.0 * h * h);
 }
 
 static real gauss_quad(real (*func)(real, const Dwarf*, const Dwarf*, real, mwbool), real lower, real upper, const Dwarf* comp1, const Dwarf* comp2, real energy, mwbool isDark)
@@ -844,7 +864,7 @@ void set_model_params(Dwarf* comp)
             comp->h = rs / mw_pow(d, n);  
             comp->d = d;
             comp->const_gamma_func = GammaFunc(3.0 * n);    
-
+            break;
         default:
             break;
     }
@@ -855,6 +875,17 @@ static real king_rho_max(real r, real unused1, const Dwarf* comp, const Dwarf* u
     // finds the maximum of r^2*rho(r) for king profile to set the upper bound in radius sampling
     // unused1, unused_comp, unused2 are all unused, just there to match the required function input format for max_finder()
     return r * r * get_density(comp, r);
+}
+
+static inline real einasto_sampling_bound(const Dwarf* comp)
+{
+    /* Radius enclosing 99.9% of the Einasto mass, used as the rejection-sampling radial bound.
+     * Uses the Wilson-Hilferty approximation to find the quantile of the Gamma distribution. */
+    const real a = 3.0 * comp->n;
+    const real z999 = 3.090232306167813; // 99.9% quantile of the standard normal
+    real t = 1.0 - 1.0 / (9.0 * a) + z999 / (3.0 * mw_sqrt(a)); 
+    real x999 = a * cube(t); // 99.9% quantile of the Gamma distribution
+    return comp->scaleLength * mw_pow(x999 / comp->d, comp->n);
 }
 
 static inline void recalculate_comp_mass(Dwarf* comp, real bound)
@@ -928,27 +959,28 @@ static inline void recalculate_comp_mass(Dwarf* comp, real bound)
         }
         else if (comp->type == Plummer)
         {
-            a = comp->scaleLength;
-            M = comp->mass;
+            const real a = comp->scaleLength;
+            const real M = comp->mass;
             m = M * cube(r) * mw_pow(sqr(r) + sqr(a), -3.0/2.0);
         }
         else if (comp->type == General_Hernquist)
         {
-            a = comp->scaleLength;
-            M = comp->mass;
+            const real a = comp->scaleLength;
+            const real M = comp->mass;
             m = M * sqr(r) / sqr(r + a);
         }
         else if (comp->type == King)
-        {
-            m = 0.0;
+        {   
+            // No analytical solution so taking the derivative numerically
+            m = -sqr(r) * first_derivative(get_potential, r, comp);
         }
         else if (comp->type == Einasto)
         {
-            real M = comp->mass;
-            real rs = comp->scaleLength;
-            real n = comp->n;
-            real d = comp->d;
-            real const_gamma_func = comp->const_gamma_func;
+            const real M = comp->mass;
+            const real rs = comp->scaleLength;
+            const real n = comp->n;
+            const real d = comp->d;
+            const real const_gamma_func = comp->const_gamma_func;
             
             real s = mw_pow(d, n) * r / rs;
             real s_term = mw_pow(s, inv(n));
@@ -994,6 +1026,7 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
         real bound1 = sampling_bound1;
         real bound2 = sampling_bound2;
         
+        // If bound is not manually set, calculate the default bound based on the model type 
         if (bound1 == 0.0) {
             switch(comp1->type)
             {
@@ -1006,7 +1039,7 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                         recalculate_comp_mass(comp1, bound1);
                     }
                     else {
-                        bound1 = comp1->r200;
+                        bound1 = 5.0 * comp1->r200;
                     }
                     break;
                 case General_Hernquist:
@@ -1017,7 +1050,7 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                         bound1 = comp1->rcut + 15.0 * comp1->rdecay;
                     }
                     else {
-                        bound1 = comp1->r200;
+                        bound1 = 5.0 * comp1->r200;
                     }
                     recalculate_comp_mass(comp1, bound1);
                     break;
@@ -1028,7 +1061,9 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                         luaL_error(luaSt, "Current version does not support two component models with King profile.");
                     }
                     break;
-                case Einasto: //I don't know what goes here, just putting this here to suppress compiler warning
+                case Einasto:
+                    bound1 = einasto_sampling_bound(comp1);
+                    recalculate_comp_mass(comp1, bound1);
                     break;
                 case InvalidDwarf:
                     break;
@@ -1038,11 +1073,13 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                     break;
             }
         }
-        else if (comp1->type == NFW || comp1->type == Cored)
-        {
+        else
+        {   
+            // If bound is manually set, recalculate the component mass as enclosed mass within the bound
             recalculate_comp_mass(comp1, bound1);
         }
 
+        // If bound is not manually set, calculate the default bound based on the model type 
         if (bound2 == 0.0) {
             switch(comp2->type)
             {
@@ -1055,11 +1092,11 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                     if (comp2->rcut != 0.0) {
     #pragma GCC diagnostic pop
                         bound2 = comp2->rcut + 15.0 * comp2->rdecay;
-                        recalculate_comp_mass(comp2, bound2);
                     }
                     else {
-                        bound2 = comp2->r200;
+                        bound2 = 5.0 * comp2->r200;
                     }
+                    recalculate_comp_mass(comp2, bound2);
                     break;
                 case General_Hernquist:
                     bound2 =  50.0 * (rscale_l + rscale_d);
@@ -1072,7 +1109,7 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                         bound2 = comp2->rcut + 15.0 * comp2->rdecay;
                     }
                     else {
-                        bound2 = comp2->r200;
+                        bound2 = 5.0 * comp2->r200;
                     }
                     recalculate_comp_mass(comp2, bound2);
                     break;
@@ -1082,7 +1119,10 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                     if (nbody_baryon > 0 && nbody_dark > 0) {
                         luaL_error(luaSt, "Current version does not support two component models with King profile.");
                     }
-                case Einasto: //I don't know what goes here, just putting this here to suppress compiler warning
+                    break;
+                case Einasto:
+                    bound2 = einasto_sampling_bound(comp2);
+                    recalculate_comp_mass(comp2, bound2);
                     break;
                 case InvalidDwarf:
                     break;
@@ -1092,8 +1132,9 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
                     break;
             }
         }
-        else if (comp2->type == NFW || comp2->type == Cored)
-        {
+        else 
+        {   
+            // If bound is manually set, recalculate the component mass as enclosed mass within the bound
             recalculate_comp_mass(comp2, bound2);
         }
 
@@ -1148,7 +1189,9 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
             case King:
                 rho_max_light = max_finder(king_rho_max, 0.0, comp1, comp1, FALSE, 0.0, 0.5*comp1->r_t, comp1->r_t, 50, 1.0e-4);
                 break;
-            case Einasto: //I don't know what goes here, just putting this here to suppress compiler warning
+            case Einasto:
+                rho_max_light = rscale_l * mw_pow(2.0 * comp1->n / comp1->d, comp1->n);
+                rho_max_light = sqr(rho_max_light) * get_density(comp1, rho_max_light);
                 break;
             case InvalidDwarf:
                 break;
@@ -1179,7 +1222,9 @@ int nbGenerateMixedDwarfCore(lua_State* luaSt, dsfmt_t* prng, unsigned int nbody
             case King:
                 rho_max_dark = max_finder(king_rho_max, 0.0, comp2, comp2, TRUE, 0.0, 0.5*comp2->r_t, comp2->r_t, 50, 1.0e-4);
                 break;
-            case Einasto: //I don't know what goes here, just putting this here to suppress compiler warning
+            case Einasto:
+                rho_max_dark = rscale_d * mw_pow(2.0 * comp2->n / comp2->d, comp2->n);
+                rho_max_dark = sqr(rho_max_dark) * get_density(comp2, rho_max_dark);
                 break;
             case InvalidDwarf:
                 break;

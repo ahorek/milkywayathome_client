@@ -179,7 +179,7 @@ static real einasto_pot(const Dwarf* model, real r)                             
                                                                                                                          //
     real term1 = UpperIncompleteGammaFunc(3.0 * n, s_term);                                                              //
     real term2 = s * UpperIncompleteGammaFunc(2.0 * n, s_term);                                                          //
-    real term = 1.0 - ( term1 + term2 ) / const_gamma_func;                                                              //
+    real term = 1.0 - ( term1 - term2 ) / const_gamma_func;                                                              //
     return coeff * term;                                                                                                 //
 }                                                                                                                        //
                                                                                                                          //
@@ -338,7 +338,12 @@ real get_potential(const Dwarf* model, real r)
             pot_temp = gen_hern_pot(model, r );
             break;
         case Einasto:
-            printf("WARNING: Einsato dwarf currently has problems and should not be used \n");
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+            if (model->h == 0.0) {
+#pragma GCC diagnostic pop
+                set_model_params(model);
+            }
             pot_temp = einasto_pot(model, r);
             break;
         case Cored:
@@ -392,7 +397,12 @@ real get_density(const Dwarf* model, real r)
             den_temp = gen_hern_den(model, r );
             break;
         case Einasto:
-            printf("WARNING: Einsato dwarf currently has problems and should not be used \n");
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+            if (model->h == 0.0) {
+#pragma GCC diagnostic pop
+                set_model_params(model);
+            }
             den_temp = einasto_den(model, r);
             break;
         case Cored:

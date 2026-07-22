@@ -1,5 +1,14 @@
 -- /* Copyright (c) 2016-2018 Siddhartha Shelton */
 
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+-- Test Environment Lua File 
+-- Plummer-Einasto Dwarf model 
+-- Set to null potential to test stability of dwarf (no Milky Way potential or LMC)
+-- Set multiple outputs to true 
+-- Set generate initial output to true 
+-- Softening parameter currently hard coded since the calculation needs to be changed
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 -- DEAR LUA USER:
 -- This is the developer version of the lua parameter file. 
@@ -22,7 +31,7 @@
 
 -- IMPORTANT -- IMPORTANT -- IMPORTANT -- IMPORTANT -- IMPORTANT -- 
 -- Structural changes to this file also need to be changed in the 
--- lua files in the tests directory (nbody/tests/mixeddwarf_models/) and (nbody/tests/orphan_models/)
+-- lua files in the tests directory (nbody/tests/mixeddwarf_models/)
 -- especially if the changes are not backwards compatible with the previous format
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
@@ -52,18 +61,18 @@ manual_bodies     = false     -- -- USE THE MANUAL BODY LIST   -- -- -- -- --
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- -- -- -- -- -- -- -- -- STANDARD  SETTINGS   -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --      
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
-totalBodies           = 40000       -- -- NUMBER OF TOTAL BODIES                                               -- --
-totalLightBodies      = 20000       -- -- NUMBER OF LIGHT MATTER BODIES                                        -- --
+totalBodies           = 40000     -- -- NUMBER OF TOTAL BODIES                                               -- --
+totalLightBodies      = 10000       -- -- NUMBER OF LIGHT MATTER BODIES                                        -- --
 
 nbodyLikelihoodMethod = "EMD"       -- -- HIST COMPARE METHOD                                                  -- --
 nbodyMinVersion       = "1.96"      -- -- MINIMUM APP VERSION                                                  -- --
 
-run_null_potential    = false       -- -- NULL POTENTIAL SWITCH                                                -- --
+run_null_potential    = true       -- -- NULL POTENTIAL SWITCH                                                -- --
 use_tree_code         = true        -- -- USE TREE CODE NOT EXACT                                              -- --
 print_reverse_orbit   = false       -- -- PRINT REVERSE ORBIT SWITCH (WORKS FOR LMC_body = false)              -- --
 print_out_parameters  = false       -- -- PRINT OUT ALL PARAMETERS                                             -- --
 
-LMC_body              = true        -- -- PRESENCE OF LMC (TURN OFF FOR NULL POTENTIAL)                        -- --
+LMC_body              = false        -- -- PRESENCE OF LMC (TURN OFF FOR NULL POTENTIAL)                        -- --
 LMC_function          = 1           -- -- 1: Plummer 2: Henrquist 3: Hernquist with cutoff                     -- --
 LMC_scaleRadius       = 15          -- --  kpc                                                                 -- --
 LMC_cutoff            = 16          -- --  kpc  This is used only for Hernquist with cutoff                    -- --
@@ -177,8 +186,9 @@ end
 
 --component 1 and 2 for 2 component model. comp 1 should always be updated even for 1 component, as it is used to 
 --calculate dwarf-based softening length
-comp1 = Dwarf.plummer{mass = mass_l, scaleLength = rscale_l} -- Dwarf Options: plummer, nfw, general_hernquist, cored, king, einasto
-comp2 = Dwarf.plummer{mass = mass_d, scaleLength = rscale_d} -- Dwarf Options: plummer, nfw, general_hernquist, cored, king, einasto
+comp1 = Dwarf.plummer{mass = mass_l, scaleLength = rscale_l} -- Dwarf Options: plummer, nfw, general_hernquist, cored, einasto
+comp2 = Dwarf.einasto{mass = mass_d, scaleLength = rscale_d, n = 6.0} -- Dwarf Options: plummer, nfw, general_hernquist, cored, einasto
+
 
 
 
@@ -239,7 +249,7 @@ numCalibrationRuns = 0
 -- -- -- -- -- -- These options only work if you compile nbody with  -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- -- -- -- -- -- the -DNBODY_DEV_OPTIONS set to on -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- - -- -- -- -- -- -- --  
 
-useMultiOutputs       = false       -- -- WRITE MULTIPLE OUTPUTS                                                           -- --
+useMultiOutputs       = true     -- -- WRITE MULTIPLE OUTPUTS                                                            -- --
 freqOfOutputs         = 100         -- -- FREQUENCY OF WRITING OUTPUTS                                                     -- --
 
 timestep_control      = false       -- -- control number of steps                                                          -- --
@@ -248,20 +258,8 @@ Ntime_steps           = 3000        -- -- number of timesteps to run            
 use_max_soft_par      = false       -- -- limit the softening parameter value to a max value                               -- --
 max_soft_par          = 0.8         -- -- kpc, if switch above is turned on, use this as the max softening parameter       -- --
 
-generateInitialOutput = false       -- -- save initial dwarf galaxy state to initial.out before evolution                  -- --
-
-useManualSamplingBounds = false     -- -- manually set radial sampling bounds for Monte Carlo sampling (mixeddwarf only)   -- --
+generateInitialOutput = true       -- -- save initial dwarf galaxy state to initial.out before evolution                   -- --
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
-
--- -- -- -- -- -- -- -- --  Manual Sampling Bounds -- -- -- -- -- -- -- -- -- -- -- --
--- Only used if useManualSamplingBounds is true                                  -- --
--- If set to 0.0, will use default sampling bounds from nbody_mixeddwarf.c       -- -- 
--- NOTE 1: Only works when using mixeddwarf (not single component models)        -- -- 
--- NOTE 2: Only useful/works with NFW and Cored profiles                         -- --
-
-bound1 = 0.0         -- -- kpc, radial sampling bound for component 1            -- --
-bound2 = 0.0         -- -- kpc, radial sampling bound for component 2            -- -- 
--- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
         
         
 -- -- -- -- -- -- -- -- -- CHECK TIMESTEPS -- -- -- -- -- -- -- -- 
@@ -337,17 +335,6 @@ function get_soft_par()
     end
 end
 
-function get_sampling_bounds()
-    -- Passing in radial sampling bounds if useManualSamplingBounds is true
-    -- Else will be set to default values in nbody_mixeddwarf.c
-
-    if(useManualSamplingBounds) then
-        return {bound1, bound2}
-    else
-        return {0.0, 0.0}
-    end
-end
-
 
 function makeContext()
    return NBodyCtx.create{
@@ -400,8 +387,7 @@ function makeContext()
       LMCscale2     = LMC_cutoff,
       LMCDynaFric   = LMC_DynamicalFriction,
       coulomb_log   = CoulombLogarithm,
-      calibrationRuns = numCalibrationRuns,
-      samplingBounds = get_sampling_bounds()
+      calibrationRuns = numCalibrationRuns
    }
 end
 
@@ -468,15 +454,14 @@ function makeBodies(ctx, potential)
     if(ModelComponents == 2) then         
 
         firstModel = predefinedModels.mixeddwarf{
-            nbody            = totalBodies,
-            nbody_baryon     = totalLightBodies,
-            prng             = prng,
-            position         = finalPosition,
-            velocity         = finalVelocity,
-            comp1            = comp1,
-            comp2            = comp2,
-            ignore           = true,
-            samplingBounds   = get_sampling_bounds()
+            nbody         = totalBodies,
+            nbody_baryon  = totalLightBodies,
+            prng          = prng,
+            position      = finalPosition,
+            velocity      = finalVelocity,
+            comp1         = comp1,
+            comp2         = comp2,
+            ignore        = true
         }
         
     elseif(ModelComponents == 1) then
