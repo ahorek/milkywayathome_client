@@ -86,14 +86,14 @@ typedef MW_ALIGN_TYPE_V(32) double double4[4];
 #define mw_atanh atanh
 #define mw_atanpi(x) (mw_atan(x) / M_PI)
 #define mw_atan2pi(x) (mw_atan2(x) / M_PI)
-#define mw_cbrt(x) mw_pow((x), 1.0 / 3.0)
+#define mw_cbrt cr_cbrt
 #define mw_ceil ceil
 #define mw_copysign copysign
 #define mw_cospi(x) mw_cos(M_PI * (x))
 #define mw_sinpi(x) mw_sin(M_PI * (x))
 #define mw_tanpi(x) (mw_tan(M_PI * (x)))
 #define mw_erfc erfc
-#define mw_erf(x) cr_erf(x)
+#define mw_erf erf
 
 #if HAVE_EXP2
   #define mw_exp2 exp2

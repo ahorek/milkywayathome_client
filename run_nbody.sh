@@ -1,7 +1,7 @@
 #!/bin/bash
 
-run=false
-run_compare=true
+run=true
+run_compare=false
 compare_only=false
 get_flag_list=false
 
@@ -31,8 +31,8 @@ then
     -o $PathToMilkyWayAtHomeClientDirectory/output/output.out \
     -z $PathToMilkyWayAtHomeClientDirectory/output/output.hist \
     -h $PathToMilkyWayAtHomeClientDirectory/input/OCS_data_2025_north_194.hist \
-    -n 24 -w 1 -P -e 54231651 \
-    -p 3.49784 1 0.0698092 0.111304 2.74722 0.291961 47.121 18.8801 -240.317 144.928 136.032 239366 1.86272 2.04833 \
+    -n 8 -w 1 -P -e 54231651 \
+    -p 4.0 1.0 0.2 0.2 12.0 0.2 \
 
 fi
 

@@ -73,7 +73,7 @@ typedef MW_ALIGN_TYPE_V(16) float float4[4];
 #define mw_atanh atanhf
 #define mw_atanpi(x) (mw_atan(x) / M_PI)
 #define mw_atan2pi(x) (mw_atan2(x) / M_PI)
-#define mw_cbrt(x) mw_pow((x), 1.0 / 3.0)
+#define mw_cbrt(x) mw_pow((x), 1.0 / 3.0) // CORE-MATH function not included for single precision
 #define mw_ceil ceilf
 #define mw_copysign copysignf
 #define mw_cospi(x) mw_cos(M_PI * (x))
