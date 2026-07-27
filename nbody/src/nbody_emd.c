@@ -1308,6 +1308,8 @@ real nbMatchEMD(const MainStruct* data, const MainStruct* histogram)
     WeightPos* dat;
     real EMDStart = 0.0;
     real EMDEnd = 0.0;
+    real lambdaStart = 0.0;
+    real lambdaEnd = 0.0;
     unsigned int rangeCount = 0;
     unsigned int rangeBins = 0;
     unsigned int totalRangeCount = 0; // Total counts in all EMD Ranges, used for weighting the EMD
@@ -1376,12 +1378,19 @@ real nbMatchEMD(const MainStruct* data, const MainStruct* histogram)
         }
         rangeCount = 0;
         rangeBins = 0;
+        lambdaStart = 0.0; //to calculate correct EMD, we need to have the length of our histogram use what would be measured from histogram lambda values.
+        lambdaEnd = 0.0; //EMDStart and EMDEnd are not necessarily the same as what the histogram uses.
         for(j = 0; j < bins; j++) /*Sum up total counts of bins in emd range*/
         {
             if(first_hist->data[j].lambda >= EMDStart && first_hist->data[j].lambda <= EMDEnd && first_data->data[j].useBin)
             {
                 rangeCount += mw_round(first_hist->data[j].variable * nSim_uncut);
                 rangeBins += 1;
+                if(lambdaStart == 0.0)
+                {
+                    lambdaStart = first_hist->data[j].lambda;
+                }
+                lambdaEnd = first_hist->data[j].lambda;
             }
         }
         hist = mwCalloc(rangeBins, sizeof(WeightPos)); /*Create histogram emdCalc can use*/
@@ -1430,16 +1439,16 @@ real nbMatchEMD(const MainStruct* data, const MainStruct* histogram)
         emd = mw_round(emd);
         emd *= 1.0e-9;
 
-        if (emd > (EMDEnd - EMDStart))
+        if (emd > (lambdaEnd - lambdaStart))
         {
-        /* emd's max value is 50 */
+        /* emd's max value is the farthest distance between two bins in range */
         return NAN;
         }
 
         /* This calculates the likelihood as the combination of the
         * probability distribution and (1.0 - emd / max_dist) */
 
-        EMDComponent = 1.0 - emd / (EMDEnd - EMDStart);
+        EMDComponent = 1.0 - emd / (lambdaEnd - lambdaStart);
         /* the 300 is there to add weight to the EMD component */
         likelihood += 300.0 * mw_log(EMDComponent);
     }     
