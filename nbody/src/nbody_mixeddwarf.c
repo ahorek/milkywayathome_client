@@ -882,7 +882,7 @@ static inline real einasto_sampling_bound(const Dwarf* comp)
     /* Radius enclosing 99.9% of the Einasto mass, used as the rejection-sampling radial bound.
      * Uses the Wilson-Hilferty approximation to find the quantile of the Gamma distribution. */
     const real a = 3.0 * comp->n;
-    const real z999 = 3.090232306167813; // 99.9% quantile of the standard normal
+    const real z999 = 3.0902323061678135; // 99.9% quantile of the standard normal
     real t = 1.0 - 1.0 / (9.0 * a) + z999 / (3.0 * mw_sqrt(a)); 
     real x999 = a * cube(t); // 99.9% quantile of the Gamma distribution
     return comp->scaleLength * mw_pow(x999 / comp->d, comp->n);
@@ -1388,7 +1388,7 @@ int nbGenerateMixedDwarf(lua_State* luaSt)
             { "velocity",             LUA_TUSERDATA,   MWVECTOR_TYPE,           TRUE,    &velocity,          1 },
             { "ignore",               LUA_TBOOLEAN,    NULL,                    FALSE,   &ignore,            1 },
             { "prng",                 LUA_TUSERDATA,   DSFMT_TYPE,              TRUE,    &prng,              1 },
-            { "samplingBounds",       LUA_TTABLE,      REAL_TYPE,               FALSE,   &samplingBounds,    2 },
+            { "samplingBounds",       LUA_TTABLE,      REAL_TYPE,               FALSE,   samplingBounds,     2 },
             END_MW_NAMED_ARG
 
         };

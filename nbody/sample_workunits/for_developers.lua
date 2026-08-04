@@ -249,19 +249,15 @@ use_max_soft_par      = false       -- -- limit the softening parameter value to
 max_soft_par          = 0.8         -- -- kpc, if switch above is turned on, use this as the max softening parameter       -- --
 
 generateInitialOutput = false       -- -- save initial dwarf galaxy state to initial.out before evolution                  -- --
-
-useManualSamplingBounds = false     -- -- manually set radial sampling bounds for Monte Carlo sampling (mixeddwarf only)   -- --
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
--- -- -- -- -- -- -- -- --  Manual Sampling Bounds -- -- -- -- -- -- -- -- -- -- -- --
--- Only used if useManualSamplingBounds is true                                  -- --
--- If set to 0.0, will use default sampling bounds from nbody_mixeddwarf.c       -- -- 
--- NOTE 1: Only works when using mixeddwarf (not single component models)        -- -- 
--- NOTE 2: Only useful/works with NFW and Cored profiles                         -- --
+-- -- -- -- -- -- -- -- --  Manual Sampling Bounds -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+-- If set to 0.0, will use default profile specific radial sampling bounds from nbody_mixeddwarf.c    -- -- 
+-- NOTE: Only works when using mixeddwarf (not single component models)                               -- -- 
 
-bound1 = 0.0         -- -- kpc, radial sampling bound for component 1            -- --
-bound2 = 0.0         -- -- kpc, radial sampling bound for component 2            -- -- 
--- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+bound1 = 0.0         -- -- kpc, radial sampling bound for component 1                                 -- --
+bound2 = 0.0         -- -- kpc, radial sampling bound for component 2                                 -- -- 
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
         
         
 -- -- -- -- -- -- -- -- -- CHECK TIMESTEPS -- -- -- -- -- -- -- -- 
@@ -337,18 +333,6 @@ function get_soft_par()
     end
 end
 
-function get_sampling_bounds()
-    -- Passing in radial sampling bounds if useManualSamplingBounds is true
-    -- Else will be set to default values in nbody_mixeddwarf.c
-
-    if(useManualSamplingBounds) then
-        return {bound1, bound2}
-    else
-        return {0.0, 0.0}
-    end
-end
-
-
 function makeContext()
    return NBodyCtx.create{
       timeEvolve  = evolveTime,
@@ -401,7 +385,7 @@ function makeContext()
       LMCDynaFric   = LMC_DynamicalFriction,
       coulomb_log   = CoulombLogarithm,
       calibrationRuns = numCalibrationRuns,
-      samplingBounds = get_sampling_bounds()
+      samplingBounds = {bound1, bound2}
    }
 end
 
@@ -476,7 +460,7 @@ function makeBodies(ctx, potential)
             comp1            = comp1,
             comp2            = comp2,
             ignore           = true,
-            samplingBounds   = get_sampling_bounds()
+            samplingBounds   = {bound1, bound2}
         }
         
     elseif(ModelComponents == 1) then
