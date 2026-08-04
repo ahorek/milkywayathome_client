@@ -68,12 +68,12 @@ static real nfw_den(const Dwarf* model, real r)                                 
 {                                                                                                                        //
     const real rscale = model->scaleLength;                                                                              //
     const real p0 = model->p0;                                                                                           //
-    const real rcut = model->rcut;                                                                                       //                                                                                       //
+    const real rcut = model->rcut;                                                                                       //
     real R = r / rscale;                                                                                                 //
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"
+#pragma GCC diagnostic push                                                                                              //
+#pragma GCC diagnostic ignored "-Wfloat-equal"                                                                           //
     if (rcut != 0.0) {                                                                                                   //
-#pragma GCC diagnostic pop
+#pragma GCC diagnostic pop                                                                                               //
         const real rdecay = model->rdecay;                                                                               //
         const real pcut = model->pcut;                                                                                   //
         const real delta = model->delta;                                                                                 //
@@ -94,19 +94,19 @@ static real nfw_pot(const Dwarf* model, real r)                                 
     const real p0 = model->p0;                                                                                           //
     const real rcut = model->rcut;                                                                                       //
     real R = r / rscale;                                                                                                 //
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"
+#pragma GCC diagnostic push                                                                                              //
+#pragma GCC diagnostic ignored "-Wfloat-equal"                                                                           //
     if (rcut != 0.0) {                                                                                                   //
-#pragma GCC diagnostic pop
+#pragma GCC diagnostic pop                                                                                               //
         const real rdecay = model->rdecay;                                                                               //
         const real pcut = model->pcut;                                                                                   //
         const real delta = model->delta;                                                                                 //
         const real m_nfw_cut = model->m_nfw_cut;                                                                         //
-        const real gamma1 = model->gamma1;                                                                               //
+        const real const_gamma_func = model->const_gamma_func; // UpperIncompleteGammaFunc(delta + 3, rcut / rdecay)     //
         if (r > rcut) {                                                                                                  //
             return (                                                                                                     //
                 4.0 * M_PI * pcut * mw_pow(rcut, -delta) * mw_exp(rcut / rdecay) * mw_pow(rdecay, delta + 3)             //
-                * (((gamma1 - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) / r)                                      //
+                * (((const_gamma_func - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) / r)                            //
                 + (UpperIncompleteGammaFunc(delta + 2, r / rdecay) / rdecay)) + m_nfw_cut / r                            //
             );                                                                                                           //
         } else {                                                                                                         //
@@ -148,30 +148,38 @@ __attribute__((unused)) static real gen_hern_vel_disp(const Dwarf* model, real r
 }                                                                                                                        //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*                             EINASTO                                                                                   */
-/* these are taken from the einasto paper. There are many problems with this, so it is currently unused.                 */
+/* Referenced Retana-Montenegro et al. 2012 for the formulas                                                             */
 static real einasto_den(const Dwarf* model, real r)                                                                      //
 {                                                                                                                        //
-    const real mass __attribute__((unused)) = model->mass;                                                               //
-    const real h = model->scaleLength;                                                                                   //
-    const real n = model->n;                                                                                             //
+    const real M = model->mass;                                                                                          //
+    const real rs = model->scaleLength; // half mass radius                                                              //
+    const real n = model->n; // Einasto index                                                                            //
+    const real h = model->h; // scale length                                                                             //
+    const real d = model->d; // dimenstionless constant that depends on n and gurantees that rs is the half mass radius  //
+    const real const_gamma_func = model->const_gamma_func;  // GammaFunc(3.0 * n)                                        //
                                                                                                                          //
-    real coeff = 1.0 / ( 4.0 * M_PI * cube(h) * n * GammaFunc(3.0 * n));                                                 //
-    real thing = mw_pow(r, inv(n));                                                                                      //
-    return coeff * mw_exp(-thing);                                                                                       //
+    real coeff = M / ( 4.0 * M_PI * cube(h) * n * const_gamma_func);                                                     //
+    real s = mw_pow(d, n) * r / rs;                                                                                      //
+    real s_term = mw_pow(s, inv(n));                                                                                     // 
+    return coeff * mw_exp(-s_term);                                                                                      //
 }                                                                                                                        //
                                                                                                                          //
 static real einasto_pot(const Dwarf* model, real r)                                                                      //
 {                                                                                                                        //
-    const real mass = model->mass;                                                                                       //
-    const real h = model->scaleLength;                                                                                   //
-    const real n = model->n;                                                                                             //
+    const real M = model->mass;                                                                                          //
+    const real rs = model->scaleLength; // half mass radius                                                              //
+    const real n = model->n; // Einasto index                                                                            //
+    const real h = model->h; // scale length                                                                             //
+    const real d = model->d; // dimenstionless constant that depends on n and gurantees that rs is the half mass radius  //
+    const real const_gamma_func = model->const_gamma_func;  // GammaFunc(3.0 * n)                                        //
                                                                                                                          //
-    real coeff = mass / (h * r);                                                                                         //
-    real thing = mw_pow(r, 1.0 / n);                                                                                     //
+    real s = mw_pow(d, n) * r / rs;                                                                                      //
+    real s_term = mw_pow(s, inv(n));                                                                                     //
+    real coeff = M / (h * s);                                                                                            //
                                                                                                                          //
-    real term1 = UpperIncompleteGammaFunc(3.0 * n, thing);                                                               //
-    real term2 = r * UpperIncompleteGammaFunc(2.0 * n, thing);                                                           //
-    real term = 1.0 - ( term1 + term2 ) / GammaFunc(3.0 * n);                                                            //
+    real term1 = UpperIncompleteGammaFunc(3.0 * n, s_term);                                                              //
+    real term2 = s * UpperIncompleteGammaFunc(2.0 * n, s_term);                                                          //
+    real term = 1.0 - ( term1 - term2 ) / const_gamma_func;                                                              //
     return coeff * term;                                                                                                 //
 }                                                                                                                        //
                                                                                                                          //
@@ -183,8 +191,8 @@ static real cored_den(const Dwarf* model, real r)                               
     const real r1 = model->r1;                                                                                           //
     const real rcut = model->rcut;                                                                                       //
                                                                                                                          //
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"                                                                                                                         
+#pragma GCC diagnostic push                                                                                              //
+#pragma GCC diagnostic ignored "-Wfloat-equal"                                                                           //                                           
     if (rcut != 0.0 && r > rcut)                                                                                         //
     {                                                                                                                    //
         const real pcut = model->pcut;                                                                                   //
@@ -204,7 +212,7 @@ static real cored_den(const Dwarf* model, real r)                               
         const real rs = model->scaleLength;                                                                              //
         return ps / ((r / rs) * sqr(1.0 + r / rs));                                                                      //
     }                                                                                                                    //
-#pragma GCC diagnostic pop
+#pragma GCC diagnostic pop                                                                                               //
 }                                                                                                                        //
                                                                                                                          //
 static real cored_pot(const Dwarf* model, real r)                                                                        //
@@ -219,17 +227,17 @@ static real cored_pot(const Dwarf* model, real r)                               
     const real m_nfw_r1 = model->m_nfw_r1;                                                                               //
     const real m_nfw_cut = model->m_nfw_cut;                                                                             //
                                                                                                                          //
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"
+#pragma GCC diagnostic push                                                                                              //
+#pragma GCC diagnostic ignored "-Wfloat-equal"                                                                           //
     if (rcut != 0.0 && r > rcut)                                                                                         //
     {                                                                                                                    //
         const real pcut = model->pcut;                                                                                   //
         const real delta = model->delta;                                                                                 //
         const real rdecay = model->rdecay;                                                                               //
-        const real gamma1 = model->gamma1;                                                                               //
+        const real const_gamma_func = model->const_gamma_func; // UpperIncompleteGammaFunc(delta + 3, rcut / rdecay)     //
         return (                                                                                                         //
             4.0 * M_PI * pcut * mw_pow(rcut, -delta) * mw_exp(rcut / rdecay) * mw_pow(rdecay, delta + 3)                 //
-            * (((gamma1 - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) * inv(r))                                     //
+            * (((const_gamma_func - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) * inv(r))                           //
             + (UpperIncompleteGammaFunc(delta + 2, r / rdecay) * inv(rdecay)))                                           //
             + ((m_nfw_cut + m_iso_r1 - m_nfw_r1) * inv(r))                                                               //
         );                                                                                                               //
@@ -268,12 +276,12 @@ static real cored_pot(const Dwarf* model, real r)                               
         }                                                                                                                //
         return psi;                                                                                                      //
     }                                                                                                                    //
-#pragma GCC diagnostic pop
+#pragma GCC diagnostic pop                                                                                               //
 }                                                                                                                        //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*                            KING                                                                                       */
 /* Model is computed numerically, theory from Galactic Dynamics Binney & Tremaine 2nd ed.                                */
-/* (lowered isothermal models sec. 4.3). See nbody_king_model.c for the full function content                           */                                                                                                                      //
+/* (lowered isothermal models sec. 4.3). See nbody_king_model.c for the full function content                            */
                                                                                                                          //
 static real king_pot(Dwarf* model, real r)                                                                               //
 {                                                                                                                        //
@@ -304,7 +312,7 @@ static real king_den(Dwarf* model, real r)                                      
     }                                                                                                                    //
     return rhoOfPsi;                                                                                                     //
 }                                                                                                                        //
-                                                                                                                         //                                                                                                                      //
+                                                                                                                         // 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -330,7 +338,12 @@ real get_potential(const Dwarf* model, real r)
             pot_temp = gen_hern_pot(model, r );
             break;
         case Einasto:
-            printf("WARNING: Einsato dwarf currently has problems and should not be used \n");
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+            if (model->h == 0.0) {
+#pragma GCC diagnostic pop
+                set_model_params(model);
+            }
             pot_temp = einasto_pot(model, r);
             break;
         case Cored:
@@ -384,7 +397,12 @@ real get_density(const Dwarf* model, real r)
             den_temp = gen_hern_den(model, r );
             break;
         case Einasto:
-            printf("WARNING: Einsato dwarf currently has problems and should not be used \n");
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+            if (model->h == 0.0) {
+#pragma GCC diagnostic pop
+                set_model_params(model);
+            }
             den_temp = einasto_den(model, r);
             break;
         case Cored:
