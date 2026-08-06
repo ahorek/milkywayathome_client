@@ -36,8 +36,6 @@ void registerGenerateMixedDwarf(lua_State* luaSt);
 
 void set_model_params(Dwarf* comp);
 
-real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1);
-
 #ifdef __cplusplus
 }
 #endif
