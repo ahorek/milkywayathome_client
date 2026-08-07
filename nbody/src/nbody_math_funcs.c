@@ -287,29 +287,49 @@ real ComplementaryErrorFuncApprox(real x)
 /*      GENERAL PURPOSE DERIVATIVE, INTEGRATION, MAX FINDING, ROOT FINDING, AND ARRAY SHUFFLER FUNCTIONS        */
 real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
 {
-    /*yes, this does in fact use a 5-point stencil*/
+    /* centered 5-point stencil when it stays in-domain; near the origin, switch to a forward stencil so probes never go negative.*/
     const real h = 0.001;
-    real p1 =   1.0 * (*func)(comp1, (x - 2.0 * h));
-    real p2 = - 8.0 * (*func)(comp1, (x - h) );
-    real p3 = - 1.0 * (*func)(comp1, (x + 2.0 * h));
-    real p4 =   8.0 * (*func)(comp1, (x + h));
-    real denom = inv( 12.0 * h);
-    real deriv = (p1 + p2 + p3 + p4) * denom;
-    return deriv;
+
+    if (x >= 2.0 * h)
+    {
+        real p1 =   1.0 * (*func)(comp1, (x - 2.0 * h));
+        real p2 = - 8.0 * (*func)(comp1, (x - h) );
+        real p3 = - 1.0 * (*func)(comp1, (x + 2.0 * h));
+        real p4 =   8.0 * (*func)(comp1, (x + h));
+        return (p1 + p2 + p3 + p4) * inv(12.0 * h);
+    }
+
+    /* Forward 5-point first derivative, O(h^4) */
+    real f0 = (*func)(comp1, x);
+    real f1 = (*func)(comp1, x + h);
+    real f2 = (*func)(comp1, x + 2.0 * h);
+    real f3 = (*func)(comp1, x + 3.0 * h);
+    real f4 = (*func)(comp1, x + 4.0 * h);
+    return (-25.0 * f0 + 48.0 * f1 - 36.0 * f2 + 16.0 * f3 - 3.0 * f4) * inv(12.0 * h);
 }
 
-real second_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
+static inline real second_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
 {
-    /*yes, this also uses a five point stencil*/
+    /* Same domain handling as first_derivative: centered away from 0, forward near 0. */
     const real h = 0.001;
-    real p1 = - 1.0 * (*func)(comp1, (x + 2.0 * h));
-    real p2 =  16.0 * (*func)(comp1, (x + h));
-    real p3 = -30.0 * (*func)(comp1, (x));
-    real p4 =  16.0 * (*func)(comp1, (x - h));
-    real p5 = - 1.0 * (*func)(comp1, (x - 2.0 * h));
-    real denom = inv( 12.0 * h * h);
-    real deriv = (p1 + p2 + p3 + p4 + p5) * denom;
-    return deriv;
+
+    if (x >= 2.0 * h)
+    {
+        real p1 = - 1.0 * (*func)(comp1, (x + 2.0 * h));
+        real p2 =  16.0 * (*func)(comp1, (x + h));
+        real p3 = -30.0 * (*func)(comp1, (x));
+        real p4 =  16.0 * (*func)(comp1, (x - h));
+        real p5 = - 1.0 * (*func)(comp1, (x - 2.0 * h));
+        return (p1 + p2 + p3 + p4 + p5) * inv(12.0 * h * h);
+    }
+
+    /* Forward 5-point second derivative, O(h^3) */
+    real f0 = (*func)(comp1, x);
+    real f1 = (*func)(comp1, x + h);
+    real f2 = (*func)(comp1, x + 2.0 * h);
+    real f3 = (*func)(comp1, x + 3.0 * h);
+    real f4 = (*func)(comp1, x + 4.0 * h);
+    return (35.0 * f0 - 104.0 * f1 + 114.0 * f2 - 56.0 * f3 + 11.0 * f4) * inv(12.0 * h * h);
 }
 
 real gauss_quad(real (*func)(real, const Dwarf*, const Dwarf*, real, mwbool), real lower, real upper, const Dwarf* comp1, const Dwarf* comp2, real energy, mwbool isDark)
