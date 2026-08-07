@@ -24,6 +24,7 @@
 #include "nbody_potential_types.h"
 #include "nbody_mass.h"
 #include "nbody_king_model.h"
+#include "nbody_math_funcs.h"
 #include "nbody_mixeddwarf.h"
 
 /* NOTE
