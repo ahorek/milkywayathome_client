@@ -142,7 +142,6 @@ typedef MW_ALIGN_TYPE_V(32) double double4[4];
 #define mw_round round
 
 #define mw_sqrt sqrt
-#define mw_tgamma tgamma
 #define mw_trunc trunc
 
 

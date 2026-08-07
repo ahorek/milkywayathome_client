@@ -128,7 +128,6 @@ typedef MW_ALIGN_TYPE_V(16) float float4[4];
 #define mw_round roundf
 
 #define mw_sqrt sqrtf
-#define mw_tgamma tgammaf
 #define mw_trunc truncf
 
 
