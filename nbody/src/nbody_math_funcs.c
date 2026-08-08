@@ -308,7 +308,7 @@ real first_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* com
     return (-25.0 * f0 + 48.0 * f1 - 36.0 * f2 + 16.0 * f3 - 3.0 * f4) * inv(12.0 * h);
 }
 
-static inline real second_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
+real second_derivative(real (*func)(const Dwarf*, real), real x, const Dwarf* comp1)
 {
     /* Same domain handling as first_derivative: centered away from 0, forward near 0. */
     const real h = 0.001;
