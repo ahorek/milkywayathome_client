@@ -44,7 +44,7 @@ int main()
         printf("EMD calculated with given ranges not correct, gave %f should be 0 \n", scoreWithRange);
         return 1;
     }
-    if(scoreWithoutRange < -23.388463 || scoreWithoutRange > -23.388461) // should expect score of -23.388462440913543
+    if(scoreWithoutRange > 23.388463 || scoreWithoutRange <23.388461) // should expect score of -23.388462440913543
     {
         printf("EMD calculated with whole histogram is not correct; either the function could not default to normal behavior or the EMD likelihood calculation has been changed. Got %1.15f, expected -23.388462440913543 \n", scoreWithoutRange);
         return 1;
