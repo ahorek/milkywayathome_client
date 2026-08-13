@@ -153,7 +153,7 @@ max_soft_par          = 0.1         -- -- kpc, if switch above is turned on, use
 UseOldSofteningLength = 0           -- -- If 1, uses old softening length formula from v1.76 and earlier
                                     -- -- (this is only useful to compare with/match simulations 
                                     -- --  that were run before v1.80)
-CoulombLogarithm      = 15          -- -- ln(r/1.22*CoulombLogarithm) (Patel et al. 2020) COULOMB LOGARITHM USED IN DYNAMICAL FRACTION CALCULATION
+CoulombLogarithm      = 15          -- -- ln(r/1.22*CoulombLogarithm) (Patel et al. 2020) COULOMB LOGARITHM USED IN DYNAMICAL FRICTION CALCULATION
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 
 
