@@ -214,7 +214,7 @@ real gammq(const real a, const real x)
 {
     real gln;
 
-    if (x < 0.0 || a <= 0.0)
+    if (!(x >= 0.0 && a > 0.0))
     {
         mw_printf("WARNING: Invalid arguments in gammq (a=%f, x=%f)\n", a, x);
         return NAN;
@@ -270,6 +270,8 @@ real ComplementaryErrorFunc(real x)
  * fast erfc approximation with fractional error < 1.2e-7.
  */
 real ComplementaryErrorFuncApprox(real x)
+//Note that this routine is for single precision
+//Maybe look into Cody's Rational Chebyshev Approximation if double precision is needed
 {
     real z = mw_fabs(x);
     real t = 1.0 / (1.0 + 0.5 * z);
@@ -372,12 +374,12 @@ real gauss_quad(real (*func)(real, const Dwarf*, const Dwarf*, real, mwbool), re
 
     real coef2 = (lowerg + upperg) / 2.0;//initializes the first coeff to change the function limits
     real coef1 = (upperg - lowerg) / 2.0;//initializes the second coeff to change the function limits
-    const real c1 = 0.55555555555; //5.0 / 9.0;
-    const real c2 = 0.88888888888; //8.0 / 9.0;
-    const real c3 = 0.55555555555; //5.0 / 9.0;
-    const real x1 = -0.77459666924;//-sqrt(3.0 / 5.0);
+    const real c1 = 5.0 / 9.0;
+    const real c2 = 8.0 / 9.0;
+    const real c3 = 5.0 / 9.0;
+    const real x1 = -sqrt(3.0 / 5.0);
     const real x2 __attribute__((unused)) = 0.00000000000;
-    const real x3 = 0.77459666924; //sqrt(3.0 / 5.0);
+    const real x3 = sqrt(3.0 / 5.0);
     real x1n = (coef1 * x1 + coef2);
     /*should be: x2n = (coef1 * x2 + coef2);*/
     real x2n = (coef2);

@@ -394,7 +394,7 @@ real nbCostComponent(const NBodyHistogram* data, const NBodyHistogram* histogram
         EMDStart = params.EMDRange[i];
         EMDEnd = params.EMDRange[i+1];
         // mw_printf("Using EMD Range: {%f,%f}\n", EMDStart, EMDEnd);
-        if(EMDStart > EMDEnd)
+        if(!(EMDStart <= EMDEnd))
         {
             mw_printf("Error reading EMD calculation ranges: EMDStart > EMDEnd \n");
             return NAN;

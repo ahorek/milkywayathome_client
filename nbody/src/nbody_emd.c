@@ -1371,7 +1371,7 @@ real nbMatchEMD(const MainStruct* data, const MainStruct* histogram)
         EMDStart = first_data->params.EMDRange[i];
         EMDEnd = first_data->params.EMDRange[i+1];
         // mw_printf("Using EMD Range: {%f,%f}\n", EMDStart, EMDEnd);
-        if(EMDStart > EMDEnd)
+        if(!(EMDStart <= EMDEnd))
         {
             mw_printf("Error reading EMD calculation ranges: EMDStart > EMDEnd \n");
             return NAN;
@@ -1386,11 +1386,11 @@ real nbMatchEMD(const MainStruct* data, const MainStruct* histogram)
             {
                 rangeCount += mw_round(first_hist->data[j].variable * nSim_uncut);
                 rangeBins += 1;
-                if(lambdaStart == 0.0)
+                if(rangeBins == 1) //Set lambdaStart to the first lambda value in the range
                 {
                     lambdaStart = first_hist->data[j].lambda;
                 }
-                lambdaEnd = first_hist->data[j].lambda;
+                lambdaEnd = first_hist->data[j].lambda; //Update lambdaEnd for each bin, will end up with the last lambda value in range
             }
         }
         hist = mwCalloc(rangeBins, sizeof(WeightPos)); /*Create histogram emdCalc can use*/
