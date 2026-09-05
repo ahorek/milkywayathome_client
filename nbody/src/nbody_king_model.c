@@ -81,7 +81,7 @@ real kingDimless2ndDeriv(real R, real W, real dWdR, Dwarf *model) {
 
 // This function is formatted in such a way that gauss_quad() will accept it, the integrand for mu parameter
 // parameters are radius, Dwarf (used), Dwarf (unused), energy (unused), isDark (unused)
-real kingDimlessMass(real R, Dwarf* model, Dwarf* unusedModel, real unusedEnergy, mwbool unusedIsDark) {
+real kingDimlessMass(real R, const Dwarf* model, const Dwarf* unusedModel, real unusedEnergy, mwbool unusedIsDark) {
     real W_R = ODE2ndOrderSolver(R, 1000, model->W0, 0.0, kingDimless2ndDeriv, model, 0);
     return kingDimlessRho(W_R, model->W0) * 4.0 * M_PI * R * R;
 }
