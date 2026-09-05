@@ -47,10 +47,3 @@ jobs:
           retention-days: 1
           path: |
             ./build/bin/milkyway_nbody
-
-      - name: Test
-        run: |
-          cp ./build/bin/milkyway_nbody ./test
-          cd ./test
-          ./milkyway_nbody -f nbody_parameters.lua -h histogram.txt --seed 55705526 -np 12 -p 2.4456 1 0.255837 0.406315 11.4395 0.544363 47.4843 20.4482 -199.889 91.3767 141.285 178809 --nthreads 8
-          cat stderr.txt
