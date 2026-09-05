@@ -130,12 +130,24 @@ static real gauss_quad(real (*func)(real, const Dwarf*, const Dwarf*, real, mwbo
     real x2n = (coef2);
     real x3n = (coef1 * x3 + coef2);
     int counter = 0;
+    int cap = 1024, nIter = 0;
+    real* nx = (real*) malloc((size_t) cap * 4 * sizeof(real));
+    if (!nx) return 0.0;
     while (1)
     {
                 //gauss quad
-        intv = intv + c1 * (*func)(x1n, comp1, comp2, energy, isDark) * coef1 +
-                      c2 * (*func)(x2n, comp1, comp2, energy, isDark) * coef1 + 
-                      c3 * (*func)(x3n, comp1, comp2, energy, isDark) * coef1;
+        if (nIter == cap)
+        {
+            cap *= 2;
+            real* nx2 = (real*) realloc(nx, (size_t) cap * 4 * sizeof(real));
+            if (!nx2) { free(nx); return 0.0; }
+            nx = nx2;
+        }
+        nx[4*nIter + 0] = x1n;
+        nx[4*nIter + 1] = x2n;
+        nx[4*nIter + 2] = x3n;
+        nx[4*nIter + 3] = coef1;
+        nIter++;
 
         lowerg = upperg;
         upperg = upperg + hg;
@@ -179,6 +191,27 @@ static real gauss_quad(real (*func)(real, const Dwarf*, const Dwarf*, real, mwbo
 
 
     }
+
+    real* fv = (real*) malloc((size_t) nIter * 3 * sizeof(real));
+    if (!fv) { free(nx); return 0.0; }
+    {
+        int gi;
+      #pragma omp parallel for schedule(static)
+        for (gi = 0; gi < 3 * nIter; ++gi)
+        {
+            fv[gi] = (*func)(nx[4*(gi/3) + (gi%3)], comp1, comp2, energy, isDark);
+        }
+    }
+
+    for (int it = 0; it < nIter; ++it)
+    {
+        real cf = nx[4*it + 3];
+        intv = intv + c1 * fv[3*it + 0] * cf +
+                      c2 * fv[3*it + 1] * cf + 
+                      c3 * fv[3*it + 2] * cf;
+    }
+    free(fv);
+    free(nx);
 
     if(lower > upper)
     {
@@ -738,7 +771,8 @@ void set_model_params(Dwarf* comp)
             real m_nfw_cut = 0.0;
             real gamma1 = 0.0;
             real psi_nfw_cut = 0.0;
-            real psi_cut_cut = 0.0; 
+            real psi_cut_cut = 0.0;
+            real mcut_pref = 0.0;
             real m_nfw_r1 = 0.0;
             real m_iso_r1 = 0.0;
             real psi_nfw_r1 = 0.0;
@@ -751,7 +785,8 @@ void set_model_params(Dwarf* comp)
                 m_nfw_cut = 4.0 * M_PI * p0 * cube(rscale) * (mw_log((rscale + rcut) / rscale) - rcut / (rscale + rcut));
                 gamma1 = UpperIncompleteGammaFunc(delta + 3, rcut / rdecay);
                 psi_nfw_cut = 4.0 * M_PI * p0 * cube(rscale) * mw_log(1.0 + rcut / rscale) * inv(rcut);
-                psi_cut_cut = 4.0 * M_PI * pcut * mw_pow(rcut, -delta) * mw_exp(rcut / rdecay) * mw_pow(rdecay, delta + 3) * (UpperIncompleteGammaFunc(delta + 2, rcut / rdecay) * inv(rdecay));
+                mcut_pref = 4.0 * M_PI * pcut * mw_pow(rcut, -delta) * mw_exp(rcut / rdecay) * mw_pow(rdecay, delta + 3);
+                psi_cut_cut = mcut_pref * (UpperIncompleteGammaFunc(delta + 2, rcut / rdecay) * inv(rdecay));
             }
             if(comp->type == Cored)
             {       
@@ -780,6 +815,7 @@ void set_model_params(Dwarf* comp)
             comp->gamma1 = gamma1;
             comp->psi_nfw_cut = psi_nfw_cut;
             comp->psi_cut_cut = psi_cut_cut;
+            comp->mcut_pref = mcut_pref;
             comp->m_nfw_r1 = m_nfw_r1;
             comp->m_iso_r1 = m_iso_r1;
             comp->psi_nfw_r1 = psi_nfw_r1;
@@ -860,7 +896,7 @@ static inline void recalculate_comp_mass(Dwarf* comp, real bound)
                 const real m_nfw_r1 = comp->m_nfw_r1;
                 const real m_iso_r1 = comp->m_iso_r1;
                 const real m_nfw_cut = comp->m_nfw_cut;                                                                          
-                m = 4.0 * M_PI * pcut * mw_pow(rcut, -delta) * mw_exp(rcut / rdecay) * mw_pow(rdecay, delta + 3) * (gamma1 - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) + m_nfw_cut + m_iso_r1 - m_nfw_r1;                                           
+                m = comp->mcut_pref * (const_gamma_func - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) +  m_nfw_cut;
             }                                                                                                                    
             else if (r <= r1)                                                                                                    
             {                                                                                                                    
@@ -889,7 +925,7 @@ static inline void recalculate_comp_mass(Dwarf* comp, real bound)
                     const real pcut = comp->pcut;
                     const real gamma1 = comp->gamma1;
                     const real m_nfw_cut = comp->m_nfw_cut;
-                    m = 4.0 * M_PI * pcut * mw_pow(rcut, -delta) * mw_exp(rcut / rdecay) * mw_pow(rdecay, delta + 3) * (gamma1 - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) +  m_nfw_cut;
+                    m = comp->mcut_pref * (const_gamma_func - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) + m_nfw_cut + m_iso_r1 - m_nfw_r1;  
                 }
                 else
                 {
