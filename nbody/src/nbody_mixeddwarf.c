@@ -896,7 +896,7 @@ static inline void recalculate_comp_mass(Dwarf* comp, real bound)
                 const real m_nfw_r1 = comp->m_nfw_r1;
                 const real m_iso_r1 = comp->m_iso_r1;
                 const real m_nfw_cut = comp->m_nfw_cut;                                                                          
-                m = comp->mcut_pref * (const_gamma_func - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) +  m_nfw_cut;
+                m = comp->mcut_pref * (gamma1 - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) + m_nfw_cut + m_iso_r1 - m_nfw_r1;   
             }                                                                                                                    
             else if (r <= r1)                                                                                                    
             {                                                                                                                    
@@ -925,7 +925,7 @@ static inline void recalculate_comp_mass(Dwarf* comp, real bound)
                     const real pcut = comp->pcut;
                     const real gamma1 = comp->gamma1;
                     const real m_nfw_cut = comp->m_nfw_cut;
-                    m = comp->mcut_pref * (const_gamma_func - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) + m_nfw_cut + m_iso_r1 - m_nfw_r1;  
+                    m = comp->mcut_pref * (gamma1 - UpperIncompleteGammaFunc(delta + 3, r / rdecay)) +  m_nfw_cut;
                 }
                 else
                 {
