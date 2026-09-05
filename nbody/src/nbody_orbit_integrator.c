@@ -109,7 +109,7 @@ void nbReverseOrbit_LMC(mwvector* finalPos,
     unsigned int steps = mw_ceil((tstop)/(dt)) + 1;
     unsigned int exSteps = mw_abs(mw_ceil((ftime-tstop)/(dt)) + 1);
     unsigned int i = 0, j = 0, k = 0;
-    mwvector acc = ZERO_VECTOR, v = ZERO_VECTOR, x = ZERO_VECTOR, mw_acc = ZERO_VECTOR, LMC_acc = ZERO_VECTOR, DF_acc = ZERO_VECTOR, LMCv = ZERO_VECTOR, LMCx = ZERO_VECTOR, tmp = ZERO_VECTOR, friction = ZERO_VECTOR;
+    mwvector acc = ZERO_VECTOR, v = ZERO_VECTOR, x = ZERO_VECTOR, mw_acc = ZERO_VECTOR, LMC_acc = ZERO_VECTOR, DF_acc = ZERO_VECTOR, LMCv = ZERO_VECTOR, LMCx = ZERO_VECTOR, tmp = ZERO_VECTOR;
     mwvector mw_x = mw_vec(0, 0, 0);
     mwvector* bacArray = NULL;
     mwvector* forArray = NULL;
@@ -122,6 +122,8 @@ void nbReverseOrbit_LMC(mwvector* finalPos,
     real t;
     real dt_half = dt / 2.0;
 
+    unsigned int forloop=0;
+    unsigned int bacloop=0;
     // Check if forward time is larger than backward time. We will need to manually compute additional LMC accelerations in that case.
     if (ftime > tstop) {
 
@@ -133,9 +135,7 @@ void nbReverseOrbit_LMC(mwvector* finalPos,
 
         // Get the initial acceleration
         mw_acc = LMCAcceleration(lmcfunction, mw_x, LMCx, LMCmass, LMCscale, LMCscale2);
-        friction = dynamicalFriction_LMC(pot, LMCx, LMCv, LMCmass, LMCDynaFric, 0, coulomb_log);
-        LMC_acc = mw_addv(nbExtAcceleration(pot, LMCx, 0), friction);
-
+        LMC_acc = mw_addv(nbExtAcceleration(pot, LMCx, 0), dynamicalFriction_LMC(pot, LMCx, LMCv, LMCmass, LMCDynaFric, 0, coulomb_log));
         acc = nbExtAcceleration(pot, x, 0);
         tmp = LMCAcceleration(lmcfunction, x, LMCx, LMCmass, LMCscale, LMCscale2);
         mw_incaddv(acc, tmp);
@@ -147,10 +147,9 @@ void nbReverseOrbit_LMC(mwvector* finalPos,
 
         for (t = 0; t <= (ftime-tstop); t += dt)
         {   
-    	    exSteps = t/dt;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wfloat-equal"
-    	    if ((exSteps % 10 == 0)&&(t!=0)) { 
+    	    if ((forloop % 10 == 0)&&(t!=0)) { 
 #pragma GCC diagnostic pop
     	        forArray[k] = mw_acc;
                 k++;
@@ -164,8 +163,7 @@ void nbReverseOrbit_LMC(mwvector* finalPos,
         
             // Compute the new acceleration
             mw_acc = LMCAcceleration(lmcfunction, mw_x, LMCx, LMCmass, LMCscale, LMCscale2);
-            friction = dynamicalFriction_LMC(pot, LMCx, LMCv, LMCmass, LMCDynaFric, t, coulomb_log);
-            LMC_acc = mw_addv(nbExtAcceleration(pot, LMCx, t), friction);
+            LMC_acc = mw_addv(nbExtAcceleration(pot, LMCx, t), dynamicalFriction_LMC(pot, LMCx, LMCv, LMCmass, LMCDynaFric, t, coulomb_log));
             acc = nbExtAcceleration(pot, x, t);
             tmp = LMCAcceleration(lmcfunction, x, LMCx, LMCmass, LMCscale, LMCscale2);
     	    mw_incaddv(acc, tmp);
@@ -178,6 +176,7 @@ void nbReverseOrbit_LMC(mwvector* finalPos,
             mw_incaddv_s(v, acc, dt_half);
             mw_incaddv_s(LMCv, LMC_acc, dt_half);
 
+            forloop++;
         }
         forArray[k] = mw_acc; //set the last index after the loop ends
     }
@@ -215,8 +214,7 @@ void nbReverseOrbit_LMC(mwvector* finalPos,
     {   
         //negate this time for use in time-dependent potentials
         negT = t*-1;
-    	steps = t/dt;
-    	if( steps % 10 == 0){ 
+    	if( bacloop % 10 == 0){ 
     		bacArray[i] = mw_acc;
         	i++;
     	}
@@ -254,6 +252,7 @@ void nbReverseOrbit_LMC(mwvector* finalPos,
 	    lbr = cartesianToLbr(x, DEFAULT_SUN_GC_DISTANCE);
         //fprintf(fp, "%.15f\t%.15f\t%.15f\t%.15f\t%.15f\t%.15f\t%.15f\t%.15f\t%.15f\n", X(x), Y(x), Z(x), X(lbr), Y(lbr), Z(lbr), X(v), Y(v), Z(v));
 
+        bacloop++;
     }
     bacArray[i] = mw_acc; //set the last index after the loop ends
     
