@@ -255,8 +255,7 @@ add_flag_if_supported("-xc99")
 #                    -Xanalyzer -analyzer-no-purge-dead)
 
 
-#set(gcc_extra_flags "-fno-common -funswitch-loops ")
-set(gcc_extra_flags "-fno-common ")
+set(gcc_extra_flags "-fno-common -funswitch-loops ")
 set(gcc_only_extra_flags "-freg-struct-return ")
 
 

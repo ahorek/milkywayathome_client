@@ -70,7 +70,7 @@ LMC_cutoff            = 16          -- --  kpc  This is used only for Hernquist 
 preset_LMC_Mass       = 449865.888  -- -- SMU (used unless specified in arguments)                             -- --
 LMC_DynamicalFriction = true    -- -- LMC DYNAMICAL FRICTION SWITCH (IGNORED IF NO LMC)                        -- --
 CoulombLogarithm      = 15      -- -- ln(r/1.22*CoulombLogarithm) (Patel et al. 2020) COULOMB LOGARITHM USED   -- --
-                                -- -- IN DYNAMICAL FRACTION CALCULATION                                        -- --
+                                -- -- IN DYNAMICAL FRICTION CALCULATION                                        -- --
 
 SunGCDist             = 8.0       -- -- Distance between Sun and Galactic Center                               -- --
 SunVelx               = 10.3      -- -- Sun's x-velocity (kpc/Gyr) (Hogg et al. (2005))                        -- --
@@ -177,8 +177,8 @@ end
 
 --component 1 and 2 for 2 component model. comp 1 should always be updated even for 1 component, as it is used to 
 --calculate dwarf-based softening length
-comp1 = Dwarf.plummer{mass = mass_l, scaleLength = rscale_l} -- Dwarf Options: plummer, nfw, general_hernquist, cored, king
-comp2 = Dwarf.plummer{mass = mass_d, scaleLength = rscale_d} -- Dwarf Options: plummer, nfw, general_hernquist, cored, king
+comp1 = Dwarf.plummer{mass = mass_l, scaleLength = rscale_l} -- Dwarf Options: plummer, nfw, general_hernquist, cored, king, einasto
+comp2 = Dwarf.plummer{mass = mass_d, scaleLength = rscale_d} -- Dwarf Options: plummer, nfw, general_hernquist, cored, king, einasto
 
 
 
@@ -239,7 +239,7 @@ numCalibrationRuns = 0
 -- -- -- -- -- -- These options only work if you compile nbody with  -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- -- -- -- -- -- the -DNBODY_DEV_OPTIONS set to on -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- - -- -- -- -- -- -- --  
 
-useMultiOutputs       = false     -- -- WRITE MULTIPLE OUTPUTS                                                            -- --
+useMultiOutputs       = false       -- -- WRITE MULTIPLE OUTPUTS                                                           -- --
 freqOfOutputs         = 100         -- -- FREQUENCY OF WRITING OUTPUTS                                                     -- --
 
 timestep_control      = false       -- -- control number of steps                                                          -- --
@@ -248,8 +248,16 @@ Ntime_steps           = 3000        -- -- number of timesteps to run            
 use_max_soft_par      = false       -- -- limit the softening parameter value to a max value                               -- --
 max_soft_par          = 0.8         -- -- kpc, if switch above is turned on, use this as the max softening parameter       -- --
 
-generateInitialOutput = false       -- -- save initial dwarf galaxy state to initial.out before evolution                   -- --
+generateInitialOutput = false       -- -- save initial dwarf galaxy state to initial.out before evolution                  -- --
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+
+-- -- -- -- -- -- -- -- --  Manual Sampling Bounds -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+-- If set to 0.0, will use default profile specific radial sampling bounds from nbody_mixeddwarf.c    -- -- 
+-- NOTE: Only works when using mixeddwarf (not single component models)                               -- -- 
+
+bound1 = 0.0         -- -- kpc, radial sampling bound for component 1                                 -- --
+bound2 = 0.0         -- -- kpc, radial sampling bound for component 2                                 -- -- 
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
         
         
 -- -- -- -- -- -- -- -- -- CHECK TIMESTEPS -- -- -- -- -- -- -- -- 
@@ -325,7 +333,6 @@ function get_soft_par()
     end
 end
 
-
 function makeContext()
    return NBodyCtx.create{
       timeEvolve  = evolveTime,
@@ -377,7 +384,8 @@ function makeContext()
       LMCscale2     = LMC_cutoff,
       LMCDynaFric   = LMC_DynamicalFriction,
       coulomb_log   = CoulombLogarithm,
-      calibrationRuns = numCalibrationRuns
+      calibrationRuns = numCalibrationRuns,
+      samplingBounds = {bound1, bound2}
    }
 end
 
@@ -444,14 +452,15 @@ function makeBodies(ctx, potential)
     if(ModelComponents == 2) then         
 
         firstModel = predefinedModels.mixeddwarf{
-            nbody         = totalBodies,
-            nbody_baryon  = totalLightBodies,
-            prng          = prng,
-            position      = finalPosition,
-            velocity      = finalVelocity,
-            comp1         = comp1,
-            comp2         = comp2,
-            ignore        = true
+            nbody            = totalBodies,
+            nbody_baryon     = totalLightBodies,
+            prng             = prng,
+            position         = finalPosition,
+            velocity         = finalVelocity,
+            comp1            = comp1,
+            comp2            = comp2,
+            ignore           = true,
+            samplingBounds   = {bound1, bound2}
         }
         
     elseif(ModelComponents == 1) then

@@ -160,7 +160,7 @@ max_soft_par          = 0.8         -- kpc, if switch above is turned on, use th
 UseOldSofteningLength = false       -- If true, uses old softening length formula from v1.76 and earlier $ button | 0 ^ 1 * 0
                                     -- (this is only useful to compare with/match simulations 
                                     --  that were run before v1.80)
-CoulombLogarithm      = 0.470003629 -- (ln(1.6)) COULOMB LOGARITHM USED IN DYNAMICAL FRICTION $ entry | 0.470003629 ^ 0 * 0
+CoulombLogarithm      = 15          -- ln(r/1.22*CoulombLogarithm) (Patel et al. 2020) COULOMB LOGARITHM USED IN DYNAMICAL FRICTION CALCULATION
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
 -- END GUI
@@ -253,16 +253,18 @@ end
 function get_soft_par()
     --softening parameter only calculated based on dwarf,
     --so if manual bodies is turned on the calculated s.p. may be too large
-    sp = calculateEps2(totalBodies, rscale_l, rscale_d, mass_l, mass_d, UseOldSofteningLength)
-
-    if ((manual_bodies or use_max_soft_par) and (sp > max_soft_par^2)) then --dealing with s.p. squared
+    if (UseOldSofteningLength == 1) then
+        sp_l, sp_cross, sp_d = calculateEps2(totalBodies, rscale_l, rscale_d, mass_l, mass_d)
+    else
+        sp_l, sp_cross, sp_d = calculateEps2Dwarf(comp1, comp2, totalLightBodies, totalBodies)
+    end
+    if ((manual_bodies or use_max_soft_par) and (sp_cross > max_soft_par^2)) then --dealing with softening parameter squared
         print("Using maximum softening parameter value of " .. tostring(max_soft_par) .. " kpc")
         return max_soft_par^2
     else
-        return sp
+        return {sp_l, sp_cross, sp_d}
     end
 end
-
 -- A lot of this is hard-coded to the default values.
 -- This is because lite users don't need to optimize histograms, 
 -- and having all the options for histogram optimization in the 
@@ -338,8 +340,8 @@ function makeBodies(ctx, potential)
 	            potential   = potential,
 	            position    = lbrToCartesian(ctx, Vector.create(orbit_parameter_l, orbit_parameter_b, orbit_parameter_r)),
 	            velocity    = Vector.create(orbit_parameter_vx, orbit_parameter_vy, orbit_parameter_vz),
-	            LMCposition = Vector.create(-1.1, -41.1, -27.9),
-	            LMCvelocity = Vector.create(-57, -226, 221), 
+	            LMCposition = Vector.create(-0.52, -40.8, -26.5),
+	            LMCvelocity = Vector.create(-58.2, -231, 226), 
                     LMCmass     = LMC_Mass,
                     LMCscale    = LMC_scaleRadius,
                     LMCDynaFric = LMC_DynamicalFriction,
